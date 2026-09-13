@@ -1,0 +1,121 @@
+@page "/proveedores"
+@attribute [Authorize(Roles = Roles.Gestor)]
+@using CatalogoPedidos.Application.Proveedores
+@inject IProveedorService ProveedorService
+
+<PageTitle>Proveedores</PageTitle>
+
+<h1>Proveedores</h1>
+
+<div class="layout">
+    <div class="lista">
+        @if (proveedores is null)
+        {
+            <p>Cargando...</p>
+        }
+        else if (proveedores.Count == 0)
+        {
+            <p>Todavía no hay proveedores registrados.</p>
+        }
+        else
+        {
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>NIT</th>
+                        <th>Contacto</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in proveedores)
+                    {
+                        <tr>
+                            <td>@p.Nombre</td>
+                            <td>@p.Nit</td>
+                            <td>@p.Contacto</td>
+                            <td>@p.Telefono</td>
+                            <td>@p.Email</td>
+                            <td><a class="btn" href="/proveedores/@p.Id/productos">Ver productos</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    <div class="formulario">
+        <h2>Nuevo proveedor</h2>
+        <EditForm Model="modelo" OnValidSubmit="Guardar" FormName="nuevo-proveedor">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="campo">
+                <label>Nombre</label>
+                <InputText @bind-Value="modelo.Nombre" />
+            </div>
+
+            <div class="campo">
+                <label>NIT</label>
+                <InputText @bind-Value="modelo.Nit" />
+            </div>
+
+            <div class="campo">
+                <label>Contacto</label>
+                <InputText @bind-Value="modelo.Contacto" />
+            </div>
+
+            <div class="campo">
+                <label>Teléfono</label>
+                <InputText @bind-Value="modelo.Telefono" />
+            </div>
+
+            <div class="campo">
+                <label>Email</label>
+                <InputText @bind-Value="modelo.Email" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(mensaje))
+            {
+                <p class="mensaje">@mensaje</p>
+            }
+
+            <button type="submit" class="btn">Guardar proveedor</button>
+        </EditForm>
+    </div>
+</div>
+
+<style>
+    .layout { display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-start; }
+    .lista { flex: 2; min-width: 320px; }
+    .formulario { flex: 1; min-width: 280px; background: #f4f4f4; padding: 1rem; border-radius: 6px; }
+    .campo { margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.25rem; }
+    .tabla { width: 100%; border-collapse: collapse; }
+    .tabla th, .tabla td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
+    .btn { display: inline-block; padding: 0.35rem 0.75rem; background: #1b1f27; color: white; text-decoration: none; border-radius: 4px; border: none; cursor: pointer; }
+    .mensaje { color: green; }
+</style>
+
+@code {
+    private List<Proveedor>? proveedores;
+    private CrearProveedorDto modelo = new();
+    private string? mensaje;
+
+    protected override async Task OnInitializedAsync() => await Cargar();
+
+    private async Task Cargar()
+    {
+        proveedores = await ProveedorService.ObtenerTodosAsync();
+    }
+
+    private async Task Guardar()
+    {
+        await ProveedorService.CrearAsync(modelo);
+        mensaje = $"Proveedor '{modelo.Nombre}' guardado correctamente.";
+        modelo = new();
+        await Cargar();
+    }
+}

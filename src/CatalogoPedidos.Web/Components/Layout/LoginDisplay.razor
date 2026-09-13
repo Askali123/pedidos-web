@@ -1,0 +1,17 @@
+@using Microsoft.AspNetCore.Identity
+@inject NavigationManager Navigation
+
+<AuthorizeView>
+    <Authorized>
+        <span class="nav-user">Hola, @context.User.Identity?.Name</span>
+        <form action="Account/Logout" method="post">
+            <AntiforgeryToken />
+            <input type="hidden" name="ReturnUrl" value="" />
+            <button type="submit" class="nav-link-button">Cerrar sesión</button>
+        </form>
+    </Authorized>
+    <NotAuthorized>
+        <a href="Account/Login">Iniciar sesión</a>
+        <a href="Account/Register">Registrarse</a>
+    </NotAuthorized>
+</AuthorizeView>

@@ -1,0 +1,71 @@
+using CatalogoPedidos.Application.Proveedores;
+using CatalogoPedidos.Domain.Entities;
+using CatalogoPedidos.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+
+namespace CatalogoPedidos.Infrastructure.Repositories;
+
+public class ProductoProveedorRepository(IDbContextFactory<AppDbContext> dbFactory) : IProductoProveedorRepository
+{
+    public async Task<List<ProductoProveedor>> ObtenerPorProductoAsync(int productoId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.ProductoProveedores
+            .Include(pp => pp.Proveedor)
+            .Where(pp => pp.ProductoId == productoId)
+            .OrderByDescending(pp => pp.EsPreferido)
+            .ThenBy(pp => pp.Proveedor!.Nombre)
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<ProductoProveedor>> ObtenerPorProveedorAsync(int proveedorId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.ProductoProveedores
+            .Include(pp => pp.Producto)
+            .Where(pp => pp.ProveedorId == proveedorId)
+            .OrderBy(pp => pp.Producto!.Nombre)
+            .ToListAsync(ct);
+    }
+
+    public async Task<ProductoProveedor?> ObtenerPorIdAsync(int id, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.ProductoProveedores.Include(pp => pp.Producto).Include(pp => pp.Proveedor)
+            .FirstOrDefaultAsync(pp => pp.Id == id, ct);
+    }
+
+    public async Task<bool> ExisteAsociacionAsync(int productoId, int proveedorId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.ProductoProveedores.AnyAsync(pp => pp.ProductoId == productoId && pp.ProveedorId == proveedorId, ct);
+    }
+
+    public async Task<bool> ExisteCodigoParaOtroProductoAsync(int proveedorId, string codigo, int productoId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.ProductoProveedores.AnyAsync(pp =>
+            pp.ProveedorId == proveedorId &&
+            pp.CodigoProveedor == codigo &&
+            pp.ProductoId != productoId, ct);
+    }
+
+    public async Task<ProductoProveedor> CrearAsync(ProductoProveedor asociacion, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        db.ProductoProveedores.Add(asociacion);
+        await db.SaveChangesAsync(ct);
+        return asociacion;
+    }
+
+    public async Task EliminarAsync(int id, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var asociacion = await db.ProductoProveedores.FindAsync([id], ct);
+        if (asociacion is not null)
+        {
+            db.ProductoProveedores.Remove(asociacion);
+            await db.SaveChangesAsync(ct);
+        }
+    }
+}

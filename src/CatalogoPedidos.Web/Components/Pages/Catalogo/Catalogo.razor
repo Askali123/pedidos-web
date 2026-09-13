@@ -1,0 +1,92 @@
+@page "/catalogo"
+@attribute [Authorize]
+@inject IProductoService Productos
+
+<PageTitle>Catálogo</PageTitle>
+
+<h1>Catálogo de productos</h1>
+
+<div class="filtros">
+    <input type="text" placeholder="Buscar por nombre o descripción..." @bind="texto" @bind:event="oninput" @onkeyup="Filtrar" />
+
+    <select @bind="categoria" @bind:after="Filtrar">
+        <option value="">Todas las categorías</option>
+        @foreach (var c in categorias)
+        {
+            <option value="@c">@c</option>
+        }
+    </select>
+
+    <a class="btn" href="/api/catalogo/pdf" target="_blank">Exportar catálogo a PDF</a>
+</div>
+
+@if (productos is null)
+{
+    <p>Cargando...</p>
+}
+else if (productos.Count == 0)
+{
+    <p>No hay productos que coincidan con la búsqueda.</p>
+}
+else
+{
+    <table class="tabla">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th>Descripción</th>
+                <th>Precio</th>
+                <th>Stock</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in productos)
+            {
+                <tr>
+                    <td>@p.Nombre</td>
+                    <td>@p.Categoria</td>
+                    <td>@p.Descripcion</td>
+                    <td>@p.Precio.ToString("C")</td>
+                    <td>@p.Stock</td>
+                    <td>
+                        <a class="btn" href="/solicitudes/nueva/@p.Id">Solicitar</a>
+                        <AuthorizeView Roles="@Roles.Gestor" Context="gestorContext">
+                            <Authorized>
+                                <a class="btn secundario" href="/catalogo/@p.Id/proveedores">Proveedores</a>
+                            </Authorized>
+                        </AuthorizeView>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<style>
+    .filtros { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
+    .filtros input, .filtros select { padding: 0.4rem 0.6rem; }
+    .tabla { width: 100%; border-collapse: collapse; }
+    .tabla th, .tabla td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
+    .btn { display: inline-block; padding: 0.35rem 0.75rem; background: #1b1f27; color: white; text-decoration: none; border-radius: 4px; }
+    .btn.secundario { background: #6c757d; margin-left: 0.35rem; }
+</style>
+
+@code {
+    private List<Producto>? productos;
+    private List<string> categorias = new();
+    private string texto = "";
+    private string categoria = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        categorias = await Productos.ObtenerCategoriasAsync();
+        await Filtrar();
+    }
+
+    private async Task Filtrar()
+    {
+        productos = await Productos.ObtenerCatalogoAsync(texto, string.IsNullOrEmpty(categoria) ? null : categoria);
+    }
+}

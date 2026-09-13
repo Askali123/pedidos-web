@@ -1,0 +1,160 @@
+@page "/catalogo/{ProductoId:int}/proveedores"
+@attribute [Authorize(Roles = Roles.Gestor)]
+@using CatalogoPedidos.Application.Proveedores
+@inject IProveedorService ProveedorService
+@inject IProductoService ProductoService
+
+<PageTitle>Proveedores del producto</PageTitle>
+
+@if (producto is null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <h1>Proveedores de "@producto.Nombre"</h1>
+    <p class="subtitulo">Cada proveedor identifica este producto con SU PROPIO código — por eso se guarda por separado del Id interno (@producto.Id).</p>
+
+    @if (asociaciones is null)
+    {
+        <p>Cargando...</p>
+    }
+    else if (asociaciones.Count == 0)
+    {
+        <p>Este producto todavía no tiene proveedores asociados.</p>
+    }
+    else
+    {
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Proveedor</th>
+                    <th>Código del proveedor</th>
+                    <th>Precio del proveedor</th>
+                    <th>Preferido</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in asociaciones)
+                {
+                    <tr>
+                        <td>@a.Proveedor?.Nombre</td>
+                        <td><code>@a.CodigoProveedor</code></td>
+                        <td>@(a.PrecioProveedor is not null ? a.PrecioProveedor.Value.ToString("C") : "-")</td>
+                        <td>@(a.EsPreferido ? "★ Sí" : "")</td>
+                        <td><button class="btn quitar" @onclick="() => Quitar(a.Id)">Quitar</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <h2>Asociar un proveedor</h2>
+
+    <EditForm Model="modelo" OnValidSubmit="Asociar" FormName="asociar-proveedor">
+        <div class="campo">
+            <label>Proveedor</label>
+            <select @bind="modelo.ProveedorId">
+                <option value="0">Selecciona uno...</option>
+                @foreach (var p in proveedoresDisponibles)
+                {
+                    <option value="@p.Id">@p.Nombre</option>
+                }
+            </select>
+        </div>
+
+        <div class="campo">
+            <label>Código con el que ESE proveedor identifica este producto</label>
+            <InputText @bind-Value="modelo.CodigoProveedor" placeholder="p.ej. SKU-8827-A" />
+        </div>
+
+        <div class="campo">
+            <label>Precio del proveedor (opcional)</label>
+            <InputNumber @bind-Value="modelo.PrecioProveedor" />
+        </div>
+
+        <div class="campo checkbox">
+            <label><InputCheckbox @bind-Value="modelo.EsPreferido" /> Marcar como proveedor preferido</label>
+        </div>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <p class="error">@error</p>
+        }
+        @if (!string.IsNullOrEmpty(mensaje))
+        {
+            <p class="mensaje">@mensaje</p>
+        }
+
+        <button type="submit" class="btn">Asociar proveedor</button>
+    </EditForm>
+
+    <p><a href="/proveedores">Ver todos los proveedores</a> · <a href="/catalogo">Volver al catálogo</a></p>
+}
+
+<style>
+    .subtitulo { color: #555; max-width: 700px; }
+    .tabla { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+    .tabla th, .tabla td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
+    .campo { margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.25rem; max-width: 400px; }
+    .campo.checkbox { flex-direction: row; align-items: center; gap: 0.5rem; }
+    .btn { display: inline-block; padding: 0.35rem 0.75rem; background: #1b1f27; color: white; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
+    .btn.quitar { background: #b02a37; }
+    .error { color: #b00020; }
+    .mensaje { color: green; }
+</style>
+
+@code {
+    [Parameter] public int ProductoId { get; set; }
+
+    private Producto? producto;
+    private List<ProductoProveedor>? asociaciones;
+    private List<Proveedor> proveedoresDisponibles = new();
+    private AsociarProveedorDto modelo = new();
+    private string? error;
+    private string? mensaje;
+
+    protected override async Task OnInitializedAsync()
+    {
+        modelo.ProductoId = ProductoId;
+        producto = await ProductoService.ObtenerPorIdAsync(ProductoId);
+        proveedoresDisponibles = await ProveedorService.ObtenerTodosAsync();
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        asociaciones = await ProveedorService.ObtenerProveedoresDeProductoAsync(ProductoId);
+    }
+
+    private async Task Asociar()
+    {
+        error = null;
+        mensaje = null;
+
+        if (modelo.ProveedorId == 0)
+        {
+            error = "Selecciona un proveedor.";
+            return;
+        }
+
+        try
+        {
+            await ProveedorService.AsociarProveedorAsync(modelo);
+            mensaje = "Proveedor asociado correctamente.";
+            modelo = new() { ProductoId = ProductoId };
+            await Cargar();
+        }
+        catch (InvalidOperationException ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    private async Task Quitar(int asociacionId)
+    {
+        await ProveedorService.QuitarAsociacionAsync(asociacionId);
+        await Cargar();
+    }
+}

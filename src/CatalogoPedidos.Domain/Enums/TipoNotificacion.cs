@@ -1,0 +1,7 @@
+namespace CatalogoPedidos.Domain.Enums;
+
+public enum TipoNotificacion
+{
+    SolicitudCreada = 0,
+    SolicitudResuelta = 1
+}

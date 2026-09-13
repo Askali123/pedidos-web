@@ -1,0 +1,171 @@
+@page "/solicitudes/administrar"
+@attribute [Authorize(Roles = Roles.Gestor)]
+@inject ISolicitudService Solicitudes
+@inject IProductoService Productos
+
+<PageTitle>Administrar pedidos</PageTitle>
+
+<h1>Administrar pedidos</h1>
+
+<div class="filtros">
+    <div class="campo">
+        <label>Desde</label>
+        <input type="date" @bind="fechaDesde" @bind:after="Buscar" />
+    </div>
+
+    <div class="campo">
+        <label>Hasta</label>
+        <input type="date" @bind="fechaHasta" @bind:after="Buscar" />
+    </div>
+
+    <div class="campo">
+        <label>Usuario</label>
+        <select @bind="solicitanteId" @bind:after="Buscar">
+            <option value="">Todos</option>
+            @foreach (var s in solicitantes)
+            {
+                <option value="@s.Id">@s.Nombre</option>
+            }
+        </select>
+    </div>
+
+    <div class="campo">
+        <label>Producto</label>
+        <select @bind="productoId" @bind:after="Buscar">
+            <option value="">Todos</option>
+            @foreach (var p in catalogo)
+            {
+                <option value="@p.Id">@p.Nombre</option>
+            }
+        </select>
+    </div>
+
+    <div class="campo">
+        <label>Estado</label>
+        <select @bind="estado" @bind:after="Buscar">
+            <option value="">Todos</option>
+            <option value="@EstadoSolicitud.Pendiente">Pendiente</option>
+            <option value="@EstadoSolicitud.Aprobada">Aprobada</option>
+            <option value="@EstadoSolicitud.Rechazada">Rechazada</option>
+        </select>
+    </div>
+
+    <div class="campo acciones-filtro">
+        <button class="btn secundario" @onclick="LimpiarFiltros">Limpiar filtros</button>
+        <a class="btn" href="@UrlReporte("pdf")" target="_blank">Exportar a PDF</a>
+        <a class="btn excel" href="@UrlReporte("excel")" target="_blank">Exportar a Excel</a>
+    </div>
+</div>
+
+@if (resultados is null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <p>@resultados.Count resultado(s)</p>
+
+    <table class="tabla">
+        <thead>
+            <tr>
+                <th>N.º</th>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Solicitante</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>Gestor</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var s in resultados)
+            {
+                <tr>
+                    <td>@s.Id</td>
+                    <td>@s.Producto?.Nombre</td>
+                    <td>@s.Cantidad</td>
+                    <td>@s.SolicitanteNombre</td>
+                    <td>@s.FechaSolicitud.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                    <td><span class="estado estado-@s.Estado">@s.Estado</span></td>
+                    <td>@(s.GestorNombre ?? "-")</td>
+                    <td><a class="btn" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<style>
+    .filtros { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: flex-end; }
+    .campo { display: flex; flex-direction: column; gap: 0.25rem; }
+    .campo select, .campo input { padding: 0.4rem 0.5rem; }
+    .acciones-filtro { flex-direction: row; gap: 0.5rem; }
+    .tabla { width: 100%; border-collapse: collapse; }
+    .tabla th, .tabla td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
+    .btn { display: inline-block; padding: 0.35rem 0.75rem; background: #1b1f27; color: white; text-decoration: none; border-radius: 4px; border: none; cursor: pointer; }
+    .btn.secundario { background: #6c757d; }
+    .btn.excel { background: #1e7e34; }
+    .estado { padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.85rem; }
+    .estado-Pendiente { background: #fff3cd; color: #856404; }
+    .estado-Aprobada { background: #d4edda; color: #155724; }
+    .estado-Rechazada { background: #f8d7da; color: #721c24; }
+</style>
+
+@code {
+    private DateTime? fechaDesde;
+    private DateTime? fechaHasta;
+    private string solicitanteId = "";
+    private string productoId = "";
+    private string estado = "";
+
+    private List<SolicitudProducto>? resultados;
+    private List<SolicitanteResumenDto> solicitantes = new();
+    private List<Producto> catalogo = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        solicitantes = await Solicitudes.ObtenerSolicitantesAsync();
+        catalogo = await Productos.ObtenerCatalogoAsync();
+        await Buscar();
+    }
+
+    private async Task Buscar()
+    {
+        var filtro = new FiltroSolicitudesDto
+        {
+            FechaDesde = fechaDesde,
+            // Hasta es exclusivo: sumamos 1 día para incluir todo el día seleccionado.
+            FechaHasta = fechaHasta?.AddDays(1),
+            SolicitanteId = string.IsNullOrEmpty(solicitanteId) ? null : solicitanteId,
+            ProductoId = string.IsNullOrEmpty(productoId) ? null : int.Parse(productoId),
+            Estado = string.IsNullOrEmpty(estado) ? null : Enum.Parse<EstadoSolicitud>(estado)
+        };
+
+        resultados = await Solicitudes.BuscarAsync(filtro);
+    }
+
+    private async Task LimpiarFiltros()
+    {
+        fechaDesde = null;
+        fechaHasta = null;
+        solicitanteId = "";
+        productoId = "";
+        estado = "";
+        await Buscar();
+    }
+
+    private string UrlReporte(string formato)
+    {
+        var query = new List<string>();
+
+        if (fechaDesde is not null) query.Add($"desde={fechaDesde:yyyy-MM-dd}");
+        if (fechaHasta is not null) query.Add($"hasta={fechaHasta.Value.AddDays(1):yyyy-MM-dd}");
+        if (!string.IsNullOrEmpty(solicitanteId)) query.Add($"solicitanteId={Uri.EscapeDataString(solicitanteId)}");
+        if (!string.IsNullOrEmpty(productoId)) query.Add($"productoId={productoId}");
+        if (!string.IsNullOrEmpty(estado)) query.Add($"estado={estado}");
+
+        var queryString = query.Count > 0 ? "?" + string.Join("&", query) : "";
+        return $"/api/solicitudes/reporte/{formato}{queryString}";
+    }
+}

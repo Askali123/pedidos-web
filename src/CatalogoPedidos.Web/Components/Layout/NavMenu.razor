@@ -1,0 +1,84 @@
+<div class="nav-bar">
+    <a href="/" class="brand">CatalogoPedidos</a>
+
+    <nav>
+        <NavLink href="/catalogo">Catálogo</NavLink>
+
+        <AuthorizeView>
+            <Authorized>
+                <NavLink href="/solicitudes/mis-solicitudes">Mis solicitudes</NavLink>
+            </Authorized>
+        </AuthorizeView>
+
+        <AuthorizeView Roles="@Roles.Gestor">
+            <Authorized>
+                <NavLink href="/catalogo/nuevo">Nuevo producto</NavLink>
+                <NavLink href="/catalogo/importar">Importar productos</NavLink>
+                <NavLink href="/solicitudes/bandeja">Bandeja de solicitudes</NavLink>
+                <NavLink href="/solicitudes/administrar">Administrar pedidos</NavLink>
+                <NavLink href="/proveedores">Proveedores</NavLink>
+            </Authorized>
+        </AuthorizeView>
+    </nav>
+
+    <div class="nav-user-area">
+        <Notificaciones />
+        <LoginDisplay />
+    </div>
+</div>
+
+<style>
+    .nav-bar {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 0.75rem 1.25rem;
+        background: #1b1f27;
+        color: white;
+        flex-wrap: wrap;
+    }
+
+    .nav-bar .brand {
+        font-weight: bold;
+        color: white;
+        text-decoration: none;
+        font-size: 1.1rem;
+    }
+
+    .nav-bar nav {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        flex: 1;
+    }
+
+    .nav-bar nav a {
+        color: #cbd5e1;
+        text-decoration: none;
+    }
+
+    .nav-bar nav a:hover,
+    .nav-bar nav a.active {
+        color: white;
+    }
+
+    .nav-user-area {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .nav-user-area a {
+        color: #cbd5e1;
+        text-decoration: none;
+    }
+
+    .nav-link-button {
+        background: none;
+        border: none;
+        color: #cbd5e1;
+        cursor: pointer;
+        padding: 0;
+        font: inherit;
+    }
+</style>

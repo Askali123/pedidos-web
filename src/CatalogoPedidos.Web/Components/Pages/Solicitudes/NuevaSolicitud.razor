@@ -1,0 +1,93 @@
+@page "/solicitudes/nueva/{ProductoId:int}"
+@attribute [Authorize]
+@using System.Security.Claims
+@inject IProductoService Productos
+@inject ISolicitudService Solicitudes
+@inject NavigationManager Navigation
+
+<PageTitle>Nueva solicitud</PageTitle>
+
+@if (producto is null)
+{
+    <p>Cargando producto...</p>
+}
+else
+{
+    <h1>Solicitar producto</h1>
+
+    <div class="tarjeta">
+        <h2>@producto.Nombre</h2>
+        <p>@producto.Descripcion</p>
+        <p><strong>Precio:</strong> @producto.Precio.ToString("C") · <strong>Stock disponible:</strong> @producto.Stock</p>
+    </div>
+
+    <EditForm Model="modelo" OnValidSubmit="Enviar" FormName="nueva-solicitud">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="campo">
+            <label>Cantidad</label>
+            <InputNumber @bind-Value="modelo.Cantidad" />
+        </div>
+
+        <div class="campo">
+            <label>Comentario (opcional)</label>
+            <InputTextArea @bind-Value="modelo.Comentario" />
+        </div>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <p class="error">@error</p>
+        }
+
+        <button type="submit" class="btn">Enviar solicitud al gestor</button>
+    </EditForm>
+}
+
+<style>
+    .tarjeta { background: #f4f4f4; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; max-width: 500px; }
+    .campo { margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.25rem; max-width: 400px; }
+    .btn { padding: 0.5rem 1rem; background: #1b1f27; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .error { color: #b00020; }
+</style>
+
+@code {
+    [Parameter] public int ProductoId { get; set; }
+    [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
+
+    private Producto? producto;
+    private CrearSolicitudDto modelo = new();
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        modelo.ProductoId = ProductoId;
+        producto = await Productos.ObtenerPorIdAsync(ProductoId);
+    }
+
+    private async Task Enviar()
+    {
+        error = null;
+
+        var authState = await AuthStateTask!;
+        var user = authState.User;
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userName = user.Identity?.Name ?? "Desconocido";
+
+        if (userId is null)
+        {
+            error = "No se pudo identificar al usuario actual.";
+            return;
+        }
+
+        try
+        {
+            await Solicitudes.CrearAsync(userId, userName, modelo);
+            Navigation.NavigateTo("/solicitudes/mis-solicitudes");
+        }
+        catch (InvalidOperationException ex)
+        {
+            error = ex.Message;
+        }
+    }
+}

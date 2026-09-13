@@ -1,0 +1,138 @@
+@implements IDisposable
+@using System.Security.Claims
+@using CatalogoPedidos.Application.Notificaciones
+@inject INotificacionService NotificacionService
+@inject INotificacionBroadcaster Broadcaster
+@inject NavigationManager Navigation
+
+<AuthorizeView Context="authContext">
+    <Authorized>
+        <div class="campana-wrap">
+            <button class="campana" @onclick="AlternarAbierto" title="Notificaciones">
+                🔔
+                @if (noLeidas > 0)
+                {
+                    <span class="badge">@(noLeidas > 9 ? "9+" : noLeidas.ToString())</span>
+                }
+            </button>
+
+            @if (abierto)
+            {
+                <div class="panel">
+                    <div class="panel-header">
+                        <strong>Notificaciones</strong>
+                        @if (noLeidas > 0)
+                        {
+                            <button class="marcar-todas" @onclick="MarcarTodasLeidas">Marcar todas como leídas</button>
+                        }
+                    </div>
+
+                    @if (notificaciones.Count == 0)
+                    {
+                        <p class="vacio">No tienes notificaciones.</p>
+                    }
+                    else
+                    {
+                        @foreach (var n in notificaciones)
+                        {
+                            <div class="item @(n.Leida ? "" : "no-leida")" @onclick="() => Abrir(n)">
+                                <div class="item-titulo">@n.Titulo</div>
+                                <div class="item-mensaje">@n.Mensaje</div>
+                                <div class="item-fecha">@n.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</div>
+                            </div>
+                        }
+                    }
+                </div>
+            }
+        </div>
+    </Authorized>
+</AuthorizeView>
+
+<style>
+    .campana-wrap { position: relative; }
+    .campana { position: relative; background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; padding: 0.25rem 0.5rem; }
+    .badge { position: absolute; top: -2px; right: -2px; background: #dc3545; color: white; border-radius: 999px; font-size: 0.65rem; padding: 0.1rem 0.35rem; }
+    .panel { position: absolute; right: 0; top: 2.2rem; width: 320px; max-height: 400px; overflow-y: auto; background: white; color: #222; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); z-index: 50; }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; border-bottom: 1px solid #eee; }
+    .marcar-todas { background: none; border: none; color: #1b1f27; text-decoration: underline; cursor: pointer; font-size: 0.8rem; }
+    .vacio { padding: 1rem; color: #888; margin: 0; }
+    .item { padding: 0.6rem 0.8rem; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+    .item:hover { background: #f7f7f7; }
+    .item.no-leida { background: #eef4ff; }
+    .item-titulo { font-weight: bold; font-size: 0.9rem; }
+    .item-mensaje { font-size: 0.85rem; color: #444; }
+    .item-fecha { font-size: 0.75rem; color: #999; margin-top: 0.15rem; }
+</style>
+
+@code {
+    private List<Notificacion> notificaciones = new();
+    private int noLeidas;
+    private bool abierto;
+    private string? usuarioId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask is not null)
+        {
+            var authState = await AuthStateTask;
+            usuarioId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
+
+        if (usuarioId is not null)
+        {
+            await Cargar();
+            Broadcaster.Recibida += OnNotificacionRecibida;
+        }
+    }
+
+    [CascadingParameter]
+    private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
+
+    private async Task Cargar()
+    {
+        notificaciones = await NotificacionService.ObtenerRecientesAsync(usuarioId!);
+        noLeidas = await NotificacionService.ContarNoLeidasAsync(usuarioId!);
+    }
+
+    private void OnNotificacionRecibida(Notificacion n)
+    {
+        if (n.UsuarioDestinoId != usuarioId)
+            return;
+
+        InvokeAsync(() =>
+        {
+            notificaciones.Insert(0, n);
+            noLeidas++;
+            StateHasChanged();
+        });
+    }
+
+    private void AlternarAbierto() => abierto = !abierto;
+
+    private async Task MarcarTodasLeidas()
+    {
+        await NotificacionService.MarcarTodasLeidasAsync(usuarioId!);
+        foreach (var n in notificaciones) n.Leida = true;
+        noLeidas = 0;
+    }
+
+    private async Task Abrir(Notificacion n)
+    {
+        if (!n.Leida)
+        {
+            await NotificacionService.MarcarLeidaAsync(n.Id);
+            n.Leida = true;
+            noLeidas = Math.Max(0, noLeidas - 1);
+        }
+
+        abierto = false;
+
+        if (!string.IsNullOrEmpty(n.Url))
+            Navigation.NavigateTo(n.Url);
+    }
+
+    public void Dispose()
+    {
+        Broadcaster.Recibida -= OnNotificacionRecibida;
+    }
+}

@@ -1,0 +1,69 @@
+@page "/proveedores/{ProveedorId:int}/productos"
+@attribute [Authorize(Roles = Roles.Gestor)]
+@using CatalogoPedidos.Application.Proveedores
+@inject IProveedorService ProveedorService
+
+<PageTitle>Productos del proveedor</PageTitle>
+
+@if (proveedor is null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <h1>Productos de "@proveedor.Nombre"</h1>
+
+    @if (asociaciones is null)
+    {
+        <p>Cargando...</p>
+    }
+    else if (asociaciones.Count == 0)
+    {
+        <p>Este proveedor todavía no tiene productos asociados.</p>
+    }
+    else
+    {
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Producto (Id interno)</th>
+                    <th>Código del proveedor</th>
+                    <th>Precio del proveedor</th>
+                    <th>Preferido</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in asociaciones)
+                {
+                    <tr>
+                        <td>@a.Producto?.Nombre <span class="id-interno">(#@a.ProductoId)</span></td>
+                        <td><code>@a.CodigoProveedor</code></td>
+                        <td>@(a.PrecioProveedor is not null ? a.PrecioProveedor.Value.ToString("C") : "-")</td>
+                        <td>@(a.EsPreferido ? "★ Sí" : "")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <p><a href="/proveedores">Volver a proveedores</a></p>
+}
+
+<style>
+    .tabla { width: 100%; border-collapse: collapse; }
+    .tabla th, .tabla td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
+    .id-interno { color: #888; font-size: 0.85rem; }
+</style>
+
+@code {
+    [Parameter] public int ProveedorId { get; set; }
+
+    private Proveedor? proveedor;
+    private List<ProductoProveedor>? asociaciones;
+
+    protected override async Task OnInitializedAsync()
+    {
+        proveedor = await ProveedorService.ObtenerPorIdAsync(ProveedorId);
+        asociaciones = await ProveedorService.ObtenerProductosDeProveedorAsync(ProveedorId);
+    }
+}

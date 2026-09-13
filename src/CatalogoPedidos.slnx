@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="CatalogoPedidos.Application/CatalogoPedidos.Application.csproj" />
+  <Project Path="CatalogoPedidos.Domain/CatalogoPedidos.Domain.csproj" />
+  <Project Path="CatalogoPedidos.Infrastructure/CatalogoPedidos.Infrastructure.csproj" />
+  <Project Path="CatalogoPedidos.Web/CatalogoPedidos.Web.csproj" />
+</Solution>

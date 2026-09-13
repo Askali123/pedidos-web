@@ -1,0 +1,67 @@
+@page "/solicitudes/mis-solicitudes"
+@attribute [Authorize]
+@using System.Security.Claims
+@inject ISolicitudService Solicitudes
+
+<PageTitle>Mis solicitudes</PageTitle>
+
+<h1>Mis solicitudes</h1>
+
+@if (solicitudes is null)
+{
+    <p>Cargando...</p>
+}
+else if (solicitudes.Count == 0)
+{
+    <p>Todavía no has enviado ninguna solicitud. Ve al <a href="/catalogo">catálogo</a> para elegir un producto.</p>
+}
+else
+{
+    <table class="tabla">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>Gestor</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var s in solicitudes)
+            {
+                <tr>
+                    <td>@s.Producto?.Nombre</td>
+                    <td>@s.Cantidad</td>
+                    <td>@s.FechaSolicitud.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                    <td><span class="estado estado-@s.Estado">@s.Estado</span></td>
+                    <td>@s.GestorNombre</td>
+                    <td><a class="btn" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<style>
+    .tabla { width: 100%; border-collapse: collapse; }
+    .tabla th, .tabla td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
+    .btn { display: inline-block; padding: 0.3rem 0.6rem; background: #1b1f27; color: white; text-decoration: none; border-radius: 4px; }
+    .estado { padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.85rem; }
+    .estado-Pendiente { background: #fff3cd; color: #856404; }
+    .estado-Aprobada { background: #d4edda; color: #155724; }
+    .estado-Rechazada { background: #f8d7da; color: #721c24; }
+</style>
+
+@code {
+    [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
+    private List<SolicitudProducto>? solicitudes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateTask!;
+        var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
+        solicitudes = await Solicitudes.ObtenerMisSolicitudesAsync(userId);
+    }
+}

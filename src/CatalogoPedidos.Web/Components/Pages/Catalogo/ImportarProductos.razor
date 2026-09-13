@@ -1,0 +1,73 @@
+@page "/catalogo/importar"
+@attribute [Authorize(Roles = Roles.Gestor)]
+@inject IProductoService Productos
+
+<PageTitle>Importar productos</PageTitle>
+
+<h1>Importar productos desde CSV</h1>
+
+<p>
+    El archivo debe tener columnas: <code>Nombre,Descripcion,Categoria,Precio,Stock</code>
+</p>
+
+<pre class="ejemplo">Nombre,Descripcion,Categoria,Precio,Stock
+Mouse inalámbrico,Mouse óptico USB,Cómputo,45000,30
+Lámpara de escritorio,Lámpara LED regulable,Mobiliario,60000,10</pre>
+
+<InputFile OnChange="Importar" accept=".csv" />
+
+@if (procesando)
+{
+    <p>Procesando archivo...</p>
+}
+
+@if (resultado is not null)
+{
+    <div class="resultado">
+        <p><strong>@resultado.Importados</strong> productos importados correctamente.</p>
+
+        @if (resultado.Errores.Count > 0)
+        {
+            <p>Errores encontrados:</p>
+            <ul>
+                @foreach (var error in resultado.Errores)
+                {
+                    <li>@error</li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+<style>
+    .ejemplo { background: #f4f4f4; padding: 0.75rem; border-radius: 4px; }
+    .resultado { margin-top: 1rem; }
+</style>
+
+@code {
+    private bool procesando;
+    private ImportarProductosResultado? resultado;
+
+    private async Task Importar(InputFileChangeEventArgs e)
+    {
+        procesando = true;
+        resultado = null;
+
+        try
+        {
+            await using var stream = e.File.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+
+            // CsvHelper hace lecturas síncronas, y el stream de InputFile solo permite async.
+            // Por eso lo copiamos primero a un MemoryStream en memoria.
+            using var memoria = new MemoryStream();
+            await stream.CopyToAsync(memoria);
+            memoria.Position = 0;
+
+            resultado = await Productos.ImportarDesdeArchivoAsync(memoria);
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+}
