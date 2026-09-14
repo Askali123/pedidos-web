@@ -1,0 +1,25 @@
+@* Menú desplegable genérico: campanita de notificaciones, menú de usuario, acciones de fila, etc. *@
+<div class="relative">
+    <div @onclick="Alternar" @onclick:stopPropagation="true">
+        @Trigger
+    </div>
+
+    @if (abierto)
+    {
+        <button type="button" class="fixed inset-0 z-40 cursor-default" @onclick="Cerrar" aria-label="Cerrar menú" tabindex="-1"></button>
+        <div class="absolute z-50 mt-2 @(AlignRight ? "right-0" : "left-0")">
+            @ChildContent
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public RenderFragment? Trigger { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool AlignRight { get; set; } = true;
+
+    private bool abierto;
+
+    private void Alternar() => abierto = !abierto;
+    public void Cerrar() => abierto = false;
+}

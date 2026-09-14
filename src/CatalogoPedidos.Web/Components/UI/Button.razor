@@ -1,0 +1,43 @@
+@*
+  Botón único para toda la app. Jerarquía: Primary = única acción principal por vista.
+  Uso: <Button Variant="ButtonVariant.Primary" Icon="plus" OnClick="Guardar" Loading="guardando">Guardar</Button>
+*@
+<button type="@Type"
+        class="btn @VariantClass @(Size == ButtonSize.Small ? "btn-sm" : Size == ButtonSize.Large ? "btn-lg" : "")"
+        disabled="@(Disabled || Loading)"
+        @onclick="OnClick">
+    @if (Loading)
+    {
+        <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+    }
+    else if (!string.IsNullOrEmpty(Icon))
+    {
+        <Icon Name="@Icon" Class="h-4 w-4" />
+    }
+    @ChildContent
+</button>
+
+@code {
+    [Parameter] public ButtonVariant Variant { get; set; } = ButtonVariant.Primary;
+    [Parameter] public ButtonSize Size { get; set; } = ButtonSize.Medium;
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string VariantClass => Variant switch
+    {
+        ButtonVariant.Primary => "btn-primary",
+        ButtonVariant.Secondary => "btn-secondary",
+        ButtonVariant.Success => "btn-success",
+        ButtonVariant.Danger => "btn-danger",
+        ButtonVariant.Outline => "btn-outline",
+        ButtonVariant.Ghost => "btn-ghost",
+        _ => "btn-primary"
+    };
+}

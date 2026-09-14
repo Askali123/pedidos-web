@@ -1,0 +1,34 @@
+@* Mensaje de estado a nivel de página (éxito, error, advertencia, info). *@
+<div class="@AlertClass" role="@(Variant == AlertVariant.Danger ? "alert" : "status")">
+    <Icon Name="@IconName" Class="h-5 w-5 shrink-0 mt-0.5" />
+    <div class="flex-1">@ChildContent</div>
+    @if (Dismissible)
+    {
+        <button type="button" @onclick="() => OnDismiss.InvokeAsync()" class="shrink-0 text-current/70 hover:text-current" aria-label="Cerrar">
+            <Icon Name="x" Class="h-4 w-4" />
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public AlertVariant Variant { get; set; } = AlertVariant.Info;
+    [Parameter] public bool Dismissible { get; set; }
+    [Parameter] public EventCallback OnDismiss { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string AlertClass => Variant switch
+    {
+        AlertVariant.Success => "alert alert-success",
+        AlertVariant.Warning => "alert alert-warning",
+        AlertVariant.Danger => "alert alert-danger",
+        _ => "alert alert-info"
+    };
+
+    private string IconName => Variant switch
+    {
+        AlertVariant.Success => "check-circle",
+        AlertVariant.Warning => "exclamation-triangle",
+        AlertVariant.Danger => "x-circle",
+        _ => "info-circle"
+    };
+}

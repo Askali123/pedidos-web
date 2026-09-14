@@ -1,0 +1,32 @@
+@* Contenedor estándar para todo bloque de contenido (formularios, listas, KPIs). *@
+<div class="card">
+    @if (!string.IsNullOrEmpty(Title) || HeaderActions is not null)
+    {
+        <div class="card-header">
+            <div>
+                @if (!string.IsNullOrEmpty(Title))
+                {
+                    <h3>@Title</h3>
+                }
+                @if (!string.IsNullOrEmpty(Subtitle))
+                {
+                    <p class="text-xs text-gray-500 mt-0.5">@Subtitle</p>
+                }
+            </div>
+            @if (HeaderActions is not null)
+            {
+                <div class="flex items-center gap-2">@HeaderActions</div>
+            }
+        </div>
+    }
+    <div class="card-body">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public RenderFragment? HeaderActions { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

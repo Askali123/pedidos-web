@@ -1,0 +1,12 @@
+@* Estado de carga estándar — usar en vez de un simple "Cargando...". *@
+<div class="flex items-center justify-center gap-2 py-10 text-gray-500 text-sm">
+    <svg class="h-5 w-5 animate-spin text-primary-600" viewBox="0 0 24 24" fill="none">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+    </svg>
+    <span>@Label</span>
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "Cargando...";
+}

@@ -1,0 +1,27 @@
+@* Envoltorio estándar para un campo de formulario: label + input + hint/error. *@
+<div class="mb-4">
+    <label class="form-label">
+        @Label
+        @if (Required)
+        {
+            <span class="text-danger-600">*</span>
+        }
+    </label>
+    @ChildContent
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <p class="text-xs text-danger-700 mt-1">@Error</p>
+    }
+    else if (!string.IsNullOrEmpty(Hint))
+    {
+        <p class="form-hint">@Hint</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

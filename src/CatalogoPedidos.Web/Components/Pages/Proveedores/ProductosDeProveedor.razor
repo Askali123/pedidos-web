@@ -1,59 +1,62 @@
 @page "/proveedores/{ProveedorId:int}/productos"
 @attribute [Authorize(Roles = Roles.Gestor)]
-@using CatalogoPedidos.Application.Proveedores
 @inject IProveedorService ProveedorService
+@inject PageHeaderState HeaderState
 
 <PageTitle>Productos del proveedor</PageTitle>
 
 @if (proveedor is null)
 {
-    <p>Cargando...</p>
+    <Loading />
 }
 else
 {
-    <h1>Productos de "@proveedor.Nombre"</h1>
+    <div class="max-w-3xl space-y-4">
+        <Card Title="@($"Productos de \"{proveedor.Nombre}\"")">
+            @if (asociaciones is null)
+            {
+                <Loading />
+            }
+            else if (asociaciones.Count == 0)
+            {
+                <EmptyState Icon="cube" Title="Sin productos" Description="Este proveedor todavía no tiene productos asociados." />
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table-enterprise">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Código del proveedor</th>
+                                <th>Precio del proveedor</th>
+                                <th>Preferido</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var a in asociaciones)
+                            {
+                                <tr>
+                                    <td class="font-medium text-gray-900">@a.Producto?.Nombre <span class="text-gray-400 text-xs">(#@a.ProductoId)</span></td>
+                                    <td><code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">@a.CodigoProveedor</code></td>
+                                    <td>@(a.PrecioProveedor is not null ? a.PrecioProveedor.Value.ToString("C") : "-")</td>
+                                    <td>
+                                        @if (a.EsPreferido)
+                                        {
+                                            <Badge Variant="BadgeVariant.Success">★ Preferido</Badge>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </Card>
 
-    @if (asociaciones is null)
-    {
-        <p>Cargando...</p>
-    }
-    else if (asociaciones.Count == 0)
-    {
-        <p>Este proveedor todavía no tiene productos asociados.</p>
-    }
-    else
-    {
-        <table class="tabla">
-            <thead>
-                <tr>
-                    <th>Producto (Id interno)</th>
-                    <th>Código del proveedor</th>
-                    <th>Precio del proveedor</th>
-                    <th>Preferido</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var a in asociaciones)
-                {
-                    <tr>
-                        <td>@a.Producto?.Nombre <span class="id-interno">(#@a.ProductoId)</span></td>
-                        <td><code>@a.CodigoProveedor</code></td>
-                        <td>@(a.PrecioProveedor is not null ? a.PrecioProveedor.Value.ToString("C") : "-")</td>
-                        <td>@(a.EsPreferido ? "★ Sí" : "")</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    }
-
-    <p><a href="/proveedores">Volver a proveedores</a></p>
+        <a href="/proveedores" class="text-sm text-primary-700 hover:underline">← Volver a proveedores</a>
+    </div>
 }
-
-<style>
-    .tabla { width: 100%; border-collapse: collapse; }
-    .tabla th, .tabla td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
-    .id-interno { color: #888; font-size: 0.85rem; }
-</style>
 
 @code {
     [Parameter] public int ProveedorId { get; set; }
@@ -65,5 +68,7 @@ else
     {
         proveedor = await ProveedorService.ObtenerPorIdAsync(ProveedorId);
         asociaciones = await ProveedorService.ObtenerProductosDeProveedorAsync(ProveedorId);
+
+        HeaderState.Set("Productos del proveedor", [("Proveedores", "/proveedores"), (proveedor?.Nombre ?? "Proveedor", null)]);
     }
 }

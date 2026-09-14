@@ -1,0 +1,35 @@
+@* Confirmación estándar para acciones destructivas o irreversibles. *@
+<Modal Visible="Visible" VisibleChanged="VisibleChanged" Title="@Title">
+    <ChildContent>
+        <p class="text-sm text-gray-600">@Message</p>
+    </ChildContent>
+
+    <Footer>
+        <Button Variant="ButtonVariant.Secondary" OnClick="Cancelar">@CancelText</Button>
+        <Button Variant="@(Danger ? ButtonVariant.Danger : ButtonVariant.Primary)" OnClick="Confirmar">@ConfirmText</Button>
+    </Footer>
+</Modal>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public string Title { get; set; } = "¿Confirmar?";
+    [Parameter] public string Message { get; set; } = "";
+    [Parameter] public string ConfirmText { get; set; } = "Confirmar";
+    [Parameter] public string CancelText { get; set; } = "Cancelar";
+    [Parameter] public bool Danger { get; set; }
+    [Parameter] public EventCallback OnConfirm { get; set; }
+
+    private async Task Confirmar()
+    {
+        Visible = false;
+        await VisibleChanged.InvokeAsync(false);
+        await OnConfirm.InvokeAsync();
+    }
+
+    private async Task Cancelar()
+    {
+        Visible = false;
+        await VisibleChanged.InvokeAsync(false);
+    }
+}

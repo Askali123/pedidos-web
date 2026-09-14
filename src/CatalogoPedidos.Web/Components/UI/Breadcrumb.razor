@@ -1,0 +1,26 @@
+@* Ruta de navegación en el Topbar. Items = lista de (Texto, Url opcional). *@
+<nav aria-label="Breadcrumb" class="flex items-center gap-1.5 text-sm text-gray-500">
+    @for (var i = 0; i < Items.Count; i++)
+    {
+        var item = Items[i];
+        var isLast = i == Items.Count - 1;
+
+        if (!string.IsNullOrEmpty(item.Url) && !isLast)
+        {
+            <a href="@item.Url" class="hover:text-gray-700">@item.Text</a>
+        }
+        else
+        {
+            <span class="@(isLast ? "text-gray-900 font-medium" : "")">@item.Text</span>
+        }
+
+        if (!isLast)
+        {
+            <Icon Name="chevron-right" Class="h-3.5 w-3.5 text-gray-300" />
+        }
+    }
+</nav>
+
+@code {
+    [Parameter] public List<(string Text, string? Url)> Items { get; set; } = new();
+}

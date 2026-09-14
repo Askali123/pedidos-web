@@ -1,109 +1,117 @@
 @page "/catalogo/{ProductoId:int}/proveedores"
 @attribute [Authorize(Roles = Roles.Gestor)]
-@using CatalogoPedidos.Application.Proveedores
 @inject IProveedorService ProveedorService
 @inject IProductoService ProductoService
+@inject PageHeaderState HeaderState
 
 <PageTitle>Proveedores del producto</PageTitle>
 
 @if (producto is null)
 {
-    <p>Cargando...</p>
+    <Loading />
 }
 else
 {
-    <h1>Proveedores de "@producto.Nombre"</h1>
-    <p class="subtitulo">Cada proveedor identifica este producto con SU PROPIO código — por eso se guarda por separado del Id interno (@producto.Id).</p>
+    <div class="space-y-6 max-w-3xl">
+        <Card Title="@($"Proveedores de \"{producto.Nombre}\"")"
+              Subtitle="@($"Cada proveedor identifica este producto con SU PROPIO código — por eso se guarda por separado del Id interno (#{producto.Id}).")">
 
-    @if (asociaciones is null)
-    {
-        <p>Cargando...</p>
-    }
-    else if (asociaciones.Count == 0)
-    {
-        <p>Este producto todavía no tiene proveedores asociados.</p>
-    }
-    else
-    {
-        <table class="tabla">
-            <thead>
-                <tr>
-                    <th>Proveedor</th>
-                    <th>Código del proveedor</th>
-                    <th>Precio del proveedor</th>
-                    <th>Preferido</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var a in asociaciones)
+            @if (asociaciones is null)
+            {
+                <Loading />
+            }
+            else if (asociaciones.Count == 0)
+            {
+                <EmptyState Icon="truck" Title="Sin proveedores" Description="Este producto todavía no tiene proveedores asociados." />
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table-enterprise">
+                        <thead>
+                            <tr>
+                                <th>Proveedor</th>
+                                <th>Código del proveedor</th>
+                                <th>Precio del proveedor</th>
+                                <th>Preferido</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var a in asociaciones)
+                            {
+                                <tr>
+                                    <td class="font-medium text-gray-900">@a.Proveedor?.Nombre</td>
+                                    <td><code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">@a.CodigoProveedor</code></td>
+                                    <td>@(a.PrecioProveedor is not null ? a.PrecioProveedor.Value.ToString("C") : "-")</td>
+                                    <td>
+                                        @if (a.EsPreferido)
+                                        {
+                                            <Badge Variant="BadgeVariant.Success">★ Preferido</Badge>
+                                        }
+                                    </td>
+                                    <td class="text-right">
+                                        <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="trash" OnClick="() => PedirConfirmacionQuitar(a.Id, a.Proveedor?.Nombre)">Quitar</Button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </Card>
+
+        <Card Title="Asociar un proveedor">
+            <EditForm Model="modelo" OnValidSubmit="Asociar" FormName="asociar-proveedor">
+                <FormField Label="Proveedor" Required="true">
+                    <select class="form-select" @bind="modelo.ProveedorId">
+                        <option value="0">Selecciona uno...</option>
+                        @foreach (var p in proveedoresDisponibles)
+                        {
+                            <option value="@p.Id">@p.Nombre</option>
+                        }
+                    </select>
+                </FormField>
+
+                <FormField Label="Código con el que ESE proveedor identifica este producto" Required="true" Hint="Es el SKU/referencia propio del proveedor, no el Id interno del catálogo.">
+                    <InputText @bind-Value="modelo.CodigoProveedor" class="form-input" placeholder="p.ej. SKU-8827-A" />
+                </FormField>
+
+                <FormField Label="Precio del proveedor (opcional)">
+                    <InputNumber @bind-Value="modelo.PrecioProveedor" class="form-input" />
+                </FormField>
+
+                <label class="flex items-center gap-2 text-sm text-gray-700 mb-4">
+                    <InputCheckbox @bind-Value="modelo.EsPreferido" class="form-checkbox" />
+                    Marcar como proveedor preferido
+                </label>
+
+                @if (!string.IsNullOrEmpty(error))
                 {
-                    <tr>
-                        <td>@a.Proveedor?.Nombre</td>
-                        <td><code>@a.CodigoProveedor</code></td>
-                        <td>@(a.PrecioProveedor is not null ? a.PrecioProveedor.Value.ToString("C") : "-")</td>
-                        <td>@(a.EsPreferido ? "★ Sí" : "")</td>
-                        <td><button class="btn quitar" @onclick="() => Quitar(a.Id)">Quitar</button></td>
-                    </tr>
+                    <Alert Variant="AlertVariant.Danger">@error</Alert>
                 }
-            </tbody>
-        </table>
-    }
-
-    <h2>Asociar un proveedor</h2>
-
-    <EditForm Model="modelo" OnValidSubmit="Asociar" FormName="asociar-proveedor">
-        <div class="campo">
-            <label>Proveedor</label>
-            <select @bind="modelo.ProveedorId">
-                <option value="0">Selecciona uno...</option>
-                @foreach (var p in proveedoresDisponibles)
+                @if (!string.IsNullOrEmpty(mensaje))
                 {
-                    <option value="@p.Id">@p.Nombre</option>
+                    <Alert Variant="AlertVariant.Success">@mensaje</Alert>
                 }
-            </select>
-        </div>
 
-        <div class="campo">
-            <label>Código con el que ESE proveedor identifica este producto</label>
-            <InputText @bind-Value="modelo.CodigoProveedor" placeholder="p.ej. SKU-8827-A" />
-        </div>
+                <div class="mt-4">
+                    <Button Type="submit" Variant="ButtonVariant.Primary" Icon="plus">Asociar proveedor</Button>
+                </div>
+            </EditForm>
+        </Card>
 
-        <div class="campo">
-            <label>Precio del proveedor (opcional)</label>
-            <InputNumber @bind-Value="modelo.PrecioProveedor" />
-        </div>
-
-        <div class="campo checkbox">
-            <label><InputCheckbox @bind-Value="modelo.EsPreferido" /> Marcar como proveedor preferido</label>
-        </div>
-
-        @if (!string.IsNullOrEmpty(error))
-        {
-            <p class="error">@error</p>
-        }
-        @if (!string.IsNullOrEmpty(mensaje))
-        {
-            <p class="mensaje">@mensaje</p>
-        }
-
-        <button type="submit" class="btn">Asociar proveedor</button>
-    </EditForm>
-
-    <p><a href="/proveedores">Ver todos los proveedores</a> · <a href="/catalogo">Volver al catálogo</a></p>
+        <p class="text-sm">
+            <a href="/proveedores" class="text-primary-700 hover:underline">Ver todos los proveedores</a>
+            <span class="text-gray-300 mx-2">·</span>
+            <a href="/catalogo" class="text-primary-700 hover:underline">Volver al catálogo</a>
+        </p>
+    </div>
 }
 
-<style>
-    .subtitulo { color: #555; max-width: 700px; }
-    .tabla { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
-    .tabla th, .tabla td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
-    .campo { margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.25rem; max-width: 400px; }
-    .campo.checkbox { flex-direction: row; align-items: center; gap: 0.5rem; }
-    .btn { display: inline-block; padding: 0.35rem 0.75rem; background: #1b1f27; color: white; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; }
-    .btn.quitar { background: #b02a37; }
-    .error { color: #b00020; }
-    .mensaje { color: green; }
-</style>
+<ConfirmDialog @bind-Visible="confirmandoQuitar" Title="Quitar proveedor" Danger="true"
+               Message="@($"¿Quitar a \"{proveedorAQuitarNombre}\" de este producto?")"
+               ConfirmText="Quitar" OnConfirm="ConfirmarQuitar" />
 
 @code {
     [Parameter] public int ProductoId { get; set; }
@@ -115,12 +123,18 @@ else
     private string? error;
     private string? mensaje;
 
+    private bool confirmandoQuitar;
+    private int asociacionAQuitarId;
+    private string? proveedorAQuitarNombre;
+
     protected override async Task OnInitializedAsync()
     {
         modelo.ProductoId = ProductoId;
         producto = await ProductoService.ObtenerPorIdAsync(ProductoId);
         proveedoresDisponibles = await ProveedorService.ObtenerTodosAsync();
         await Cargar();
+
+        HeaderState.Set("Proveedores del producto", [("Catálogo", "/catalogo"), (producto?.Nombre ?? "Producto", null), ("Proveedores", null)]);
     }
 
     private async Task Cargar()
@@ -152,9 +166,16 @@ else
         }
     }
 
-    private async Task Quitar(int asociacionId)
+    private void PedirConfirmacionQuitar(int asociacionId, string? proveedorNombre)
     {
-        await ProveedorService.QuitarAsociacionAsync(asociacionId);
+        asociacionAQuitarId = asociacionId;
+        proveedorAQuitarNombre = proveedorNombre;
+        confirmandoQuitar = true;
+    }
+
+    private async Task ConfirmarQuitar()
+    {
+        await ProveedorService.QuitarAsociacionAsync(asociacionAQuitarId);
         await Cargar();
     }
 }

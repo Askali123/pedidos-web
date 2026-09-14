@@ -1,21 +1,27 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
-<NavMenu />
+<div class="flex h-screen overflow-hidden bg-gray-50">
+    <Sidebar Collapsed="sidebarCollapsed" CollapsedChanged="c => sidebarCollapsed = c"
+             MobileOpen="sidebarMobileOpen" MobileOpenChanged="o => sidebarMobileOpen = o" />
 
-<main class="page-content">
-    @Body
-</main>
+    <div class="flex-1 flex flex-col min-w-0">
+        <Topbar OnToggleSidebar="() => sidebarMobileOpen = !sidebarMobileOpen" />
 
-<style>
-    .page-content {
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 1.5rem;
-    }
-</style>
-
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+        <main class="flex-1 overflow-y-auto">
+            <div class="max-w-6xl mx-auto p-6">
+                @Body
+            </div>
+        </main>
+    </div>
 </div>
+
+<div id="blazor-error-ui" class="hidden fixed inset-x-0 bottom-0 z-50 bg-danger-700 text-white text-sm px-4 py-3" data-nosnippet>
+    Ha ocurrido un error inesperado.
+    <a href="." class="underline ml-2">Recargar</a>
+    <span class="dismiss ml-2 cursor-pointer">🗙</span>
+</div>
+
+@code {
+    private bool sidebarCollapsed;
+    private bool sidebarMobileOpen;
+}

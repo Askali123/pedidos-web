@@ -1,0 +1,24 @@
+@* Toggle on/off — usar en vez de un checkbox nativo para banderas booleanas. *@
+<button type="button"
+        role="switch"
+        aria-checked="@Value.ToString().ToLowerInvariant()"
+        class="@("switch-track " + (Value ? "on" : ""))"
+        @onclick="Alternar">
+    <span class="@("switch-thumb " + (Value ? "on" : ""))"></span>
+</button>
+@if (!string.IsNullOrEmpty(Label))
+{
+    <span class="ml-2 text-sm text-gray-700 align-middle">@Label</span>
+}
+
+@code {
+    [Parameter] public bool Value { get; set; }
+    [Parameter] public EventCallback<bool> ValueChanged { get; set; }
+    [Parameter] public string? Label { get; set; }
+
+    private async Task Alternar()
+    {
+        Value = !Value;
+        await ValueChanged.InvokeAsync(Value);
+    }
+}

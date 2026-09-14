@@ -1,0 +1,18 @@
+@* Badge de estado — usar SIEMPRE en vez de <span> con colores manuales. *@
+<span class="badge @VariantClass">
+    @ChildContent
+</span>
+
+@code {
+    [Parameter] public BadgeVariant Variant { get; set; } = BadgeVariant.Neutral;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string VariantClass => Variant switch
+    {
+        BadgeVariant.Success => "badge-success",
+        BadgeVariant.Warning => "badge-warning",
+        BadgeVariant.Danger => "badge-danger",
+        BadgeVariant.Info => "badge-info",
+        _ => "badge-neutral"
+    };
+}

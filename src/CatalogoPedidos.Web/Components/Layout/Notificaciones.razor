@@ -1,74 +1,60 @@
 @implements IDisposable
 @using System.Security.Claims
-@using CatalogoPedidos.Application.Notificaciones
 @inject INotificacionService NotificacionService
 @inject INotificacionBroadcaster Broadcaster
 @inject NavigationManager Navigation
 
 <AuthorizeView Context="authContext">
     <Authorized>
-        <div class="campana-wrap">
-            <button class="campana" @onclick="AlternarAbierto" title="Notificaciones">
-                🔔
-                @if (noLeidas > 0)
-                {
-                    <span class="badge">@(noLeidas > 9 ? "9+" : noLeidas.ToString())</span>
-                }
-            </button>
-
-            @if (abierto)
-            {
-                <div class="panel">
-                    <div class="panel-header">
-                        <strong>Notificaciones</strong>
+        <Dropdown @ref="dropdown">
+            <Trigger>
+                <button type="button" class="relative h-9 w-9 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700" title="Notificaciones" aria-label="Notificaciones">
+                    <Icon Name="bell" Class="h-5 w-5" />
+                    @if (noLeidas > 0)
+                    {
+                        <span class="absolute top-1 right-1 h-4 min-w-4 px-0.5 rounded-full bg-danger-600 text-white text-[10px] leading-4 text-center">@(noLeidas > 9 ? "9+" : noLeidas.ToString())</span>
+                    }
+                </button>
+            </Trigger>
+            <ChildContent>
+                <div class="w-80 max-h-96 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                        <h3>Notificaciones</h3>
                         @if (noLeidas > 0)
                         {
-                            <button class="marcar-todas" @onclick="MarcarTodasLeidas">Marcar todas como leídas</button>
+                            <button type="button" class="text-xs text-primary-700 hover:underline" @onclick="MarcarTodasLeidas">Marcar todas como leídas</button>
                         }
                     </div>
 
                     @if (notificaciones.Count == 0)
                     {
-                        <p class="vacio">No tienes notificaciones.</p>
+                        <p class="text-sm text-gray-500 px-4 py-6 text-center">No tienes notificaciones.</p>
                     }
                     else
                     {
                         @foreach (var n in notificaciones)
                         {
-                            <div class="item @(n.Leida ? "" : "no-leida")" @onclick="() => Abrir(n)">
-                                <div class="item-titulo">@n.Titulo</div>
-                                <div class="item-mensaje">@n.Mensaje</div>
-                                <div class="item-fecha">@n.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</div>
-                            </div>
+                            <button type="button" class="@("w-full text-left px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 " + (n.Leida ? "" : "bg-primary-50/60"))" @onclick="() => Abrir(n)">
+                                <p class="text-sm font-medium text-gray-900">@n.Titulo</p>
+                                <p class="text-xs text-gray-500 mt-0.5">@n.Mensaje</p>
+                                <p class="text-[11px] text-gray-400 mt-1">@n.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</p>
+                            </button>
                         }
                     }
                 </div>
-            }
-        </div>
+            </ChildContent>
+        </Dropdown>
     </Authorized>
 </AuthorizeView>
 
-<style>
-    .campana-wrap { position: relative; }
-    .campana { position: relative; background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; padding: 0.25rem 0.5rem; }
-    .badge { position: absolute; top: -2px; right: -2px; background: #dc3545; color: white; border-radius: 999px; font-size: 0.65rem; padding: 0.1rem 0.35rem; }
-    .panel { position: absolute; right: 0; top: 2.2rem; width: 320px; max-height: 400px; overflow-y: auto; background: white; color: #222; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); z-index: 50; }
-    .panel-header { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; border-bottom: 1px solid #eee; }
-    .marcar-todas { background: none; border: none; color: #1b1f27; text-decoration: underline; cursor: pointer; font-size: 0.8rem; }
-    .vacio { padding: 1rem; color: #888; margin: 0; }
-    .item { padding: 0.6rem 0.8rem; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
-    .item:hover { background: #f7f7f7; }
-    .item.no-leida { background: #eef4ff; }
-    .item-titulo { font-weight: bold; font-size: 0.9rem; }
-    .item-mensaje { font-size: 0.85rem; color: #444; }
-    .item-fecha { font-size: 0.75rem; color: #999; margin-top: 0.15rem; }
-</style>
-
 @code {
+    private Dropdown? dropdown;
     private List<Notificacion> notificaciones = new();
     private int noLeidas;
-    private bool abierto;
     private string? usuarioId;
+
+    [CascadingParameter]
+    private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -85,9 +71,6 @@
         }
     }
 
-    [CascadingParameter]
-    private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
-
     private async Task Cargar()
     {
         notificaciones = await NotificacionService.ObtenerRecientesAsync(usuarioId!);
@@ -96,8 +79,7 @@
 
     private void OnNotificacionRecibida(Notificacion n)
     {
-        if (n.UsuarioDestinoId != usuarioId)
-            return;
+        if (n.UsuarioDestinoId != usuarioId) return;
 
         InvokeAsync(() =>
         {
@@ -106,8 +88,6 @@
             StateHasChanged();
         });
     }
-
-    private void AlternarAbierto() => abierto = !abierto;
 
     private async Task MarcarTodasLeidas()
     {
@@ -125,7 +105,7 @@
             noLeidas = Math.Max(0, noLeidas - 1);
         }
 
-        abierto = false;
+        dropdown?.Cerrar();
 
         if (!string.IsNullOrEmpty(n.Url))
             Navigation.NavigateTo(n.Url);

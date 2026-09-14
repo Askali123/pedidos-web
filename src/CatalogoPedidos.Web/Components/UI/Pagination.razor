@@ -1,0 +1,37 @@
+@* Paginación estándar para tablas. *@
+@if (TotalPages > 1)
+{
+    <div class="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+        <p class="text-xs text-gray-500">Página @CurrentPage de @TotalPages</p>
+        <div class="flex items-center gap-1">
+            <button type="button" class="btn btn-ghost btn-sm" disabled="@(CurrentPage <= 1)" @onclick="() => Ir(CurrentPage - 1)">
+                <Icon Name="chevron-left" Class="h-4 w-4" />
+            </button>
+            @for (var p = 1; p <= TotalPages; p++)
+            {
+                var numeroPagina = p;
+                <button type="button"
+                        class="@("h-8 w-8 rounded-md text-sm font-medium " + (numeroPagina == CurrentPage ? "bg-primary-600 text-white" : "text-gray-600 hover:bg-gray-100"))"
+                        @onclick="() => Ir(numeroPagina)">
+                    @numeroPagina
+                </button>
+            }
+            <button type="button" class="btn btn-ghost btn-sm" disabled="@(CurrentPage >= TotalPages)" @onclick="() => Ir(CurrentPage + 1)">
+                <Icon Name="chevron-right" Class="h-4 w-4" />
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public int TotalPages { get; set; } = 1;
+    [Parameter] public EventCallback<int> CurrentPageChanged { get; set; }
+
+    private async Task Ir(int page)
+    {
+        if (page < 1 || page > TotalPages || page == CurrentPage) return;
+        CurrentPage = page;
+        await CurrentPageChanged.InvokeAsync(page);
+    }
+}

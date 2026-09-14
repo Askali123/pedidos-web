@@ -1,21 +1,80 @@
 @page "/"
+@inject IProductoService Productos
+@inject ISolicitudService Solicitudes
+@inject IProveedorService ProveedorService
+@inject PageHeaderState HeaderState
 
 <PageTitle>CatalogoPedidos</PageTitle>
 
-<h1>CatalogoPedidos</h1>
+<div class="space-y-6">
+    <div>
+        <h1>CatalogoPedidos</h1>
+        <p class="text-sm text-gray-500 mt-1">
+            Proyecto de práctica: captura de productos, catálogo, solicitudes a un gestor y exportación a PDF/Excel.
+        </p>
+    </div>
 
-<p>Proyecto de práctica: captura de productos, catálogo, solicitudes a un gestor y exportación a PDF.</p>
+    @if (cargando)
+    {
+        <Loading />
+    }
+    else
+    {
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="card card-body">
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Productos en catálogo</p>
+                <p class="text-2xl font-semibold text-gray-900 mt-1">@totalProductos</p>
+            </div>
+            <div class="card card-body">
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Pedidos pendientes</p>
+                <p class="text-2xl font-semibold text-gray-900 mt-1">@pedidosPendientes</p>
+            </div>
+            <div class="card card-body">
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Proveedores registrados</p>
+                <p class="text-2xl font-semibold text-gray-900 mt-1">@totalProveedores</p>
+            </div>
+        </div>
+    }
 
-<p>
-    <a class="btn" href="/catalogo">Ir al catálogo</a>
-</p>
+    <div class="flex gap-3">
+        <Button Variant="ButtonVariant.Primary" Icon="cube" OnClick="@(() => Navigation.NavigateTo("/catalogo"))">Ir al catálogo</Button>
+    </div>
 
-<h2>Cuentas de prueba (sembradas automáticamente)</h2>
-<ul>
-    <li><strong>Gestor:</strong> gestor@catalogo.local / Gestor123!</li>
-    <li><strong>Usuario:</strong> usuario@catalogo.local / Usuario123!</li>
-</ul>
+    <Card Title="Cuentas de prueba" Subtitle="Sembradas automáticamente al iniciar la app">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div class="flex items-center gap-2">
+                <Badge Variant="BadgeVariant.Info">Gestor</Badge>
+                <span class="text-gray-600">gestor@catalogo.local / Gestor123!</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <Badge Variant="BadgeVariant.Neutral">Usuario</Badge>
+                <span class="text-gray-600">usuario@catalogo.local / Usuario123!</span>
+            </div>
+        </div>
+    </Card>
+</div>
 
-<style>
-    .btn { display: inline-block; padding: 0.5rem 1rem; background: #1b1f27; color: white; text-decoration: none; border-radius: 4px; }
-</style>
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private bool cargando = true;
+    private int totalProductos;
+    private int pedidosPendientes;
+    private int totalProveedores;
+
+    protected override async Task OnInitializedAsync()
+    {
+        HeaderState.Set("Inicio");
+
+        var productos = await Productos.ObtenerCatalogoAsync();
+        totalProductos = productos.Count;
+
+        var pendientes = await Solicitudes.ObtenerBandejaAsync();
+        pedidosPendientes = pendientes.Count;
+
+        var proveedores = await ProveedorService.ObtenerTodosAsync();
+        totalProveedores = proveedores.Count;
+
+        cargando = false;
+    }
+}
