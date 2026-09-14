@@ -2,16 +2,17 @@
 
 - **Objetivo**: Aprender .NET 10 + Blazor Web App + Clean Architecture construyendo un catálogo de productos donde un usuario elige un producto, envía una solicitud a un gestor, y todo se puede exportar/imprimir a PDF.
 - **Estado**: en progreso — flujo completo funcionando de punta a punta.
-- **Stack / tecnologías**: .NET 10, Blazor Web App (Interactive Server), ASP.NET Core Identity + Roles, EF Core (con `IDbContextFactory`), SQL Server (Docker), QuestPDF, CsvHelper, ClosedXML.
+- **Stack / tecnologías**: .NET 10, Blazor Web App (Interactive Server), ASP.NET Core Identity + Roles, EF Core (con `IDbContextFactory`), SQL Server (Docker), QuestPDF, CsvHelper, ClosedXML, Tailwind CSS v4.
 - **Próximos pasos**:
   - Descontar stock automáticamente al aprobar una solicitud.
-  - Paginar el catálogo y "Administrar pedidos" cuando crezcan.
+  - Paginar más listas cuando crezcan (ya hay `Pagination` en Catálogo y Administrar pedidos).
   - Agregar pruebas automatizadas (xUnit) para Application.
   - Explorar MediatR/CQRS como siguiente nivel de Clean Architecture.
   - Permitir editar/desactivar proveedores (hoy solo se crean y se listan).
   - Alerta de stock bajo al gestor (cuando se implemente el descuento de stock).
   - Recordatorio automático de pedidos pendientes hace varios días (hoy solo se resaltan visualmente en la Bandeja, >48h).
-- **Enlaces relacionados**: [[repaso-sql-server]]
+  - Extender el Design System al resto de páginas de Identity (Register, Manage/*) — por ahora solo Login quedó restilizado; las demás siguen con el markup scaffolded original de Microsoft.
+- **Enlaces relacionados**: [[repaso-sql-server]] · [Propuestas de mejora](docs/MEJORAS_PROPUESTAS.md)
 
 ## Qué aprendí
 
@@ -25,6 +26,9 @@
 - **Bug real encontrado**: en Blazor Server, varios componentes de UNA MISMA página (p.ej. la campanita de notificaciones en el layout + el catálogo en el body) corren su `OnInitializedAsync` de forma concurrente y comparten el mismo `DbContext` con scope de circuito → `InvalidOperationException: A second operation was started on this context instance before a previous operation completed`. La solución correcta (no un parche) es `IDbContextFactory<AppDbContext>`: cada repositorio pide su propia instancia de corta vida por operación en vez de recibir un DbContext ya armado por inyección.
 - Para que Identity (que sí necesita un `AppDbContext` Scoped "de verdad") conviva con la fábrica sin registrar dos veces `DbContextOptions`, el truco es: `services.AddScoped<AppDbContext>(sp => sp.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext())` — Identity recibe un contexto scoped que en realidad viene de la misma fábrica.
 - Notificaciones en tiempo real en Blazor Server sin SignalR Hub aparte: un singleton en memoria con un evento de C# (`event Action<Notificacion>?`) que cada componente conectado suscribe/desuscribe (`IDisposable`) filtrando por su propio UsuarioId. Aprovecha que Blazor Server YA mantiene una conexión persistente por usuario.
+- **Tailwind v4 no permite `@apply` sobre tus propias clases** (solo sobre utilidades nativas de Tailwind). `.btn-primary { @apply btn bg-primary-600 ...; }` falla con "unknown utility class". Solución: la clase base (`.btn`) y la variante (`.btn-primary`) se combinan en el *markup* (`class="btn btn-primary"`), cada una con sus propios estilos por separado en el CSS.
+- Colores semánticos (`primary`, `success`, `warning`, `danger`, `info`) se definen en `@theme` como **alias** de la paleta de Tailwind ya existente (`--color-primary-600: var(--color-blue-600)`), no como hex nuevos — así `bg-primary-600` funciona igual que cualquier utilidad nativa, sin duplicar la paleta de colores.
+- Para compartir "título de página + breadcrumb" entre cada página de contenido y el Topbar (que vive en un layout distinto) sin acoplarlos, un servicio `Scoped` simple con un evento (`PageHeaderState`) es más limpio que pelear con cascading parameters de varios niveles.
 
 ## Qué mejoraría
 
