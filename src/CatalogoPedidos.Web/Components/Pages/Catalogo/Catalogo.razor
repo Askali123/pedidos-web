@@ -1,86 +1,141 @@
 @page "/catalogo"
 @attribute [Authorize]
 @inject IProductoService Productos
+@inject PageHeaderState HeaderState
+@inject CarritoState Carrito
+@implements IDisposable
 
 <PageTitle>Catálogo</PageTitle>
 
-<h1>Catálogo de productos</h1>
+<div class="space-y-4">
+    <Card>
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="relative flex-1 min-w-[220px]">
+                <Icon Name="search" Class="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input type="text" class="form-input pl-9" placeholder="Buscar por nombre o descripción..."
+                       @bind="texto" @bind:event="oninput" @onkeyup="Filtrar" />
+            </div>
 
-<div class="filtros">
-    <input type="text" placeholder="Buscar por nombre o descripción..." @bind="texto" @bind:event="oninput" @onkeyup="Filtrar" />
+            <select class="form-select w-auto" @bind="categoria" @bind:after="Filtrar">
+                <option value="">Todas las categorías</option>
+                @foreach (var c in categorias)
+                {
+                    <option value="@c">@c</option>
+                }
+            </select>
 
-    <select @bind="categoria" @bind:after="Filtrar">
-        <option value="">Todas las categorías</option>
-        @foreach (var c in categorias)
-        {
-            <option value="@c">@c</option>
-        }
-    </select>
+            <a class="btn btn-secondary" href="/api/catalogo/pdf" target="_blank">
+                <Icon Name="download" Class="h-4 w-4" /> Exportar a PDF
+            </a>
+        </div>
+    </Card>
 
-    <a class="btn" href="/api/catalogo/pdf" target="_blank">Exportar catálogo a PDF</a>
+    @if (productos is null)
+    {
+        <Loading />
+    }
+    else if (productos.Count == 0)
+    {
+        <div class="card"><EmptyState Icon="cube" Title="Sin resultados" Description="No hay productos que coincidan con la búsqueda." /></div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table-enterprise">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th>Descripción</th>
+                        <th>Unidad</th>
+                        <th>Precio</th>
+                        <th>Stock</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in paginaActual)
+                    {
+                        <tr>
+                            <td class="font-medium text-gray-900">@p.Nombre</td>
+                            <td><Badge Variant="BadgeVariant.Neutral">@p.Categoria</Badge></td>
+                            <td class="text-gray-500">@p.Descripcion</td>
+                            <td class="text-gray-500">@p.UnidadMedida</td>
+                            <td>@p.Precio.ToString("C")</td>
+                            <td>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="@(p.Stock < 0 ? "text-danger-600 font-medium" : "")">@p.Stock</span>
+                                    @if (p.StockMinimo is not null && p.Stock <= p.StockMinimo)
+                                    {
+                                        <Badge Variant="BadgeVariant.Danger">⚠ Bajo</Badge>
+                                    }
+                                    <AuthorizeView Roles="@Roles.Gestor" Context="stockContext">
+                                        <Authorized>
+                                            <button type="button" class="text-gray-400 hover:text-gray-600" title="Configurar alerta de stock" @onclick="() => AbrirConfigStock(p)">
+                                                <Icon Name="pencil" Class="h-3.5 w-3.5" />
+                                            </button>
+                                        </Authorized>
+                                    </AuthorizeView>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex items-center gap-2 justify-end">
+                                    @if (Carrito.Contiene(p.Id))
+                                    {
+                                        <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="check" OnClick="() => AgregarAlCarrito(p)">En el carrito</Button>
+                                    }
+                                    else
+                                    {
+                                        <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" Icon="cart" OnClick="() => AgregarAlCarrito(p)">Agregar</Button>
+                                    }
+                                    <AuthorizeView Roles="@Roles.Gestor" Context="gestorContext">
+                                        <Authorized>
+                                            <a class="btn btn-secondary btn-sm" href="/catalogo/@p.Id/proveedores">Proveedores</a>
+                                        </Authorized>
+                                    </AuthorizeView>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <Pagination CurrentPage="paginaNumero" TotalPages="totalPaginas" CurrentPageChanged="p => paginaNumero = p" />
+        </div>
+    }
 </div>
 
-@if (productos is null)
-{
-    <p>Cargando...</p>
-}
-else if (productos.Count == 0)
-{
-    <p>No hay productos que coincidan con la búsqueda.</p>
-}
-else
-{
-    <table class="tabla">
-        <thead>
-            <tr>
-                <th>Nombre</th>
-                <th>Categoría</th>
-                <th>Descripción</th>
-                <th>Precio</th>
-                <th>Stock</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var p in productos)
-            {
-                <tr>
-                    <td>@p.Nombre</td>
-                    <td>@p.Categoria</td>
-                    <td>@p.Descripcion</td>
-                    <td>@p.Precio.ToString("C")</td>
-                    <td>@p.Stock</td>
-                    <td>
-                        <a class="btn" href="/solicitudes/nueva/@p.Id">Solicitar</a>
-                        <AuthorizeView Roles="@Roles.Gestor" Context="gestorContext">
-                            <Authorized>
-                                <a class="btn secundario" href="/catalogo/@p.Id/proveedores">Proveedores</a>
-                            </Authorized>
-                        </AuthorizeView>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
-
-<style>
-    .filtros { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center; }
-    .filtros input, .filtros select { padding: 0.4rem 0.6rem; }
-    .tabla { width: 100%; border-collapse: collapse; }
-    .tabla th, .tabla td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
-    .btn { display: inline-block; padding: 0.35rem 0.75rem; background: #1b1f27; color: white; text-decoration: none; border-radius: 4px; }
-    .btn.secundario { background: #6c757d; margin-left: 0.35rem; }
-</style>
+<Modal Visible="modalStockVisible" VisibleChanged="v => modalStockVisible = v" Title="Configurar alerta de stock">
+    <ChildContent>
+        @if (productoEditando is not null)
+        {
+            <p class="text-sm text-gray-600 mb-3">@productoEditando.Nombre</p>
+            <FormField Label="Stock mínimo (opcional)" Hint="Si el stock queda en o por debajo de este número al aprobar una solicitud, se te avisa. Déjalo vacío para no recibir alertas de este producto.">
+                <InputNumber @bind-Value="stockMinimoEditado" class="form-input" placeholder="p.ej. 5" />
+            </FormField>
+        }
+    </ChildContent>
+    <Footer>
+        <Button Variant="ButtonVariant.Ghost" OnClick="() => modalStockVisible = false">Cancelar</Button>
+        <Button Variant="ButtonVariant.Primary" Icon="check" OnClick="GuardarStockMinimo">Guardar</Button>
+    </Footer>
+</Modal>
 
 @code {
+    private const int TamanoPagina = 8;
+
     private List<Producto>? productos;
     private List<string> categorias = new();
     private string texto = "";
     private string categoria = "";
+    private int paginaNumero = 1;
+
+    private int totalPaginas => productos is null ? 1 : Math.Max(1, (int)Math.Ceiling(productos.Count / (double)TamanoPagina));
+    private IEnumerable<Producto> paginaActual => (productos ?? []).Skip((paginaNumero - 1) * TamanoPagina).Take(TamanoPagina);
 
     protected override async Task OnInitializedAsync()
     {
+        HeaderState.Set("Catálogo", [("Catálogo", null)]);
+        Carrito.Changed += Refrescar;
         categorias = await Productos.ObtenerCategoriasAsync();
         await Filtrar();
     }
@@ -88,5 +143,36 @@ else
     private async Task Filtrar()
     {
         productos = await Productos.ObtenerCatalogoAsync(texto, string.IsNullOrEmpty(categoria) ? null : categoria);
+        paginaNumero = 1;
+    }
+
+    private void AgregarAlCarrito(Producto producto) => Carrito.Agregar(producto);
+
+    private bool modalStockVisible;
+    private Producto? productoEditando;
+    private int? stockMinimoEditado;
+
+    private void AbrirConfigStock(Producto producto)
+    {
+        productoEditando = producto;
+        stockMinimoEditado = producto.StockMinimo;
+        modalStockVisible = true;
+    }
+
+    private async Task GuardarStockMinimo()
+    {
+        if (productoEditando is null)
+            return;
+
+        await Productos.ActualizarStockMinimoAsync(productoEditando.Id, stockMinimoEditado);
+        productoEditando.StockMinimo = stockMinimoEditado;
+        modalStockVisible = false;
+    }
+
+    private void Refrescar() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Carrito.Changed -= Refrescar;
     }
 }

@@ -35,6 +35,13 @@ public class ProductoProveedorRepository(IDbContextFactory<AppDbContext> dbFacto
             .FirstOrDefaultAsync(pp => pp.Id == id, ct);
     }
 
+    public async Task<ProductoProveedor?> ObtenerPorProveedorYCodigoAsync(int proveedorId, string codigo, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.ProductoProveedores.Include(pp => pp.Producto)
+            .FirstOrDefaultAsync(pp => pp.ProveedorId == proveedorId && pp.CodigoProveedor == codigo, ct);
+    }
+
     public async Task<bool> ExisteAsociacionAsync(int productoId, int proveedorId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);

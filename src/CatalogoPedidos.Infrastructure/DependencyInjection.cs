@@ -53,7 +53,7 @@ public static class DependencyInjection
         services.AddScoped<ISolicitudRepository, SolicitudRepository>();
         services.AddScoped<IProductoService, ProductoService>();
         services.AddScoped<ISolicitudService, SolicitudService>();
-        services.AddScoped<IProductoImportador, CsvProductoImportador>();
+        services.AddScoped<IProductoImportador, ExcelProductoImportador>();
         services.AddScoped<IPdfExportService, PdfExportService>();
         services.AddScoped<IExcelExportService, ExcelExportService>();
 

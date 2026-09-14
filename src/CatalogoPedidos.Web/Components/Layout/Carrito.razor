@@ -1,0 +1,32 @@
+@implements IDisposable
+@inject CarritoState CarritoState
+@inject NavigationManager Navigation
+
+<AuthorizeView>
+    <Authorized>
+        <button type="button" class="relative h-9 w-9 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                title="Carrito de solicitud" aria-label="Carrito de solicitud" @onclick="Ir">
+            <Icon Name="cart" Class="h-5 w-5" />
+            @if (CarritoState.TotalItems > 0)
+            {
+                <span class="absolute top-1 right-1 h-4 min-w-4 px-0.5 rounded-full bg-primary-600 text-white text-[10px] leading-4 text-center">@(CarritoState.TotalItems > 9 ? "9+" : CarritoState.TotalItems.ToString())</span>
+            }
+        </button>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private void Ir() => Navigation.NavigateTo("/solicitudes/carrito");
+
+    protected override void OnInitialized()
+    {
+        CarritoState.Changed += Refrescar;
+    }
+
+    private void Refrescar() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        CarritoState.Changed -= Refrescar;
+    }
+}

@@ -1,55 +1,91 @@
 @page "/catalogo/importar"
 @attribute [Authorize(Roles = Roles.Gestor)]
 @inject IProductoService Productos
+@inject IProveedorService Proveedores
+@inject PageHeaderState HeaderState
 
 <PageTitle>Importar productos</PageTitle>
 
-<h1>Importar productos desde CSV</h1>
+<div class="max-w-2xl space-y-4">
+    <Card Title="Importar catálogo desde Excel del proveedor">
+        <p class="text-sm text-gray-600">
+            El archivo debe tener, en la primera fila, las columnas
+            <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">TIPO, CODIGO, PRODUCTOS, UNIDAD</code>
+            (la columna <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">CANTIDAD</code> de la requisición se ignora).
+            El <strong>CODIGO</strong> es el que asigna el proveedor a cada producto — no el Id interno del catálogo —
+            así que primero hay que indicar de qué proveedor viene la lista.
+        </p>
 
-<p>
-    El archivo debe tener columnas: <code>Nombre,Descripcion,Categoria,Precio,Stock</code>
-</p>
+        <pre class="bg-gray-50 border border-gray-200 rounded-md p-3 text-xs text-gray-600 mt-3 overflow-x-auto">TIPO   CODIGO   PRODUCTOS                      UNIDAD
+Aseo   1281     Abrasivo REGULAR               UNIDAD
+Aseo   319117   Alcohol Antiseptico Fire       GALON</pre>
 
-<pre class="ejemplo">Nombre,Descripcion,Categoria,Precio,Stock
-Mouse inalámbrico,Mouse óptico USB,Cómputo,45000,30
-Lámpara de escritorio,Lámpara LED regulable,Mobiliario,60000,10</pre>
+        <div class="mt-4 space-y-4">
+            <FormField Label="Proveedor" Required="true">
+                <select class="form-select" @bind="proveedorId">
+                    <option value="0">Selecciona un proveedor...</option>
+                    @foreach (var p in proveedores)
+                    {
+                        <option value="@p.Id">@p.Nombre</option>
+                    }
+                </select>
+            </FormField>
 
-<InputFile OnChange="Importar" accept=".csv" />
-
-@if (procesando)
-{
-    <p>Procesando archivo...</p>
-}
-
-@if (resultado is not null)
-{
-    <div class="resultado">
-        <p><strong>@resultado.Importados</strong> productos importados correctamente.</p>
-
-        @if (resultado.Errores.Count > 0)
-        {
-            <p>Errores encontrados:</p>
-            <ul>
-                @foreach (var error in resultado.Errores)
+            <div>
+                <InputFile OnChange="Importar" accept=".xlsx" class="form-input" disabled="@(proveedorId == 0)" />
+                @if (proveedorId == 0)
                 {
-                    <li>@error</li>
+                    <p class="text-xs text-gray-500 mt-1">Selecciona primero el proveedor.</p>
                 }
-            </ul>
-        }
-    </div>
-}
+            </div>
+        </div>
 
-<style>
-    .ejemplo { background: #f4f4f4; padding: 0.75rem; border-radius: 4px; }
-    .resultado { margin-top: 1rem; }
-</style>
+        @if (procesando)
+        {
+            <Loading Label="Procesando archivo..." />
+        }
+
+        @if (resultado is not null)
+        {
+            <div class="mt-4 space-y-2">
+                <Alert Variant="AlertVariant.Success">
+                    <strong>@resultado.Importados</strong> producto(s) nuevo(s), <strong>@resultado.Actualizados</strong> actualizado(s).
+                </Alert>
+
+                @if (resultado.Errores.Count > 0)
+                {
+                    <Alert Variant="AlertVariant.Danger">
+                        <p class="font-medium mb-1">Errores encontrados:</p>
+                        <ul class="list-disc list-inside space-y-0.5">
+                            @foreach (var error in resultado.Errores)
+                            {
+                                <li>@error</li>
+                            }
+                        </ul>
+                    </Alert>
+                }
+            </div>
+        }
+    </Card>
+</div>
 
 @code {
     private bool procesando;
+    private int proveedorId;
+    private List<Proveedor> proveedores = new();
     private ImportarProductosResultado? resultado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        HeaderState.Set("Importar productos", [("Catálogo", "/catalogo"), ("Importar productos", null)]);
+        proveedores = await Proveedores.ObtenerTodosAsync();
+    }
 
     private async Task Importar(InputFileChangeEventArgs e)
     {
+        if (proveedorId == 0)
+            return;
+
         procesando = true;
         resultado = null;
 
@@ -57,13 +93,13 @@ Lámpara de escritorio,Lámpara LED regulable,Mobiliario,60000,10</pre>
         {
             await using var stream = e.File.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
 
-            // CsvHelper hace lecturas síncronas, y el stream de InputFile solo permite async.
-            // Por eso lo copiamos primero a un MemoryStream en memoria.
+            // ClosedXML necesita poder buscar (Seek) dentro del stream, y el de
+            // InputFile no lo permite, así que se copia primero a un MemoryStream.
             using var memoria = new MemoryStream();
             await stream.CopyToAsync(memoria);
             memoria.Position = 0;
 
-            resultado = await Productos.ImportarDesdeArchivoAsync(memoria);
+            resultado = await Productos.ImportarDesdeArchivoAsync(memoria, proveedorId);
         }
         finally
         {

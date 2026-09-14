@@ -4,7 +4,8 @@ namespace CatalogoPedidos.Application.Solicitudes;
 
 public interface ISolicitudRepository
 {
-    Task<SolicitudProducto> CrearAsync(SolicitudProducto solicitud, CancellationToken ct = default);
+    Task<Pedido> CrearPedidoAsync(Pedido pedido, CancellationToken ct = default);
+    Task<Pedido?> ObtenerPedidoAsync(int pedidoId, CancellationToken ct = default);
     Task<SolicitudProducto?> ObtenerPorIdAsync(int id, CancellationToken ct = default);
     Task<List<SolicitudProducto>> ObtenerPorSolicitanteAsync(string solicitanteId, CancellationToken ct = default);
     Task<List<SolicitudProducto>> ObtenerPendientesAsync(CancellationToken ct = default);

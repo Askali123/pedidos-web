@@ -2,66 +2,96 @@
 @attribute [Authorize]
 @using System.Security.Claims
 @inject ISolicitudService Solicitudes
+@inject PageHeaderState HeaderState
 
 <PageTitle>Mis solicitudes</PageTitle>
 
-<h1>Mis solicitudes</h1>
-
-@if (solicitudes is null)
+@if (grupos is null)
 {
-    <p>Cargando...</p>
+    <div class="card"><Loading /></div>
 }
-else if (solicitudes.Count == 0)
+else if (grupos.Count == 0)
 {
-    <p>Todavía no has enviado ninguna solicitud. Ve al <a href="/catalogo">catálogo</a> para elegir un producto.</p>
+    <div class="card">
+        <EmptyState Icon="clipboard-list" Title="Sin solicitudes" Description="Todavía no has enviado ninguna solicitud.">
+            <Action>
+                <a href="/catalogo" class="btn btn-primary btn-sm">Ir al catálogo</a>
+            </Action>
+        </EmptyState>
+    </div>
 }
 else
 {
-    <table class="tabla">
-        <thead>
-            <tr>
-                <th>Producto</th>
-                <th>Cantidad</th>
-                <th>Fecha</th>
-                <th>Estado</th>
-                <th>Gestor</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var s in solicitudes)
-            {
-                <tr>
-                    <td>@s.Producto?.Nombre</td>
-                    <td>@s.Cantidad</td>
-                    <td>@s.FechaSolicitud.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                    <td><span class="estado estado-@s.Estado">@s.Estado</span></td>
-                    <td>@s.GestorNombre</td>
-                    <td><a class="btn" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a></td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
+    <div class="space-y-4">
+        @foreach (var grupo in grupos)
+        {
+            <Card>
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div>
+                        <p class="font-medium text-gray-900">Pedido #@grupo.Key.PedidoId</p>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            @grupo.Key.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                            @if (!string.IsNullOrWhiteSpace(grupo.Key.Comentario))
+                            {
+                                <span> · @grupo.Key.Comentario</span>
+                            }
+                        </p>
+                    </div>
 
-<style>
-    .tabla { width: 100%; border-collapse: collapse; }
-    .tabla th, .tabla td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
-    .btn { display: inline-block; padding: 0.3rem 0.6rem; background: #1b1f27; color: white; text-decoration: none; border-radius: 4px; }
-    .estado { padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.85rem; }
-    .estado-Pendiente { background: #fff3cd; color: #856404; }
-    .estado-Aprobada { background: #d4edda; color: #155724; }
-    .estado-Rechazada { background: #f8d7da; color: #721c24; }
-</style>
+                    @if (grupo.Count() > 1)
+                    {
+                        <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">PDF del pedido</a>
+                    }
+                </div>
+
+                <div class="table-wrap">
+                    <table class="table-enterprise">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Estado</th>
+                                <th>Gestor</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in grupo)
+                            {
+                                <tr>
+                                    <td class="font-medium text-gray-900">@s.Producto?.Nombre</td>
+                                    <td>@s.Cantidad</td>
+                                    <td><Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge></td>
+                                    <td>@s.GestorNombre</td>
+                                    <td class="text-right"><a class="btn btn-secondary btn-sm" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+        }
+    </div>
+}
 
 @code {
     [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
-    private List<SolicitudProducto>? solicitudes;
+
+    private record PedidoResumen(int PedidoId, string? Comentario, DateTime FechaCreacion);
+
+    private List<IGrouping<PedidoResumen, SolicitudProducto>>? grupos;
 
     protected override async Task OnInitializedAsync()
     {
+        HeaderState.Set("Mis solicitudes", [("Mis solicitudes", null)]);
+
         var authState = await AuthStateTask!;
         var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
-        solicitudes = await Solicitudes.ObtenerMisSolicitudesAsync(userId);
+        var solicitudes = await Solicitudes.ObtenerMisSolicitudesAsync(userId);
+
+        grupos = solicitudes
+            .GroupBy(s => new PedidoResumen(s.PedidoId, s.Pedido?.Comentario, s.Pedido?.FechaCreacion ?? s.FechaSolicitud))
+            .OrderByDescending(g => g.Key.FechaCreacion)
+            .ToList();
     }
 }

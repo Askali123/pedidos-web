@@ -11,7 +11,7 @@ public class ExcelExportService : IExcelExportService
         using var libro = new XLWorkbook();
         var hoja = libro.Worksheets.Add("Solicitudes");
 
-        string[] encabezados = ["N.º", "Producto", "Categoría", "Cantidad", "Solicitante", "Fecha solicitud", "Estado", "Gestor", "Fecha resolución", "Comentario", "Comentario gestor"];
+        string[] encabezados = ["N.º", "Pedido", "Producto", "Categoría", "Cantidad", "Solicitante", "Fecha solicitud", "Estado", "Gestor", "Fecha resolución", "Comentario", "Comentario gestor"];
         for (var i = 0; i < encabezados.Length; i++)
         {
             var celda = hoja.Cell(1, i + 1);
@@ -25,21 +25,22 @@ public class ExcelExportService : IExcelExportService
         foreach (var s in solicitudes)
         {
             hoja.Cell(fila, 1).Value = s.Id;
-            hoja.Cell(fila, 2).Value = s.Producto?.Nombre;
-            hoja.Cell(fila, 3).Value = s.Producto?.Categoria;
-            hoja.Cell(fila, 4).Value = s.Cantidad;
-            hoja.Cell(fila, 5).Value = s.SolicitanteNombre;
-            hoja.Cell(fila, 6).Value = s.FechaSolicitud.ToLocalTime();
-            hoja.Cell(fila, 6).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
-            hoja.Cell(fila, 7).Value = s.Estado.ToString();
-            hoja.Cell(fila, 8).Value = s.GestorNombre;
+            hoja.Cell(fila, 2).Value = s.PedidoId;
+            hoja.Cell(fila, 3).Value = s.Producto?.Nombre;
+            hoja.Cell(fila, 4).Value = s.Producto?.Categoria;
+            hoja.Cell(fila, 5).Value = s.Cantidad;
+            hoja.Cell(fila, 6).Value = s.SolicitanteNombre;
+            hoja.Cell(fila, 7).Value = s.FechaSolicitud.ToLocalTime();
+            hoja.Cell(fila, 7).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
+            hoja.Cell(fila, 8).Value = s.Estado.ToString();
+            hoja.Cell(fila, 9).Value = s.GestorNombre;
             if (s.FechaResolucion is not null)
             {
-                hoja.Cell(fila, 9).Value = s.FechaResolucion.Value.ToLocalTime();
-                hoja.Cell(fila, 9).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
+                hoja.Cell(fila, 10).Value = s.FechaResolucion.Value.ToLocalTime();
+                hoja.Cell(fila, 10).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
             }
-            hoja.Cell(fila, 10).Value = s.Comentario;
-            hoja.Cell(fila, 11).Value = s.ComentarioGestor;
+            hoja.Cell(fila, 11).Value = s.Pedido?.Comentario;
+            hoja.Cell(fila, 12).Value = s.ComentarioGestor;
             fila++;
         }
 

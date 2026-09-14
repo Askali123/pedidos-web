@@ -7,5 +7,9 @@ namespace CatalogoPedidos.Application.Productos;
 /// </summary>
 public interface IProductoImportador
 {
-    Task<ImportarProductosResultado> ImportarAsync(Stream archivo, CancellationToken ct = default);
+    /// <summary>
+    /// Importa productos asociándolos al proveedor indicado: el código de cada fila
+    /// es el código PROPIO de ese proveedor (independiente del Id interno del producto).
+    /// </summary>
+    Task<ImportarProductosResultado> ImportarAsync(Stream archivo, int proveedorId, CancellationToken ct = default);
 }

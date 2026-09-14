@@ -5,6 +5,7 @@ namespace CatalogoPedidos.Application.Exportacion;
 public interface IPdfExportService
 {
     byte[] ExportarSolicitud(SolicitudProducto solicitud);
+    byte[] ExportarPedido(Pedido pedido);
     byte[] ExportarCatalogo(IEnumerable<Producto> productos);
     byte[] ExportarSolicitudes(IEnumerable<SolicitudProducto> solicitudes);
 }

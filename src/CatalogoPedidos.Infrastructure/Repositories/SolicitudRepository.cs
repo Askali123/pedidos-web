@@ -8,18 +8,26 @@ namespace CatalogoPedidos.Infrastructure.Repositories;
 
 public class SolicitudRepository(IDbContextFactory<AppDbContext> dbFactory) : ISolicitudRepository
 {
-    public async Task<SolicitudProducto> CrearAsync(SolicitudProducto solicitud, CancellationToken ct = default)
+    public async Task<Pedido> CrearPedidoAsync(Pedido pedido, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        db.Solicitudes.Add(solicitud);
+        db.Pedidos.Add(pedido);
         await db.SaveChangesAsync(ct);
-        return solicitud;
+        return pedido;
+    }
+
+    public async Task<Pedido?> ObtenerPedidoAsync(int pedidoId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.Pedidos
+            .Include(p => p.Items).ThenInclude(i => i.Producto)
+            .FirstOrDefaultAsync(p => p.Id == pedidoId, ct);
     }
 
     public async Task<SolicitudProducto?> ObtenerPorIdAsync(int id, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        return await db.Solicitudes.Include(s => s.Producto).FirstOrDefaultAsync(s => s.Id == id, ct);
+        return await db.Solicitudes.Include(s => s.Producto).Include(s => s.Pedido).FirstOrDefaultAsync(s => s.Id == id, ct);
     }
 
     public async Task<List<SolicitudProducto>> ObtenerPorSolicitanteAsync(string solicitanteId, CancellationToken ct = default)
@@ -27,6 +35,7 @@ public class SolicitudRepository(IDbContextFactory<AppDbContext> dbFactory) : IS
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         return await db.Solicitudes
             .Include(s => s.Producto)
+            .Include(s => s.Pedido)
             .Where(s => s.SolicitanteId == solicitanteId)
             .OrderByDescending(s => s.FechaSolicitud)
             .ToListAsync(ct);
@@ -37,6 +46,7 @@ public class SolicitudRepository(IDbContextFactory<AppDbContext> dbFactory) : IS
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         return await db.Solicitudes
             .Include(s => s.Producto)
+            .Include(s => s.Pedido)
             .Where(s => s.Estado == EstadoSolicitud.Pendiente)
             .OrderBy(s => s.FechaSolicitud)
             .ToListAsync(ct);
@@ -53,7 +63,7 @@ public class SolicitudRepository(IDbContextFactory<AppDbContext> dbFactory) : IS
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-        var query = db.Solicitudes.Include(s => s.Producto).AsQueryable();
+        var query = db.Solicitudes.Include(s => s.Producto).Include(s => s.Pedido).AsQueryable();
 
         if (filtro.FechaDesde is not null)
             query = query.Where(s => s.FechaSolicitud >= filtro.FechaDesde);

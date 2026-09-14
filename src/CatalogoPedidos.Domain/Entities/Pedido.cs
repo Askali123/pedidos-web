@@ -1,0 +1,20 @@
+namespace CatalogoPedidos.Domain.Entities;
+
+/// <summary>
+/// Cabecera de un pedido: agrupa uno o varios <see cref="SolicitudProducto"/> enviados
+/// juntos desde el carrito. El estado (Pendiente/Aprobada/Rechazada) sigue viviendo por
+/// línea — un gestor puede aprobar unos productos del pedido y rechazar otros — pero el
+/// Pedido permite mostrarlos agrupados y guardar un único comentario para todo el envío.
+/// </summary>
+public class Pedido
+{
+    public int Id { get; set; }
+
+    public string SolicitanteId { get; set; } = string.Empty;
+    public string SolicitanteNombre { get; set; } = string.Empty;
+    public string? Comentario { get; set; }
+
+    public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
+
+    public ICollection<SolicitudProducto> Items { get; set; } = new List<SolicitudProducto>();
+}

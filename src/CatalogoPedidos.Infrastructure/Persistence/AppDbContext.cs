@@ -8,6 +8,7 @@ namespace CatalogoPedidos.Infrastructure.Persistence;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<Producto> Productos => Set<Producto>();
+    public DbSet<Pedido> Pedidos => Set<Pedido>();
     public DbSet<SolicitudProducto> Solicitudes => Set<SolicitudProducto>();
     public DbSet<Proveedor> Proveedores => Set<Proveedor>();
     public DbSet<ProductoProveedor> ProductoProveedores => Set<ProductoProveedor>();
@@ -21,7 +22,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
         {
             entity.Property(p => p.Nombre).HasMaxLength(200).IsRequired();
             entity.Property(p => p.Categoria).HasMaxLength(100);
+            entity.Property(p => p.UnidadMedida).HasMaxLength(50);
             entity.Property(p => p.Precio).HasColumnType("decimal(18,2)");
+        });
+
+        builder.Entity<Pedido>(entity =>
+        {
+            entity.Property(p => p.SolicitanteNombre).HasMaxLength(200).IsRequired();
         });
 
         builder.Entity<SolicitudProducto>(entity =>
@@ -30,6 +37,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
                   .WithMany(p => p.Solicitudes)
                   .HasForeignKey(s => s.ProductoId)
                   .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(s => s.Pedido)
+                  .WithMany(p => p.Items)
+                  .HasForeignKey(s => s.PedidoId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<Proveedor>(entity =>

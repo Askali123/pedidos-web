@@ -1,0 +1,40 @@
+@implements IDisposable
+@inject PageHeaderState HeaderState
+
+<header class="h-14 shrink-0 flex items-center gap-3 px-4 border-b border-gray-200 bg-white">
+    <button type="button" class="lg:hidden h-9 w-9 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100" @onclick="() => OnToggleSidebar.InvokeAsync()" aria-label="Abrir menú">
+        <Icon Name="menu" Class="h-5 w-5" />
+    </button>
+
+    <div class="min-w-0">
+        @if (HeaderState.Breadcrumb.Count > 0)
+        {
+            <Breadcrumb Items="HeaderState.Breadcrumb" />
+        }
+        <h1 class="text-lg font-semibold text-gray-900 truncate leading-tight">@HeaderState.Title</h1>
+    </div>
+
+    <div class="flex-1"></div>
+
+    <div class="flex items-center gap-1.5">
+        <Carrito />
+        <Notificaciones />
+        <UserMenu />
+    </div>
+</header>
+
+@code {
+    [Parameter] public EventCallback OnToggleSidebar { get; set; }
+
+    protected override void OnInitialized()
+    {
+        HeaderState.Changed += Refrescar;
+    }
+
+    private void Refrescar() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        HeaderState.Changed -= Refrescar;
+    }
+}

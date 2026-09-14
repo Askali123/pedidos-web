@@ -1,0 +1,120 @@
+@page "/solicitudes/carrito"
+@attribute [Authorize]
+@using System.Security.Claims
+@inject CarritoState CarritoState
+@inject ISolicitudService Solicitudes
+@inject NavigationManager Navigation
+@inject PageHeaderState HeaderState
+@implements IDisposable
+
+<PageTitle>Carrito de solicitud</PageTitle>
+
+<div class="max-w-2xl space-y-4">
+    @if (CarritoState.TotalItems == 0)
+    {
+        <div class="card">
+            <EmptyState Icon="cart" Title="El carrito está vacío" Description="Agrega productos desde el catálogo para armar tu solicitud." />
+            <div class="mt-4 text-center">
+                <a class="btn btn-primary" href="/catalogo">Ir al catálogo</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <Card Title="Productos a solicitar">
+            <div class="divide-y divide-gray-100">
+                @foreach (var item in CarritoState.Items)
+                {
+                    <div class="flex items-center gap-3 py-3">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-gray-900 truncate">@item.Producto.Nombre</p>
+                            <p class="text-xs text-gray-500">@item.Producto.Categoria @(string.IsNullOrEmpty(item.Producto.UnidadMedida) ? "" : $"· {item.Producto.UnidadMedida}")</p>
+                        </div>
+                        <input type="number" min="1" class="form-input w-20" value="@item.Cantidad"
+                               @onchange="e => CambiarCantidad(item.Producto.Id, e.Value)" />
+                        <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="trash" OnClick="() => CarritoState.Quitar(item.Producto.Id)" />
+                    </div>
+                }
+            </div>
+        </Card>
+
+        <Card Title="Enviar al gestor">
+            <FormField Label="Comentario (opcional)" Hint="Se guarda una sola vez para todo este pedido.">
+                <textarea class="form-textarea" rows="3" @bind="comentario"></textarea>
+            </FormField>
+
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <Alert Variant="AlertVariant.Danger">@error</Alert>
+            }
+
+            <div class="mt-2 flex items-center gap-2">
+                <Button Variant="ButtonVariant.Primary" Icon="check" OnClick="Enviar" Loading="enviando">Enviar solicitud al gestor</Button>
+                <Button Variant="ButtonVariant.Ghost" OnClick="() => CarritoState.Limpiar()">Vaciar carrito</Button>
+            </div>
+        </Card>
+    }
+</div>
+
+@code {
+    [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
+
+    private string? comentario;
+    private string? error;
+    private bool enviando;
+
+    protected override void OnInitialized()
+    {
+        HeaderState.Set("Carrito de solicitud", [("Catálogo", "/catalogo"), ("Carrito", null)]);
+        CarritoState.Changed += Refrescar;
+    }
+
+    private void CambiarCantidad(int productoId, object? valor)
+    {
+        if (int.TryParse(valor?.ToString(), out var cantidad))
+            CarritoState.ActualizarCantidad(productoId, cantidad);
+    }
+
+    private async Task Enviar()
+    {
+        error = null;
+
+        var authState = await AuthStateTask!;
+        var user = authState.User;
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userName = user.Identity?.Name ?? "Desconocido";
+
+        if (userId is null)
+        {
+            error = "No se pudo identificar al usuario actual.";
+            return;
+        }
+
+        var items = CarritoState.Items
+            .Select(i => new CrearSolicitudDto { ProductoId = i.Producto.Id, Cantidad = i.Cantidad })
+            .ToList();
+
+        enviando = true;
+        try
+        {
+            await Solicitudes.CrearPedidoAsync(userId, userName, comentario, items);
+            CarritoState.Limpiar();
+            Navigation.NavigateTo("/solicitudes/mis-solicitudes");
+        }
+        catch (InvalidOperationException ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            enviando = false;
+        }
+    }
+
+    private void Refrescar() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        CarritoState.Changed -= Refrescar;
+    }
+}

@@ -11,21 +11,29 @@ el proyecto (seguir aprendiendo conceptos nuevos vs. acercarlo a algo "productio
 
 ## 1. Modelo de datos / dominio
 
-- **"Pedido" como entidad cabecera.** Hoy, cuando un usuario envía varios productos desde
-  el carrito (`CarritoState` → `SolicitudService.CrearVariasAsync`), se crean N filas
-  independientes de `SolicitudProducto` que comparten el mismo comentario pero no tienen
-  ningún vínculo entre sí en la base de datos. El gestor las ve como N filas sueltas en la
-  Bandeja y las aprueba/rechaza una por una. Si se quiere que un "pedido" se apruebe o
-  rechace como conjunto, o que el PDF exportado muestre todos los ítems de una sola
-  solicitud del usuario, hace falta una entidad `Pedido` (cabecera) con una colección de
-  líneas — hoy es un rediseño de tamaño medio porque toca `Bandeja.razor`,
-  `Administrar.razor`, `PdfExportService`, `ExcelExportService` y las notificaciones.
-- **Descuento de stock al aprobar.** Ya identificado en `NOTA_PROYECTO.md`: al aprobar una
-  `SolicitudProducto`, restar `Cantidad` del `Producto.Stock` correspondiente (con
-  validación de que no quede negativo, y qué hacer si stock insuficiente al momento de
-  aprobar).
-- **Alerta de stock bajo.** Requiere primero el punto anterior. Un umbral configurable por
-  producto (o global) que dispare una `Notificacion` al gestor.
+- ~~**"Pedido" como entidad cabecera.**~~ **Hecho.** Se agregó `Pedido` (cabecera con
+  `Comentario` único) y `SolicitudProducto.PedidoId`; la aprobación/rechazo sigue siendo
+  por línea (un gestor puede aprobar unos productos del pedido y rechazar otros), pero
+  ahora se ven agrupados en `Bandeja.razor` y `MisSolicitudes.razor`, con un botón
+  "Aprobar todo/Rechazar todo" por pedido (`ISolicitudService.ResolverPedidoAsync`) y
+  exportación a PDF de todo el pedido (`/api/pedidos/{id}/pdf`). Se hizo una migración
+  con backfill (`AgregarPedido`) que convirtió cada `SolicitudProducto` existente en su
+  propio `Pedido` de 1 ítem, sin perder el `Comentario` que antes vivía en la línea.
+- ~~**Descuento de stock al aprobar.**~~ **Hecho.** `SolicitudService.DescontarStockAsync`
+  resta `Cantidad` del `Producto.Stock` correspondiente cada vez que se aprueba una
+  `SolicitudProducto` (individual o vía "Aprobar todo"). Rechazar no descuenta nada.
+  Decisión de negocio: **no bloquea** la aprobación si no alcanza el stock — se permite
+  que quede en negativo como señal de que hay que reponer, en vez de obligar al gestor a
+  rechazar. El catálogo (`Catalogo.razor`) resalta en rojo el stock negativo para que se
+  note a simple vista. Esto deja la puerta abierta para el siguiente punto (alerta de
+  stock bajo/negativo).
+- ~~**Alerta de stock bajo.**~~ **Hecho.** `Producto.StockMinimo` (opcional, por producto —
+  no global) se configura al crear el producto o desde el ícono de lápiz junto al stock en
+  `Catalogo.razor` (modal, solo Gestor). `SolicitudService.DescontarStockAsync` dispara una
+  `Notificacion` tipo `StockBajo` solo en la **transición** hacia stock bajo (stock anterior
+  > mínimo y stock nuevo ≤ mínimo) — evita reenviar la misma alerta en cada aprobación
+  posterior mientras el stock siga bajo. El catálogo muestra una insignia "⚠ Bajo" junto al
+  número cuando `Stock ≤ StockMinimo`.
 - **Recordatorio de solicitudes pendientes.** Hoy la Bandeja solo resalta visualmente las
   solicitudes con más de 48h sin resolver. Podría convertirse en una notificación activa
   (ej. un job periódico o un chequeo al cargar la Bandeja) en vez de depender de que el

@@ -33,8 +33,8 @@ public class PdfExportService : IPdfExportService
                     col.Item().Text($"Categoría: {solicitud.Producto?.Categoria}");
                     col.Item().Text($"Precio unitario: {solicitud.Producto?.Precio:C}");
                     col.Item().Text($"Cantidad solicitada: {solicitud.Cantidad}");
-                    if (!string.IsNullOrWhiteSpace(solicitud.Comentario))
-                        col.Item().Text($"Comentario del solicitante: {solicitud.Comentario}");
+                    if (!string.IsNullOrWhiteSpace(solicitud.Pedido?.Comentario))
+                        col.Item().Text($"Comentario del solicitante: {solicitud.Pedido.Comentario}");
 
                     col.Item().LineHorizontal(1);
 
@@ -53,6 +53,68 @@ public class PdfExportService : IPdfExportService
                         if (!string.IsNullOrWhiteSpace(solicitud.ComentarioGestor))
                             col.Item().Text($"Comentario del gestor: {solicitud.ComentarioGestor}");
                     }
+                });
+
+                page.Footer().AlignCenter().Text(x =>
+                {
+                    x.Span("Generado por CatalogoPedidos - ").FontSize(9);
+                    x.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm")).FontSize(9);
+                });
+            });
+        });
+
+        return documento.GeneratePdf();
+    }
+
+    public byte[] ExportarPedido(Pedido pedido)
+    {
+        var documento = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(2, Unit.Centimetre);
+                page.DefaultTextStyle(x => x.FontSize(10));
+
+                page.Header().Text($"Pedido N.º {pedido.Id}").FontSize(20).Bold();
+
+                page.Content().PaddingVertical(15).Column(col =>
+                {
+                    col.Spacing(8);
+
+                    col.Item().Text($"Solicitante: {pedido.SolicitanteNombre}");
+                    col.Item().Text($"Fecha: {pedido.FechaCreacion:dd/MM/yyyy HH:mm}");
+                    if (!string.IsNullOrWhiteSpace(pedido.Comentario))
+                        col.Item().Text($"Comentario: {pedido.Comentario}");
+
+                    col.Item().LineHorizontal(1);
+
+                    col.Item().Table(table =>
+                    {
+                        table.ColumnsDefinition(columns =>
+                        {
+                            columns.RelativeColumn(3);
+                            columns.RelativeColumn(1);
+                            columns.RelativeColumn(2);
+                            columns.RelativeColumn(2);
+                        });
+
+                        table.Header(header =>
+                        {
+                            header.Cell().Text("Producto").Bold();
+                            header.Cell().Text("Cant.").Bold();
+                            header.Cell().Text("Estado").Bold();
+                            header.Cell().Text("Gestor").Bold();
+                        });
+
+                        foreach (var item in pedido.Items)
+                        {
+                            table.Cell().Text(item.Producto?.Nombre);
+                            table.Cell().Text(item.Cantidad.ToString());
+                            table.Cell().Text(item.Estado.ToString());
+                            table.Cell().Text(item.GestorNombre ?? "-");
+                        }
+                    });
                 });
 
                 page.Footer().AlignCenter().Text(x =>
@@ -137,6 +199,7 @@ public class PdfExportService : IPdfExportService
                     table.ColumnsDefinition(columns =>
                     {
                         columns.RelativeColumn(1);
+                        columns.RelativeColumn(1);
                         columns.RelativeColumn(3);
                         columns.RelativeColumn(1);
                         columns.RelativeColumn(3);
@@ -148,6 +211,7 @@ public class PdfExportService : IPdfExportService
                     table.Header(header =>
                     {
                         header.Cell().Text("N.º").Bold();
+                        header.Cell().Text("Pedido").Bold();
                         header.Cell().Text("Producto").Bold();
                         header.Cell().Text("Cant.").Bold();
                         header.Cell().Text("Solicitante").Bold();
@@ -159,6 +223,7 @@ public class PdfExportService : IPdfExportService
                     foreach (var s in lista)
                     {
                         table.Cell().Text(s.Id.ToString());
+                        table.Cell().Text(s.PedidoId.ToString());
                         table.Cell().Text(s.Producto?.Nombre);
                         table.Cell().Text(s.Cantidad.ToString());
                         table.Cell().Text(s.SolicitanteNombre);

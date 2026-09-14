@@ -13,44 +13,85 @@ public class SolicitudService(
     INotificacionBroadcaster broadcaster,
     IGestorDirectory gestores) : ISolicitudService
 {
-    public async Task<SolicitudProducto> CrearAsync(string solicitanteId, string solicitanteNombre, CrearSolicitudDto dto, CancellationToken ct = default)
+    private const int MensajeMaxLength = 500;
+
+    public async Task<Pedido> CrearPedidoAsync(string solicitanteId, string solicitanteNombre, string? comentario, List<CrearSolicitudDto> items, CancellationToken ct = default)
     {
-        var producto = await productos.ObtenerPorIdAsync(dto.ProductoId, ct)
-            ?? throw new InvalidOperationException("El producto seleccionado no existe.");
+        if (items.Count == 0)
+            throw new InvalidOperationException("Selecciona al menos un producto antes de enviar la solicitud.");
 
-        if (dto.Cantidad <= 0)
-            throw new InvalidOperationException("La cantidad debe ser mayor a cero.");
-
-        var solicitud = new SolicitudProducto
+        var pedido = new Pedido
         {
-            ProductoId = producto.Id,
-            Cantidad = dto.Cantidad,
-            Comentario = dto.Comentario,
             SolicitanteId = solicitanteId,
             SolicitanteNombre = solicitanteNombre,
-            Estado = EstadoSolicitud.Pendiente,
-            FechaSolicitud = DateTime.UtcNow
+            Comentario = comentario,
+            FechaCreacion = DateTime.UtcNow
         };
 
-        var creada = await repositorio.CrearAsync(solicitud, ct);
-
-        var idsGestores = await gestores.ObtenerIdsGestoresAsync(ct);
-        foreach (var gestorId in idsGestores)
+        var nombres = new List<string>();
+        foreach (var item in items)
         {
-            var notificacion = new Notificacion
-            {
-                UsuarioDestinoId = gestorId,
-                Tipo = TipoNotificacion.SolicitudCreada,
-                Titulo = "Nuevo pedido",
-                Mensaje = $"{solicitanteNombre} solicitó {dto.Cantidad}x \"{producto.Nombre}\".",
-                Url = "/solicitudes/bandeja"
-            };
+            var producto = await productos.ObtenerPorIdAsync(item.ProductoId, ct)
+                ?? throw new InvalidOperationException("El producto seleccionado no existe.");
 
-            var guardada = await notificaciones.CrearAsync(notificacion, ct);
-            broadcaster.Publicar(guardada);
+            if (item.Cantidad <= 0)
+                throw new InvalidOperationException($"La cantidad de \"{producto.Nombre}\" debe ser mayor a cero.");
+
+            pedido.Items.Add(new SolicitudProducto
+            {
+                ProductoId = producto.Id,
+                Cantidad = item.Cantidad,
+                SolicitanteId = solicitanteId,
+                SolicitanteNombre = solicitanteNombre,
+                Estado = EstadoSolicitud.Pendiente,
+                FechaSolicitud = DateTime.UtcNow
+            });
+
+            nombres.Add($"{item.Cantidad}x {producto.Nombre}");
         }
 
-        return creada;
+        var creado = await repositorio.CrearPedidoAsync(pedido, ct);
+
+        await NotificarGestoresAsync(solicitanteNombre, ResumirNombres(nombres), ct);
+
+        return creado;
+    }
+
+    /// <summary>
+    /// Arma un resumen legible que quepa en el límite de 500 caracteres de
+    /// Notificacion.Mensaje (ver AppDbContext): lista unos pocos productos y
+    /// resume el resto como "y N más" en vez de listar todos sin límite.
+    /// </summary>
+    private static string ResumirNombres(List<string> nombres)
+    {
+        if (nombres.Count == 1)
+            return nombres[0];
+
+        const int maxListados = 5;
+        var listados = nombres.Take(maxListados).ToList();
+        var restantes = nombres.Count - listados.Count;
+
+        var detalle = string.Join(", ", listados);
+        if (restantes > 0)
+            detalle += $" y {restantes} más";
+
+        return $"{nombres.Count} productos: {detalle}";
+    }
+
+    private async Task NotificarGestoresAsync(string solicitanteNombre, string resumen, CancellationToken ct)
+    {
+        var mensaje = $"{solicitanteNombre} solicitó {resumen}.";
+
+        try
+        {
+            var idsGestores = await gestores.ObtenerIdsGestoresAsync(ct);
+            foreach (var gestorId in idsGestores)
+                await NotificarAsync(gestorId, "Nuevo pedido", mensaje, "/solicitudes/bandeja", TipoNotificacion.SolicitudCreada, ct);
+        }
+        catch
+        {
+            // Best-effort: el pedido ya existe aunque la notificación falle.
+        }
     }
 
     public Task<List<SolicitudProducto>> ObtenerMisSolicitudesAsync(string solicitanteId, CancellationToken ct = default)
@@ -62,7 +103,44 @@ public class SolicitudService(
     public Task<SolicitudProducto?> ObtenerPorIdAsync(int id, CancellationToken ct = default)
         => repositorio.ObtenerPorIdAsync(id, ct);
 
+    public Task<Pedido?> ObtenerPedidoAsync(int pedidoId, CancellationToken ct = default)
+        => repositorio.ObtenerPedidoAsync(pedidoId, ct);
+
     public async Task ResolverAsync(int solicitudId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct = default)
+    {
+        var solicitud = await ResolverSinNotificarAsync(solicitudId, gestorId, gestorNombre, dto, ct);
+        var aprobada = solicitud.Estado == EstadoSolicitud.Aprobada;
+        var mensaje = $"Tu pedido de \"{solicitud.Producto?.Nombre}\" fue {(aprobada ? "aprobado" : "rechazado")} por {gestorNombre}.";
+
+        await NotificarResolucionAsync(solicitud.SolicitanteId, aprobada, mensaje, ct);
+    }
+
+    public async Task<List<SolicitudProducto>> ResolverPedidoAsync(int pedidoId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct = default)
+    {
+        var pedido = await repositorio.ObtenerPedidoAsync(pedidoId, ct)
+            ?? throw new InvalidOperationException("El pedido no existe.");
+
+        var pendientes = pedido.Items.Where(i => i.Estado == EstadoSolicitud.Pendiente).ToList();
+        if (pendientes.Count == 0)
+            throw new InvalidOperationException("Este pedido ya no tiene productos pendientes.");
+
+        var resueltas = new List<SolicitudProducto>();
+        var nombres = new List<string>();
+        foreach (var item in pendientes)
+        {
+            var resuelta = await ResolverSinNotificarAsync(item.Id, gestorId, gestorNombre, dto, ct);
+            resueltas.Add(resuelta);
+            nombres.Add($"{resuelta.Cantidad}x {resuelta.Producto?.Nombre}");
+        }
+
+        var resumen = ResumirNombres(nombres);
+        var mensaje = $"Tu pedido ({resumen}) fue {(dto.Aprobar ? "aprobado" : "rechazado")} por {gestorNombre}.";
+        await NotificarResolucionAsync(pedido.SolicitanteId, dto.Aprobar, mensaje, ct);
+
+        return resueltas;
+    }
+
+    private async Task<SolicitudProducto> ResolverSinNotificarAsync(int solicitudId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct)
     {
         var solicitud = await repositorio.ObtenerPorIdAsync(solicitudId, ct)
             ?? throw new InvalidOperationException("La solicitud no existe.");
@@ -78,14 +156,72 @@ public class SolicitudService(
 
         await repositorio.ActualizarAsync(solicitud, ct);
 
-        var aprobada = solicitud.Estado == EstadoSolicitud.Aprobada;
+        if (dto.Aprobar)
+            await DescontarStockAsync(solicitud.ProductoId, solicitud.Cantidad, ct);
+
+        return solicitud;
+    }
+
+    /// <summary>
+    /// Descuenta la cantidad aprobada del stock del producto. No bloquea la aprobación
+    /// si no alcanza: el stock puede quedar en negativo como señal de que hay que reponer
+    /// (decisión de negocio — ver docs/MEJORAS_PROPUESTAS.md).
+    /// </summary>
+    private async Task DescontarStockAsync(int productoId, int cantidad, CancellationToken ct)
+    {
+        var producto = await productos.ObtenerPorIdAsync(productoId, ct);
+        if (producto is null)
+            return;
+
+        var stockAnterior = producto.Stock;
+        producto.Stock -= cantidad;
+        await productos.ActualizarAsync(producto, ct);
+
+        // Alerta solo en la TRANSICIÓN hacia stock bajo, no en cada aprobación posterior
+        // mientras siga bajo — evita spamear al gestor con la misma alerta una y otra vez.
+        if (producto.StockMinimo is int minimo && stockAnterior > minimo && producto.Stock <= minimo)
+            await AlertarStockBajoAsync(producto, ct);
+    }
+
+    private async Task AlertarStockBajoAsync(Producto producto, CancellationToken ct)
+    {
+        try
+        {
+            var mensaje = $"\"{producto.Nombre}\" quedó con stock {producto.Stock} (mínimo configurado: {producto.StockMinimo}).";
+            var idsGestores = await gestores.ObtenerIdsGestoresAsync(ct);
+            foreach (var gestorId in idsGestores)
+                await NotificarAsync(gestorId, "Stock bajo", mensaje, "/catalogo", TipoNotificacion.StockBajo, ct);
+        }
+        catch
+        {
+            // Best-effort: el descuento de stock ya quedó guardado aunque la notificación falle.
+        }
+    }
+
+    private async Task NotificarResolucionAsync(string solicitanteId, bool aprobada, string mensaje, CancellationToken ct)
+    {
+        try
+        {
+            await NotificarAsync(solicitanteId, aprobada ? "Pedido aprobado" : "Pedido rechazado", mensaje, "/solicitudes/mis-solicitudes", TipoNotificacion.SolicitudResuelta, ct);
+        }
+        catch
+        {
+            // Best-effort: la resolución ya quedó guardada aunque la notificación falle.
+        }
+    }
+
+    private async Task NotificarAsync(string usuarioDestinoId, string titulo, string mensaje, string url, TipoNotificacion tipo, CancellationToken ct)
+    {
+        if (mensaje.Length > MensajeMaxLength)
+            mensaje = string.Concat(mensaje.AsSpan(0, MensajeMaxLength - 1), "…");
+
         var notificacion = new Notificacion
         {
-            UsuarioDestinoId = solicitud.SolicitanteId,
-            Tipo = TipoNotificacion.SolicitudResuelta,
-            Titulo = aprobada ? "Pedido aprobado" : "Pedido rechazado",
-            Mensaje = $"Tu pedido de \"{solicitud.Producto?.Nombre}\" fue {(aprobada ? "aprobado" : "rechazado")} por {gestorNombre}.",
-            Url = "/solicitudes/mis-solicitudes"
+            UsuarioDestinoId = usuarioDestinoId,
+            Tipo = tipo,
+            Titulo = titulo,
+            Mensaje = mensaje,
+            Url = url
         };
 
         var guardada = await notificaciones.CrearAsync(notificacion, ct);

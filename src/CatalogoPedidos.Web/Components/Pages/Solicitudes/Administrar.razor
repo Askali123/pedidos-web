@@ -2,129 +2,132 @@
 @attribute [Authorize(Roles = Roles.Gestor)]
 @inject ISolicitudService Solicitudes
 @inject IProductoService Productos
+@inject PageHeaderState HeaderState
 
 <PageTitle>Administrar pedidos</PageTitle>
 
-<h1>Administrar pedidos</h1>
+<div class="space-y-4">
+    <Card>
+        <div class="flex flex-wrap items-end gap-4">
+            <div>
+                <label class="form-label">Desde</label>
+                <input type="date" class="form-input w-auto" @bind="fechaDesde" @bind:after="Buscar" />
+            </div>
 
-<div class="filtros">
-    <div class="campo">
-        <label>Desde</label>
-        <input type="date" @bind="fechaDesde" @bind:after="Buscar" />
-    </div>
+            <div>
+                <label class="form-label">Hasta</label>
+                <input type="date" class="form-input w-auto" @bind="fechaHasta" @bind:after="Buscar" />
+            </div>
 
-    <div class="campo">
-        <label>Hasta</label>
-        <input type="date" @bind="fechaHasta" @bind:after="Buscar" />
-    </div>
+            <div>
+                <label class="form-label">Usuario</label>
+                <select class="form-select w-auto" @bind="solicitanteId" @bind:after="Buscar">
+                    <option value="">Todos</option>
+                    @foreach (var s in solicitantes)
+                    {
+                        <option value="@s.Id">@s.Nombre</option>
+                    }
+                </select>
+            </div>
 
-    <div class="campo">
-        <label>Usuario</label>
-        <select @bind="solicitanteId" @bind:after="Buscar">
-            <option value="">Todos</option>
-            @foreach (var s in solicitantes)
-            {
-                <option value="@s.Id">@s.Nombre</option>
-            }
-        </select>
-    </div>
+            <div>
+                <label class="form-label">Producto</label>
+                <select class="form-select w-auto" @bind="productoId" @bind:after="Buscar">
+                    <option value="">Todos</option>
+                    @foreach (var p in catalogo)
+                    {
+                        <option value="@p.Id">@p.Nombre</option>
+                    }
+                </select>
+            </div>
 
-    <div class="campo">
-        <label>Producto</label>
-        <select @bind="productoId" @bind:after="Buscar">
-            <option value="">Todos</option>
-            @foreach (var p in catalogo)
-            {
-                <option value="@p.Id">@p.Nombre</option>
-            }
-        </select>
-    </div>
+            <div>
+                <label class="form-label">Estado</label>
+                <select class="form-select w-auto" @bind="estado" @bind:after="Buscar">
+                    <option value="">Todos</option>
+                    <option value="@EstadoSolicitud.Pendiente">Pendiente</option>
+                    <option value="@EstadoSolicitud.Aprobada">Aprobada</option>
+                    <option value="@EstadoSolicitud.Rechazada">Rechazada</option>
+                </select>
+            </div>
 
-    <div class="campo">
-        <label>Estado</label>
-        <select @bind="estado" @bind:after="Buscar">
-            <option value="">Todos</option>
-            <option value="@EstadoSolicitud.Pendiente">Pendiente</option>
-            <option value="@EstadoSolicitud.Aprobada">Aprobada</option>
-            <option value="@EstadoSolicitud.Rechazada">Rechazada</option>
-        </select>
-    </div>
+            <div class="flex items-center gap-2">
+                <Button Variant="ButtonVariant.Secondary" OnClick="LimpiarFiltros">Limpiar</Button>
+                <a class="btn btn-secondary" href="@UrlReporte("pdf")" target="_blank"><Icon Name="download" Class="h-4 w-4" />PDF</a>
+                <a class="btn btn-success" href="@UrlReporte("excel")" target="_blank"><Icon Name="download" Class="h-4 w-4" />Excel</a>
+            </div>
+        </div>
+    </Card>
 
-    <div class="campo acciones-filtro">
-        <button class="btn secundario" @onclick="LimpiarFiltros">Limpiar filtros</button>
-        <a class="btn" href="@UrlReporte("pdf")" target="_blank">Exportar a PDF</a>
-        <a class="btn excel" href="@UrlReporte("excel")" target="_blank">Exportar a Excel</a>
-    </div>
+    @if (resultados is null)
+    {
+        <Loading />
+    }
+    else if (resultados.Count == 0)
+    {
+        <div class="card"><EmptyState Icon="adjustments" Title="Sin resultados" Description="Ningún pedido coincide con estos filtros." /></div>
+    }
+    else
+    {
+        <Card Title="@($"{resultados.Count} resultado(s)")">
+            <div class="table-wrap">
+                <table class="table-enterprise">
+                    <thead>
+                        <tr>
+                            <th>N.º</th>
+                            <th>Pedido</th>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Solicitante</th>
+                            <th>Fecha</th>
+                            <th>Estado</th>
+                            <th>Gestor</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in paginaActual)
+                        {
+                            <tr>
+                                <td class="text-gray-400">#@s.Id</td>
+                                <td class="text-gray-400">#@s.PedidoId</td>
+                                <td class="font-medium text-gray-900">@s.Producto?.Nombre</td>
+                                <td>@s.Cantidad</td>
+                                <td>@s.SolicitanteNombre</td>
+                                <td>@s.FechaSolicitud.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                <td><Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge></td>
+                                <td>@(s.GestorNombre ?? "-")</td>
+                                <td class="text-right"><a class="btn btn-secondary btn-sm" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <Pagination CurrentPage="paginaNumero" TotalPages="totalPaginas" CurrentPageChanged="p => paginaNumero = p" />
+            </div>
+        </Card>
+    }
 </div>
 
-@if (resultados is null)
-{
-    <p>Cargando...</p>
-}
-else
-{
-    <p>@resultados.Count resultado(s)</p>
-
-    <table class="tabla">
-        <thead>
-            <tr>
-                <th>N.º</th>
-                <th>Producto</th>
-                <th>Cantidad</th>
-                <th>Solicitante</th>
-                <th>Fecha</th>
-                <th>Estado</th>
-                <th>Gestor</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var s in resultados)
-            {
-                <tr>
-                    <td>@s.Id</td>
-                    <td>@s.Producto?.Nombre</td>
-                    <td>@s.Cantidad</td>
-                    <td>@s.SolicitanteNombre</td>
-                    <td>@s.FechaSolicitud.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                    <td><span class="estado estado-@s.Estado">@s.Estado</span></td>
-                    <td>@(s.GestorNombre ?? "-")</td>
-                    <td><a class="btn" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a></td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
-
-<style>
-    .filtros { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: flex-end; }
-    .campo { display: flex; flex-direction: column; gap: 0.25rem; }
-    .campo select, .campo input { padding: 0.4rem 0.5rem; }
-    .acciones-filtro { flex-direction: row; gap: 0.5rem; }
-    .tabla { width: 100%; border-collapse: collapse; }
-    .tabla th, .tabla td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ddd; }
-    .btn { display: inline-block; padding: 0.35rem 0.75rem; background: #1b1f27; color: white; text-decoration: none; border-radius: 4px; border: none; cursor: pointer; }
-    .btn.secundario { background: #6c757d; }
-    .btn.excel { background: #1e7e34; }
-    .estado { padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.85rem; }
-    .estado-Pendiente { background: #fff3cd; color: #856404; }
-    .estado-Aprobada { background: #d4edda; color: #155724; }
-    .estado-Rechazada { background: #f8d7da; color: #721c24; }
-</style>
-
 @code {
+    private const int TamanoPagina = 10;
+
     private DateTime? fechaDesde;
     private DateTime? fechaHasta;
     private string solicitanteId = "";
     private string productoId = "";
     private string estado = "";
+    private int paginaNumero = 1;
 
     private List<SolicitudProducto>? resultados;
     private List<SolicitanteResumenDto> solicitantes = new();
     private List<Producto> catalogo = new();
 
+    private int totalPaginas => resultados is null ? 1 : Math.Max(1, (int)Math.Ceiling(resultados.Count / (double)TamanoPagina));
+    private IEnumerable<SolicitudProducto> paginaActual => (resultados ?? []).Skip((paginaNumero - 1) * TamanoPagina).Take(TamanoPagina);
+
     protected override async Task OnInitializedAsync()
     {
+        HeaderState.Set("Administrar pedidos", [("Administrar pedidos", null)]);
         solicitantes = await Solicitudes.ObtenerSolicitantesAsync();
         catalogo = await Productos.ObtenerCatalogoAsync();
         await Buscar();
@@ -143,6 +146,7 @@ else
         };
 
         resultados = await Solicitudes.BuscarAsync(filtro);
+        paginaNumero = 1;
     }
 
     private async Task LimpiarFiltros()

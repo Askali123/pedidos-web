@@ -6,11 +6,13 @@ public class SolicitudProducto
 {
     public int Id { get; set; }
 
+    public int PedidoId { get; set; }
+    public Pedido? Pedido { get; set; }
+
     public int ProductoId { get; set; }
     public Producto? Producto { get; set; }
 
     public int Cantidad { get; set; }
-    public string? Comentario { get; set; }
 
     public string SolicitanteId { get; set; } = string.Empty;
     public string SolicitanteNombre { get; set; } = string.Empty;

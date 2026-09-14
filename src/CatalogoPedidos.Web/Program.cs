@@ -31,6 +31,8 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<PageHeaderState>();
+builder.Services.AddScoped<CarritoState>();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 
@@ -110,6 +112,22 @@ app.MapGet("/api/solicitudes/{id:int}/pdf", async (int id, ISolicitudService sol
 
     var bytes = pdf.ExportarSolicitud(solicitud);
     return Results.File(bytes, "application/pdf", $"solicitud-{solicitud.Id}.pdf");
+}).RequireAuthorization();
+
+app.MapGet("/api/pedidos/{id:int}/pdf", async (int id, ISolicitudService solicitudes, IPdfExportService pdf, ClaimsPrincipal usuario) =>
+{
+    var pedido = await solicitudes.ObtenerPedidoAsync(id);
+    if (pedido is null)
+        return Results.NotFound();
+
+    var userId = usuario.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    var esGestor = usuario.IsInRole(Roles.Gestor);
+
+    if (!esGestor && pedido.SolicitanteId != userId)
+        return Results.Forbid();
+
+    var bytes = pdf.ExportarPedido(pedido);
+    return Results.File(bytes, "application/pdf", $"pedido-{pedido.Id}.pdf");
 }).RequireAuthorization();
 
 static FiltroSolicitudesDto ConstruirFiltroReporte(DateTime? desde, DateTime? hasta, string? solicitanteId, int? productoId, CatalogoPedidos.Domain.Enums.EstadoSolicitud? estado)
