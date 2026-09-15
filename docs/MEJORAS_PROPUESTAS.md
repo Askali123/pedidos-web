@@ -34,25 +34,50 @@ el proyecto (seguir aprendiendo conceptos nuevos vs. acercarlo a algo "productio
   > mínimo y stock nuevo ≤ mínimo) — evita reenviar la misma alerta en cada aprobación
   posterior mientras el stock siga bajo. El catálogo muestra una insignia "⚠ Bajo" junto al
   número cuando `Stock ≤ StockMinimo`.
-- **Recordatorio de solicitudes pendientes.** Hoy la Bandeja solo resalta visualmente las
-  solicitudes con más de 48h sin resolver. Podría convertirse en una notificación activa
-  (ej. un job periódico o un chequeo al cargar la Bandeja) en vez de depender de que el
-  gestor entre a mirar.
-- **Editar/desactivar proveedores.** Hoy `IProveedorService` solo permite crear y listar.
-  Falta `ActualizarAsync`/`DesactivarAsync`, análogo a como `Producto.Activo` ya existe.
+- ~~**Recordatorio de solicitudes pendientes.**~~ **Hecho.** Se agregó
+  `RecordatorioPendientesHostedService` (`BackgroundService`, primer job en segundo plano
+  de la app): corre una vez al iniciar y luego cada hora, sin depender de que el gestor
+  tenga la Bandeja abierta. `ISolicitudService.EnviarRecordatoriosPendientesAsync` agrupa
+  las solicitudes pendientes por `Pedido`, y si un pedido lleva más de 48h y todavía no se
+  le avisó (`Pedido.RecordatorioEnviado`), notifica a los gestores **una sola vez** — no
+  repite el aviso en cada corrida mientras siga sin resolverse, siguiendo el mismo patrón
+  de "notificar solo en la transición" que ya se usaba para stock bajo.
+- ~~**Editar/desactivar proveedores.**~~ **Hecho.** `IProveedorService.ActualizarAsync` edita
+  los datos de contacto y `DesactivarAsync` pone `Proveedor.Activo = false` (el repositorio
+  ya filtraba por ese campo, solo faltaba cómo apagarlo). En `Proveedores.razor`: "Editar"
+  abre un modal pre-cargado con los datos actuales, y "Desactivar" pide confirmación
+  (`ConfirmDialog`) antes de aplicar — deja de aparecer en la lista y para asociarlo a
+  productos nuevos, pero sus asociaciones `ProductoProveedor` existentes se conservan
+  intactas (verificado: los productos de un proveedor desactivado se ven igual en
+  `/proveedores/{id}/productos`).
 
 ## 2. Importación desde Excel (`ExcelProductoImportador`)
 
-- **Vista previa antes de confirmar.** Ahora mismo se sube el archivo y se importa de
-  inmediato. Sería más seguro (dado que reimportar actualiza productos existentes) mostrar
-  primero una tabla de "esto se va a crear / esto se va a actualizar" y pedir confirmación.
-- **Detectar códigos duplicados dentro del mismo archivo.** Si el proveedor repite un
-  `CODIGO` en dos filas del Excel, la segunda pisa silenciosamente lo que dejó la primera
-  (mismo comportamiento de upsert que para reimportaciones legítimas). Convendría
-  detectarlo y reportarlo como advertencia en `ImportarProductosResultado.Errores`.
-- **Capturar precio del proveedor.** El modelo `ProductoProveedor.PrecioProveedor` ya
-  existe pero el importador no lo llena. Se podría aceptar una columna `PRECIO` opcional
-  en el Excel.
+- ~~**Vista previa antes de confirmar.**~~ **Hecho.** `IProductoImportador` se dividió en
+  dos pasos: `AnalizarAsync` lee el Excel y clasifica cada fila (nueva/actualización)
+  **sin** tocar la base de datos, y `ConfirmarAsync` recién ahí aplica los cambios.
+  `ImportarProductos.razor` muestra la vista previa completa (fila, código, producto,
+  categoría, unidad, estado, y el nombre anterior cuando una actualización lo cambia) con
+  los conteos "X nuevos, Y actualizaciones" antes de que el gestor confirme. Verificado con
+  el Excel real: la vista previa anticipó "0 nuevos, 219 actualizaciones" y el resultado
+  final coincidió exactamente.
+- ~~**Detectar códigos duplicados dentro del mismo archivo.**~~ **Hecho.**
+  `ExcelProductoImportador.AnalizarAsync` detecta cuando un `CODIGO` se repite en el mismo
+  archivo, agrega una advertencia a `ResultadoAnalisisImportacion.Errores` (fila actual +
+  en qué fila apareció la primera vez) y deja solo **una** fila por código en la vista
+  previa — con los datos de la última aparición, que es lo que igual habría terminado
+  guardado (ya no se procesan como si fueran dos productos distintos). Verificado con un
+  archivo de prueba: 1 advertencia mostrada, la vista previa y el resultado final
+  coincidieron en "2 producto(s) nuevo(s)" (no 3), y el producto quedó con los datos de la
+  última fila.
+- ~~**Capturar precio del proveedor.**~~ **Hecho.** El Excel acepta una columna `PRECIO`
+  opcional (numérica o texto, con coma o punto decimal); si está, se guarda en
+  `ProductoProveedor.PrecioProveedor` al crear o actualizar, y la vista previa la muestra.
+  Regla importante: el precio **solo se toca si esa fila realmente trae uno** — si la
+  columna no existe en el archivo o la celda viene vacía, no se borra un precio que el
+  gestor ya hubiera cargado a mano. Se agregó `IProductoProveedorRepository.ActualizarAsync`
+  (no existía). Verificado: al reimportar el mismo código con la celda de precio vacía, el
+  precio ya guardado se conservó intacto en vez de borrarse.
 - **Rendimiento en catálogos grandes.** Cada fila hace dos operaciones separadas
   (`IProductoRepository.CrearAsync` + `IProductoProveedorRepository.CrearAsync`), cada una
   abriendo su propio `DbContext` vía `IDbContextFactory` y su propio `SaveChanges` — bien
@@ -161,8 +186,72 @@ en mente como patrón general para el resto del código:
   método de servicio. Funciona bien a esta escala; si crece, FluentValidation (u otra
   librería) puede ordenar esas reglas en un solo lugar por comando/DTO.
 
+## 11. Login y Registro (funcionalidad)
+
+- ~~**Asignar el rol "Usuario" al registrarse.**~~ **Hecho.** `Register.razor` llama a
+  `UserManager.AddToRoleAsync(user, Roles.Usuario)` justo después de crear la cuenta,
+  con un `Logger.LogWarning` como respaldo si la asignación fallara. Verificado
+  registrando una cuenta nueva por el formulario: el log de EF Core mostró el
+  `INSERT INTO [AspNetUserRoles]` y, tras iniciar sesión, el menú lateral solo mostró
+  las opciones de nivel Usuario (sin la sección "Gestión").
+- ~~**Pedir "Nombre completo" en el registro.**~~ **Hecho.** Se agregó el campo
+  "Nombre completo" como primero del formulario de registro (`[Required]`), que se
+  guarda en `ApplicationUser.NombreCompleto` al crear la cuenta. Para que el dato
+  capturado realmente se vea en la app (y no quede guardado sin uso), se creó
+  `ApplicationUserExtensions.NombreParaMostrar()` — devuelve el `NombreCompleto` si
+  existe, o cae de vuelta al nombre de usuario/email para cuentas antiguas que no lo
+  tienen — y se conectó en los tres lugares que antes mostraban `Identity.Name`:
+  `UserMenu.razor` (avatar, nombre en el topbar y en el dropdown), `Carrito.razor`
+  (nombre del solicitante al crear un pedido) y `Bandeja.razor` (nombre del gestor al
+  aprobar/rechazar). Verificado en el navegador: registrando una cuenta nueva
+  ("Carlos Prueba Registro") y enviando un pedido desde el carrito, la Bandeja del
+  gestor mostró "Pedido #48 · Carlos Prueba Registro" (no el email), y el topbar del
+  gestor mostró "Gestor de Catálogo" en vez de "gestor@catalogo.local".
+- **Habilitar el bloqueo por intentos fallidos en el login.** `Login.razor` llama a
+  `SignInManager.PasswordSignInAsync(..., lockoutOnFailure: false)`, lo que desactiva el
+  bloqueo por fuerza bruta que Identity ya trae configurado por defecto (5 intentos
+  fallidos). Hoy se pueden probar contraseñas sin límite.
+- ~~**Restilizar `Register.razor` con el Design System propio**~~ **Hecho.** Se
+  reescribió con `Card`/`FormField`/`Button`/`Alert`, igual que `Login.razor`, en vez del
+  markup scaffolded de Microsoft (Bootstrap: `btn-primary`, `form-floating`). De paso se
+  creó un `AuthLayout.razor` propio: sin sidebar ni topbar, solo el logo y el formulario
+  centrados — antes estas páginas heredaban el `MainLayout` completo (sidebar con
+  "Catálogo" visible incluso sin sesión, topbar con carrito/notificaciones). Este layout
+  se extendió a **toda** la familia de pantallas de Identity que se navegan sin sesión
+  iniciada, no solo Login/Register, para que el sidebar/topbar no reaparezca al seguir
+  esos flujos: `ForgotPassword`, `ForgotPasswordConfirmation`, `ResendEmailConfirmation`,
+  `ResetPassword`, `ResetPasswordConfirmation`, `Lockout`, `InvalidPasswordReset` (estas,
+  además, con el mismo restyle Card/FormField/Alert y traducción al español), y también
+  `RegisterConfirmation`, `ConfirmEmail`, `ConfirmEmailChange`, `LoginWith2fa`,
+  `LoginWithRecoveryCode`, `ExternalLogin`, `InvalidUser` (solo se les quitó el layout con
+  sidebar, sin rediseño visual completo, por ser pantallas de borde que hoy casi no se
+  alcanzan — sin 2FA activado, sin proveedores externos y sin envío real de correo).
+  `AccessDenied.razor` y las páginas de `Account/Manage/*` se dejaron con el `MainLayout`
+  normal a propósito: ahí el usuario ya tiene sesión iniciada y le sirve poder navegar a
+  otra parte de la app. También se ocultó el texto en inglés de `ExternalLoginPicker`
+  ("There are no external authentication services configured...") cuando no hay
+  proveedores externos configurados, ya que no aporta nada en este proyecto. Verificado
+  en el navegador: Login, Register, "¿Olvidaste tu contraseña?" y "Reenviar confirmación
+  de email" muestran únicamente el formulario centrado (sin sidebar ni topbar); un
+  registro completo sigue creando la cuenta, asignando el rol Usuario y llevando al
+  usuario ya autenticado al inicio; y un login normal sigue funcionando y mostrando el
+  sidebar/topbar completos una vez autenticado.
+- ~~**Traducir `Register.razor` al español.**~~ **Hecho.** Título, subtítulo, etiquetas de
+  campo y mensajes de validación quedaron en español ("Crear cuenta", "Nombre completo",
+  "La contraseña y su confirmación no coinciden", etc.), consistente con el resto de la
+  app y con `Login.razor`.
+- **Aclarar que la confirmación de email no envía nada real.** `IdentityNoOpEmailSender`
+  es un no-op (no manda correos de verdad). Como `RequireConfirmedAccount = false` esto no
+  bloquea el login, pero el mensaje que ve el usuario tras registrarse ("revisa tu correo")
+  es engañoso — convendría decir explícitamente que la confirmación de email está
+  desactivada en este entorno de práctica.
+- **Decidir cómo se asigna el rol "Gestor".** Hoy no hay ningún mecanismo para que alguien
+  se registre como Gestor (ni por invitación, ni por dominio de correo, ni que un Gestor
+  pueda promover a otro usuario después) — vale la pena definir la regla antes de que haga
+  falta en la práctica.
+
 ---
 
-*Última actualización: reflejando el estado del proyecto tras agregar importación desde
-Excel con código de proveedor, alta manual con proveedor+código, y el flujo de carrito
-multi-producto para solicitudes.*
+*Última actualización: reflejando el estado del proyecto tras completar la sección 1
+(modelo de datos), los primeros tres puntos de importación desde Excel (vista previa,
+duplicados, precio del proveedor), y agregar la sección 11 (Login y Registro).*
