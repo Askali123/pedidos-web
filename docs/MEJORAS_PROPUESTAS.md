@@ -69,6 +69,27 @@ el proyecto (seguir aprendiendo conceptos nuevos vs. acercarlo a algo "productio
   proveedor "Distribuciones Andinas": la tabla mostró código interno y código de proveedor
   por fila, y el PDF exportado con `?proveedorId=2` pesó distinto (más columnas) que el
   general.
+- ~~**Llevar el mismo filtro por proveedor (con código interno y código de proveedor) a
+  "Administrar pedidos", exportable a Excel y PDF, para armar el pedido que el gestor le
+  envía a cada proveedor.**~~ **Hecho.** `Administrar.razor` (`/solicitudes/administrar`)
+  suma un cuarto filtro "Proveedor" junto a fecha/usuario/producto/estado.
+  `FiltroSolicitudesDto` ganó `ProveedorId`, y `SolicitudRepository.BuscarAsync` lo aplica
+  como `s.Producto!.Proveedores.Any(pp => pp.ProveedorId == ...)` — o sea, solo deja ver las
+  líneas cuyo producto está asociado a ese proveedor. Igual que en el catálogo, al elegir un
+  proveedor aparecen las columnas **Código interno** (`Producto.Id`) y **Código proveedor**
+  (buscado en un diccionario armado con `IProveedorService.ObtenerProductosDeProveedorAsync`,
+  indexado por `ProductoId`). Los botones "PDF" y "Excel" ya existentes ahora arman la URL
+  con `proveedorId` incluido, y los endpoints `/api/solicitudes/reporte/pdf` y `/excel`
+  generan un documento con formato de "pedido a proveedor" (`IPdfExportService` e
+  `IExcelExportService` ganaron `ExportarSolicitudesPorProveedor`) en vez del reporte
+  genérico cuando ese filtro está activo — así el gestor puede filtrar por proveedor y
+  mandarle directamente ese Excel/PDF con los códigos que ese proveedor reconoce. Ambos
+  endpoints de reporte ya eran exclusivos de Gestor desde antes, así que no hizo falta
+  ninguna validación de rol adicional. Verificado en el navegador: filtrar por
+  "Distribuciones Andinas" bajó de 84 a 70 resultados y mostró los mismos códigos que en el
+  catálogo (p.ej. producto #13 → código de proveedor 1763); "Limpiar" quita el filtro y las
+  columnas de código desaparecen; los tres formatos (tabla, Excel, PDF) respondieron 200 con
+  el filtro activo.
 
 ## 2. Importación desde Excel (`ExcelProductoImportador`)
 
