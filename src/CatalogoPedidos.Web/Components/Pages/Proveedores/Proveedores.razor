@@ -40,7 +40,11 @@
                                     <td>@p.Telefono</td>
                                     <td>@p.Email</td>
                                     <td class="text-right">
-                                        <a class="btn btn-secondary btn-sm" href="/proveedores/@p.Id/productos">Ver productos</a>
+                                        <div class="flex items-center gap-2 justify-end">
+                                            <a class="btn btn-secondary btn-sm" href="/proveedores/@p.Id/productos">Ver productos</a>
+                                            <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="pencil" OnClick="() => AbrirEditar(p)">Editar</Button>
+                                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="trash" OnClick="() => PedirConfirmacionDesactivar(p)">Desactivar</Button>
+                                        </div>
                                     </td>
                                 </tr>
                             }
@@ -87,10 +91,62 @@
     </Card>
 </div>
 
+<Modal Visible="modalEditarVisible" VisibleChanged="v => modalEditarVisible = v" Title="Editar proveedor">
+    <ChildContent>
+        <EditForm Model="modeloEditar" OnValidSubmit="GuardarEdicion" FormName="editar-proveedor">
+            <DataAnnotationsValidator />
+
+            <FormField Label="Nombre" Required="true">
+                <InputText @bind-Value="modeloEditar.Nombre" class="form-input" />
+            </FormField>
+
+            <FormField Label="NIT">
+                <InputText @bind-Value="modeloEditar.Nit" class="form-input" />
+            </FormField>
+
+            <FormField Label="Contacto">
+                <InputText @bind-Value="modeloEditar.Contacto" class="form-input" />
+            </FormField>
+
+            <FormField Label="Teléfono">
+                <InputText @bind-Value="modeloEditar.Telefono" class="form-input" />
+            </FormField>
+
+            <FormField Label="Email">
+                <InputText @bind-Value="modeloEditar.Email" class="form-input" />
+            </FormField>
+
+            @if (!string.IsNullOrEmpty(errorEditar))
+            {
+                <Alert Variant="AlertVariant.Danger">@errorEditar</Alert>
+            }
+
+            <button type="submit" class="hidden" aria-hidden="true"></button>
+        </EditForm>
+    </ChildContent>
+    <Footer>
+        <Button Variant="ButtonVariant.Ghost" OnClick="() => modalEditarVisible = false">Cancelar</Button>
+        <Button Variant="ButtonVariant.Primary" Icon="check" OnClick="GuardarEdicion">Guardar</Button>
+    </Footer>
+</Modal>
+
+<ConfirmDialog @bind-Visible="confirmandoDesactivar" Title="Desactivar proveedor" Danger="true"
+               Message="@($"¿Desactivar a \"{proveedorADesactivarNombre}\"? Dejará de aparecer para asociarlo a productos nuevos; sus asociaciones existentes se conservan.")"
+               ConfirmText="Desactivar" OnConfirm="ConfirmarDesactivar" />
+
 @code {
     private List<Proveedor>? proveedores;
     private CrearProveedorDto modelo = new();
     private string? mensaje;
+
+    private bool modalEditarVisible;
+    private int proveedorEditandoId;
+    private CrearProveedorDto modeloEditar = new();
+    private string? errorEditar;
+
+    private bool confirmandoDesactivar;
+    private int proveedorADesactivarId;
+    private string? proveedorADesactivarNombre;
 
     protected override async Task OnInitializedAsync()
     {
@@ -108,6 +164,49 @@
         await ProveedorService.CrearAsync(modelo);
         mensaje = $"Proveedor '{modelo.Nombre}' guardado correctamente.";
         modelo = new();
+        await Cargar();
+    }
+
+    private void AbrirEditar(Proveedor proveedor)
+    {
+        proveedorEditandoId = proveedor.Id;
+        modeloEditar = new CrearProveedorDto
+        {
+            Nombre = proveedor.Nombre,
+            Nit = proveedor.Nit,
+            Contacto = proveedor.Contacto,
+            Telefono = proveedor.Telefono,
+            Email = proveedor.Email
+        };
+        errorEditar = null;
+        modalEditarVisible = true;
+    }
+
+    private async Task GuardarEdicion()
+    {
+        errorEditar = null;
+        try
+        {
+            await ProveedorService.ActualizarAsync(proveedorEditandoId, modeloEditar);
+            modalEditarVisible = false;
+            await Cargar();
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorEditar = ex.Message;
+        }
+    }
+
+    private void PedirConfirmacionDesactivar(Proveedor proveedor)
+    {
+        proveedorADesactivarId = proveedor.Id;
+        proveedorADesactivarNombre = proveedor.Nombre;
+        confirmandoDesactivar = true;
+    }
+
+    private async Task ConfirmarDesactivar()
+    {
+        await ProveedorService.DesactivarAsync(proveedorADesactivarId);
         await Cargar();
     }
 }

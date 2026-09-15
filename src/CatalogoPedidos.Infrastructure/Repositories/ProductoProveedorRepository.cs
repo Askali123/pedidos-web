@@ -65,6 +65,13 @@ public class ProductoProveedorRepository(IDbContextFactory<AppDbContext> dbFacto
         return asociacion;
     }
 
+    public async Task ActualizarAsync(ProductoProveedor asociacion, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        db.ProductoProveedores.Update(asociacion);
+        await db.SaveChangesAsync(ct);
+    }
+
     public async Task EliminarAsync(int id, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);

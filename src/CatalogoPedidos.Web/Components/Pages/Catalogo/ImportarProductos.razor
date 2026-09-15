@@ -6,43 +6,132 @@
 
 <PageTitle>Importar productos</PageTitle>
 
-<div class="max-w-2xl space-y-4">
+<div class="max-w-3xl space-y-4">
     <Card Title="Importar catálogo desde Excel del proveedor">
         <p class="text-sm text-gray-600">
             El archivo debe tener, en la primera fila, las columnas
             <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">TIPO, CODIGO, PRODUCTOS, UNIDAD</code>
+            y opcionalmente <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">PRECIO</code>
             (la columna <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">CANTIDAD</code> de la requisición se ignora).
             El <strong>CODIGO</strong> es el que asigna el proveedor a cada producto — no el Id interno del catálogo —
             así que primero hay que indicar de qué proveedor viene la lista.
         </p>
 
-        <pre class="bg-gray-50 border border-gray-200 rounded-md p-3 text-xs text-gray-600 mt-3 overflow-x-auto">TIPO   CODIGO   PRODUCTOS                      UNIDAD
-Aseo   1281     Abrasivo REGULAR               UNIDAD
-Aseo   319117   Alcohol Antiseptico Fire       GALON</pre>
+        <pre class="bg-gray-50 border border-gray-200 rounded-md p-3 text-xs text-gray-600 mt-3 overflow-x-auto">TIPO   CODIGO   PRODUCTOS                      UNIDAD   PRECIO
+Aseo   1281     Abrasivo REGULAR               UNIDAD   8500
+Aseo   319117   Alcohol Antiseptico Fire       GALON    32000</pre>
 
-        <div class="mt-4 space-y-4">
-            <FormField Label="Proveedor" Required="true">
-                <select class="form-select" @bind="proveedorId">
-                    <option value="0">Selecciona un proveedor...</option>
-                    @foreach (var p in proveedores)
-                    {
-                        <option value="@p.Id">@p.Nombre</option>
-                    }
-                </select>
-            </FormField>
+        @if (resultado is null)
+        {
+            <div class="mt-4 space-y-4">
+                <FormField Label="Proveedor" Required="true">
+                    <select class="form-select" @bind="proveedorId" disabled="@(analisis is not null)">
+                        <option value="0">Selecciona un proveedor...</option>
+                        @foreach (var p in proveedores)
+                        {
+                            <option value="@p.Id">@p.Nombre</option>
+                        }
+                    </select>
+                </FormField>
 
-            <div>
-                <InputFile OnChange="Importar" accept=".xlsx" class="form-input" disabled="@(proveedorId == 0)" />
-                @if (proveedorId == 0)
+                @if (analisis is null)
                 {
-                    <p class="text-xs text-gray-500 mt-1">Selecciona primero el proveedor.</p>
+                    <div>
+                        <InputFile OnChange="Analizar" accept=".xlsx" class="form-input" disabled="@(proveedorId == 0)" />
+                        @if (proveedorId == 0)
+                        {
+                            <p class="text-xs text-gray-500 mt-1">Selecciona primero el proveedor.</p>
+                        }
+                    </div>
                 }
             </div>
-        </div>
+        }
 
         @if (procesando)
         {
-            <Loading Label="Procesando archivo..." />
+            <Loading Label="Leyendo archivo..." />
+        }
+
+        @if (analisis is not null && resultado is null)
+        {
+            <div class="mt-4 space-y-3">
+                @if (analisis.Errores.Count > 0)
+                {
+                    <Alert Variant="AlertVariant.Danger">
+                        <p class="font-medium mb-1">Filas con problemas (no se van a importar):</p>
+                        <ul class="list-disc list-inside space-y-0.5">
+                            @foreach (var error in analisis.Errores)
+                            {
+                                <li>@error</li>
+                            }
+                        </ul>
+                    </Alert>
+                }
+
+                @if (analisis.Filas.Count == 0)
+                {
+                    <EmptyState Icon="inbox" Title="Nada para importar" Description="No se encontró ninguna fila válida en el archivo." />
+                }
+                else
+                {
+                    <Alert Variant="AlertVariant.Info">
+                        Se van a crear <strong>@analisis.TotalNuevos</strong> producto(s) nuevo(s) y
+                        actualizar <strong>@analisis.TotalActualizaciones</strong>. Revisa antes de confirmar.
+                    </Alert>
+
+                    <div class="table-wrap max-h-96 overflow-y-auto">
+                        <table class="table-enterprise">
+                            <thead>
+                                <tr>
+                                    <th>Fila</th>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th>Categoría</th>
+                                    <th>Unidad</th>
+                                    <th>Precio proveedor</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var fila in analisis.Filas)
+                                {
+                                    <tr>
+                                        <td class="text-gray-400">@fila.Fila</td>
+                                        <td><code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">@fila.Codigo</code></td>
+                                        <td class="font-medium text-gray-900">
+                                            @fila.Nombre
+                                            @if (fila.EsActualizacion && fila.NombreActual != fila.Nombre)
+                                            {
+                                                <span class="block text-xs text-gray-500 font-normal">antes: @fila.NombreActual</span>
+                                            }
+                                        </td>
+                                        <td class="text-gray-500">@fila.Categoria</td>
+                                        <td class="text-gray-500">@fila.UnidadMedida</td>
+                                        <td class="text-gray-500">@(fila.PrecioProveedor?.ToString("C") ?? "-")</td>
+                                        <td>
+                                            @if (fila.EsActualizacion)
+                                            {
+                                                <Badge Variant="BadgeVariant.Neutral">Actualización</Badge>
+                                            }
+                                            else
+                                            {
+                                                <Badge Variant="BadgeVariant.Success">Nuevo</Badge>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                <div class="flex items-center gap-2">
+                    <Button Variant="ButtonVariant.Primary" Icon="check" OnClick="Confirmar" Loading="confirmando" Disabled="@(analisis.Filas.Count == 0)">
+                        Confirmar importación
+                    </Button>
+                    <Button Variant="ButtonVariant.Ghost" OnClick="Cancelar">Cancelar</Button>
+                </div>
+            </div>
         }
 
         @if (resultado is not null)
@@ -64,6 +153,8 @@ Aseo   319117   Alcohol Antiseptico Fire       GALON</pre>
                         </ul>
                     </Alert>
                 }
+
+                <Button Variant="ButtonVariant.Secondary" OnClick="Cancelar">Importar otro archivo</Button>
             </div>
         }
     </Card>
@@ -71,8 +162,10 @@ Aseo   319117   Alcohol Antiseptico Fire       GALON</pre>
 
 @code {
     private bool procesando;
+    private bool confirmando;
     private int proveedorId;
     private List<Proveedor> proveedores = new();
+    private ResultadoAnalisisImportacion? analisis;
     private ImportarProductosResultado? resultado;
 
     protected override async Task OnInitializedAsync()
@@ -81,12 +174,13 @@ Aseo   319117   Alcohol Antiseptico Fire       GALON</pre>
         proveedores = await Proveedores.ObtenerTodosAsync();
     }
 
-    private async Task Importar(InputFileChangeEventArgs e)
+    private async Task Analizar(InputFileChangeEventArgs e)
     {
         if (proveedorId == 0)
             return;
 
         procesando = true;
+        analisis = null;
         resultado = null;
 
         try
@@ -99,11 +193,35 @@ Aseo   319117   Alcohol Antiseptico Fire       GALON</pre>
             await stream.CopyToAsync(memoria);
             memoria.Position = 0;
 
-            resultado = await Productos.ImportarDesdeArchivoAsync(memoria, proveedorId);
+            analisis = await Productos.AnalizarImportacionAsync(memoria, proveedorId);
         }
         finally
         {
             procesando = false;
         }
+    }
+
+    private async Task Confirmar()
+    {
+        if (analisis is null)
+            return;
+
+        confirmando = true;
+        try
+        {
+            resultado = await Productos.ConfirmarImportacionAsync(analisis.Filas, proveedorId);
+            analisis = null;
+        }
+        finally
+        {
+            confirmando = false;
+        }
+    }
+
+    private void Cancelar()
+    {
+        analisis = null;
+        resultado = null;
+        proveedorId = 0;
     }
 }

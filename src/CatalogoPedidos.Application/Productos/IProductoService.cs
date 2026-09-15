@@ -10,5 +10,6 @@ public interface IProductoService
     Task<Producto> CrearAsync(CrearProductoDto dto, CancellationToken ct = default);
     Task ActualizarAsync(int id, CrearProductoDto dto, CancellationToken ct = default);
     Task ActualizarStockMinimoAsync(int id, int? stockMinimo, CancellationToken ct = default);
-    Task<ImportarProductosResultado> ImportarDesdeArchivoAsync(Stream archivo, int proveedorId, CancellationToken ct = default);
+    Task<ResultadoAnalisisImportacion> AnalizarImportacionAsync(Stream archivo, int proveedorId, CancellationToken ct = default);
+    Task<ImportarProductosResultado> ConfirmarImportacionAsync(List<FilaImportacion> filas, int proveedorId, CancellationToken ct = default);
 }

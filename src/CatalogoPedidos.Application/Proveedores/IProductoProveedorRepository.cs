@@ -11,5 +11,6 @@ public interface IProductoProveedorRepository
     Task<bool> ExisteAsociacionAsync(int productoId, int proveedorId, CancellationToken ct = default);
     Task<bool> ExisteCodigoParaOtroProductoAsync(int proveedorId, string codigo, int productoId, CancellationToken ct = default);
     Task<ProductoProveedor> CrearAsync(ProductoProveedor asociacion, CancellationToken ct = default);
+    Task ActualizarAsync(ProductoProveedor asociacion, CancellationToken ct = default);
     Task EliminarAsync(int id, CancellationToken ct = default);
 }

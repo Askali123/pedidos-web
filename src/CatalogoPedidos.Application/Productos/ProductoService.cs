@@ -81,6 +81,9 @@ public class ProductoService(
         await repositorio.ActualizarAsync(producto, ct);
     }
 
-    public Task<ImportarProductosResultado> ImportarDesdeArchivoAsync(Stream archivo, int proveedorId, CancellationToken ct = default)
-        => importador.ImportarAsync(archivo, proveedorId, ct);
+    public Task<ResultadoAnalisisImportacion> AnalizarImportacionAsync(Stream archivo, int proveedorId, CancellationToken ct = default)
+        => importador.AnalizarAsync(archivo, proveedorId, ct);
+
+    public Task<ImportarProductosResultado> ConfirmarImportacionAsync(List<FilaImportacion> filas, int proveedorId, CancellationToken ct = default)
+        => importador.ConfirmarAsync(filas, proveedorId, ct);
 }

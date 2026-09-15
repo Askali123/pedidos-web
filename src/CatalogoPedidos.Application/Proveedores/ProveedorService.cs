@@ -31,6 +31,32 @@ public class ProveedorService(
         return proveedores.CrearAsync(proveedor, ct);
     }
 
+    public async Task ActualizarAsync(int id, CrearProveedorDto dto, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Nombre))
+            throw new InvalidOperationException("El nombre del proveedor es obligatorio.");
+
+        var proveedor = await proveedores.ObtenerPorIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"Proveedor {id} no encontrado.");
+
+        proveedor.Nombre = dto.Nombre;
+        proveedor.Nit = dto.Nit;
+        proveedor.Contacto = dto.Contacto;
+        proveedor.Telefono = dto.Telefono;
+        proveedor.Email = dto.Email;
+
+        await proveedores.ActualizarAsync(proveedor, ct);
+    }
+
+    public async Task DesactivarAsync(int id, CancellationToken ct = default)
+    {
+        var proveedor = await proveedores.ObtenerPorIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"Proveedor {id} no encontrado.");
+
+        proveedor.Activo = false;
+        await proveedores.ActualizarAsync(proveedor, ct);
+    }
+
     public Task<List<ProductoProveedor>> ObtenerProveedoresDeProductoAsync(int productoId, CancellationToken ct = default)
         => asociaciones.ObtenerPorProductoAsync(productoId, ct);
 
