@@ -1,6 +1,7 @@
 @page "/catalogo"
 @attribute [Authorize]
 @inject IProductoService Productos
+@inject IProveedorService Proveedores
 @inject PageHeaderState HeaderState
 @inject CarritoState Carrito
 @implements IDisposable
@@ -24,17 +25,29 @@
                 }
             </select>
 
-            <a class="btn btn-secondary" href="/api/catalogo/pdf" target="_blank">
+            <AuthorizeView Roles="@Roles.Gestor" Context="proveedorFiltroContext">
+                <Authorized>
+                    <select class="form-select w-auto" @bind="proveedorIdTexto" @bind:after="Filtrar">
+                        <option value="">Todos los proveedores</option>
+                        @foreach (var prov in proveedores)
+                        {
+                            <option value="@prov.Id">@prov.Nombre</option>
+                        }
+                    </select>
+                </Authorized>
+            </AuthorizeView>
+
+            <a class="btn btn-secondary" href="@UrlExportarPdf" target="_blank">
                 <Icon Name="download" Class="h-4 w-4" /> Exportar a PDF
             </a>
         </div>
     </Card>
 
-    @if (productos is null)
+    @if (filas is null)
     {
         <Loading />
     }
-    else if (productos.Count == 0)
+    else if (filas.Count == 0)
     {
         <div class="card"><EmptyState Icon="cube" Title="Sin resultados" Description="No hay productos que coincidan con la búsqueda." /></div>
     }
@@ -44,6 +57,11 @@
             <table class="table-enterprise">
                 <thead>
                     <tr>
+                        @if (proveedorId is not null)
+                        {
+                            <th>Código interno</th>
+                            <th>Código proveedor</th>
+                        }
                         <th>Nombre</th>
                         <th>Categoría</th>
                         <th>Descripción</th>
@@ -54,9 +72,15 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var p in paginaActual)
+                    @foreach (var fila in paginaActual)
                     {
+                        var p = fila.Producto;
                         <tr>
+                            @if (proveedorId is not null)
+                            {
+                                <td class="text-gray-500">#@p.Id</td>
+                                <td class="font-medium text-gray-900">@fila.CodigoProveedor</td>
+                            }
                             <td class="font-medium text-gray-900">@p.Nombre</td>
                             <td><Badge Variant="BadgeVariant.Neutral">@p.Categoria</Badge></td>
                             <td class="text-gray-500">@p.Descripcion</td>
@@ -123,26 +147,70 @@
 @code {
     private const int TamanoPagina = 8;
 
-    private List<Producto>? productos;
+    /// <summary>
+    /// Fila unificada para la tabla: viene del catálogo general (sin código de proveedor)
+    /// o de la vista filtrada por proveedor (con su código y, si no tiene precio propio
+    /// cargado, el precio general del producto).
+    /// </summary>
+    private sealed class FilaCatalogo
+    {
+        public required Producto Producto { get; init; }
+        public string? CodigoProveedor { get; init; }
+    }
+
+    private List<FilaCatalogo>? filas;
     private List<string> categorias = new();
+    private List<Proveedor> proveedores = new();
     private string texto = "";
     private string categoria = "";
+    private string proveedorIdTexto = "";
     private int paginaNumero = 1;
 
-    private int totalPaginas => productos is null ? 1 : Math.Max(1, (int)Math.Ceiling(productos.Count / (double)TamanoPagina));
-    private IEnumerable<Producto> paginaActual => (productos ?? []).Skip((paginaNumero - 1) * TamanoPagina).Take(TamanoPagina);
+    private int? proveedorId => int.TryParse(proveedorIdTexto, out var id) ? id : null;
+
+    private int totalPaginas => filas is null ? 1 : Math.Max(1, (int)Math.Ceiling(filas.Count / (double)TamanoPagina));
+    private IEnumerable<FilaCatalogo> paginaActual => (filas ?? []).Skip((paginaNumero - 1) * TamanoPagina).Take(TamanoPagina);
+
+    private string UrlExportarPdf
+    {
+        get
+        {
+            var query = new List<string> { "" };
+            if (!string.IsNullOrWhiteSpace(texto)) query.Add($"texto={Uri.EscapeDataString(texto)}");
+            if (!string.IsNullOrWhiteSpace(categoria)) query.Add($"categoria={Uri.EscapeDataString(categoria)}");
+            if (proveedorId is int id) query.Add($"proveedorId={id}");
+            return "/api/catalogo/pdf?" + string.Join("&", query.Skip(1));
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         HeaderState.Set("Catálogo", [("Catálogo", null)]);
         Carrito.Changed += Refrescar;
         categorias = await Productos.ObtenerCategoriasAsync();
+        proveedores = await Proveedores.ObtenerTodosAsync();
         await Filtrar();
     }
 
     private async Task Filtrar()
     {
-        productos = await Productos.ObtenerCatalogoAsync(texto, string.IsNullOrEmpty(categoria) ? null : categoria);
+        var textoFiltro = string.IsNullOrEmpty(texto) ? null : texto;
+        var categoriaFiltro = string.IsNullOrEmpty(categoria) ? null : categoria;
+
+        if (proveedorId is int id)
+        {
+            var asociaciones = await Proveedores.ObtenerProductosDeProveedorAsync(id, textoFiltro, categoriaFiltro, soloActivos: true);
+            filas = asociaciones
+                .Where(a => a.Producto is not null)
+                .Select(a => new FilaCatalogo { Producto = a.Producto!, CodigoProveedor = a.CodigoProveedor })
+                .ToList();
+        }
+        else
+        {
+            var catalogo = await Productos.ObtenerCatalogoAsync(textoFiltro, categoriaFiltro);
+            filas = catalogo.Select(p => new FilaCatalogo { Producto = p }).ToList();
+        }
+
         paginaNumero = 1;
     }
 

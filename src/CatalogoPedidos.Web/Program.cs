@@ -1,5 +1,6 @@
 using CatalogoPedidos.Application.Exportacion;
 using CatalogoPedidos.Application.Productos;
+using CatalogoPedidos.Application.Proveedores;
 using CatalogoPedidos.Application.Solicitudes;
 using CatalogoPedidos.Infrastructure;
 using CatalogoPedidos.Infrastructure.Identity;
@@ -91,9 +92,27 @@ app.MapAdditionalIdentityEndpoints();
 
 // --- Endpoints de exportación a PDF ---
 
-app.MapGet("/api/catalogo/pdf", async (IProductoService productos, IPdfExportService pdf) =>
+app.MapGet("/api/catalogo/pdf", async (
+    IProductoService productos,
+    IProveedorService proveedores,
+    IPdfExportService pdf,
+    ClaimsPrincipal usuario,
+    string? texto,
+    string? categoria,
+    int? proveedorId) =>
 {
-    var catalogo = await productos.ObtenerCatalogoAsync();
+    // El filtro/exportación por proveedor es una vista de gestión (códigos internos y del
+    // proveedor); si alguien intenta forzarlo por URL sin ser Gestor, se ignora el filtro
+    // y se exporta el catálogo general en su lugar.
+    if (proveedorId is int idProveedor && usuario.IsInRole(Roles.Gestor))
+    {
+        var proveedor = await proveedores.ObtenerPorIdAsync(idProveedor);
+        var asociaciones = await proveedores.ObtenerProductosDeProveedorAsync(idProveedor, texto, categoria, soloActivos: true);
+        var bytesProveedor = pdf.ExportarCatalogoPorProveedor(asociaciones, proveedor?.Nombre ?? "Proveedor");
+        return Results.File(bytesProveedor, "application/pdf", "catalogo-proveedor.pdf");
+    }
+
+    var catalogo = await productos.ObtenerCatalogoAsync(texto, categoria);
     var bytes = pdf.ExportarCatalogo(catalogo);
     return Results.File(bytes, "application/pdf", "catalogo.pdf");
 }).RequireAuthorization();

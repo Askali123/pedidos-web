@@ -11,7 +11,12 @@ public interface IProveedorService
     Task DesactivarAsync(int id, CancellationToken ct = default);
 
     Task<List<ProductoProveedor>> ObtenerProveedoresDeProductoAsync(int productoId, CancellationToken ct = default);
-    Task<List<ProductoProveedor>> ObtenerProductosDeProveedorAsync(int proveedorId, CancellationToken ct = default);
+    Task<List<ProductoProveedor>> ObtenerProductosDeProveedorAsync(
+        int proveedorId,
+        string? texto = null,
+        string? categoria = null,
+        bool soloActivos = false,
+        CancellationToken ct = default);
     Task<ProductoProveedor> AsociarProveedorAsync(AsociarProveedorDto dto, CancellationToken ct = default);
     Task QuitarAsociacionAsync(int asociacionId, CancellationToken ct = default);
 }

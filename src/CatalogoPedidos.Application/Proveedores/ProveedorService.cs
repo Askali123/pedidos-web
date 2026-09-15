@@ -60,8 +60,9 @@ public class ProveedorService(
     public Task<List<ProductoProveedor>> ObtenerProveedoresDeProductoAsync(int productoId, CancellationToken ct = default)
         => asociaciones.ObtenerPorProductoAsync(productoId, ct);
 
-    public Task<List<ProductoProveedor>> ObtenerProductosDeProveedorAsync(int proveedorId, CancellationToken ct = default)
-        => asociaciones.ObtenerPorProveedorAsync(proveedorId, ct);
+    public Task<List<ProductoProveedor>> ObtenerProductosDeProveedorAsync(
+        int proveedorId, string? texto = null, string? categoria = null, bool soloActivos = false, CancellationToken ct = default)
+        => asociaciones.ObtenerPorProveedorAsync(proveedorId, texto, categoria, soloActivos, ct);
 
     public async Task<ProductoProveedor> AsociarProveedorAsync(AsociarProveedorDto dto, CancellationToken ct = default)
     {

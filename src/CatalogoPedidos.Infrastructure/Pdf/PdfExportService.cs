@@ -180,6 +180,68 @@ public class PdfExportService : IPdfExportService
         return documento.GeneratePdf();
     }
 
+    public byte[] ExportarCatalogoPorProveedor(IEnumerable<ProductoProveedor> asociaciones, string proveedorNombre)
+    {
+        var lista = asociaciones.ToList();
+
+        var documento = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(2, Unit.Centimetre);
+                page.DefaultTextStyle(x => x.FontSize(10));
+
+                page.Header().Column(col =>
+                {
+                    col.Item().Text("Catálogo de productos").FontSize(20).Bold();
+                    col.Item().Text($"Proveedor: {proveedorNombre}").FontSize(12);
+                });
+
+                page.Content().PaddingVertical(15).Table(table =>
+                {
+                    table.ColumnsDefinition(columns =>
+                    {
+                        columns.RelativeColumn(1);
+                        columns.RelativeColumn(1);
+                        columns.RelativeColumn(3);
+                        columns.RelativeColumn(2);
+                        columns.RelativeColumn(2);
+                        columns.RelativeColumn(1);
+                    });
+
+                    table.Header(header =>
+                    {
+                        header.Cell().Text("Código interno").Bold();
+                        header.Cell().Text("Código proveedor").Bold();
+                        header.Cell().Text("Producto").Bold();
+                        header.Cell().Text("Categoría").Bold();
+                        header.Cell().Text("Precio").Bold();
+                        header.Cell().Text("Stock").Bold();
+                    });
+
+                    foreach (var asociacion in lista)
+                    {
+                        table.Cell().Text(asociacion.ProductoId.ToString());
+                        table.Cell().Text(asociacion.CodigoProveedor);
+                        table.Cell().Text(asociacion.Producto?.Nombre);
+                        table.Cell().Text(asociacion.Producto?.Categoria);
+                        table.Cell().Text($"{(asociacion.PrecioProveedor ?? asociacion.Producto?.Precio ?? 0):C}");
+                        table.Cell().Text(asociacion.Producto?.Stock.ToString() ?? "-");
+                    }
+                });
+
+                page.Footer().AlignCenter().Text(x =>
+                {
+                    x.Span("Generado por CatalogoPedidos - ").FontSize(9);
+                    x.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm")).FontSize(9);
+                });
+            });
+        });
+
+        return documento.GeneratePdf();
+    }
+
     public byte[] ExportarSolicitudes(IEnumerable<SolicitudProducto> solicitudes)
     {
         var lista = solicitudes.ToList();

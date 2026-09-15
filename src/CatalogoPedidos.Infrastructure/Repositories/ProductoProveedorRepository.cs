@@ -18,14 +18,28 @@ public class ProductoProveedorRepository(IDbContextFactory<AppDbContext> dbFacto
             .ToListAsync(ct);
     }
 
-    public async Task<List<ProductoProveedor>> ObtenerPorProveedorAsync(int proveedorId, CancellationToken ct = default)
+    public async Task<List<ProductoProveedor>> ObtenerPorProveedorAsync(
+        int proveedorId, string? texto = null, string? categoria = null, bool soloActivos = false, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        return await db.ProductoProveedores
+
+        var query = db.ProductoProveedores
             .Include(pp => pp.Producto)
-            .Where(pp => pp.ProveedorId == proveedorId)
-            .OrderBy(pp => pp.Producto!.Nombre)
-            .ToListAsync(ct);
+            .Where(pp => pp.ProveedorId == proveedorId);
+
+        if (soloActivos)
+            query = query.Where(pp => pp.Producto!.Activo);
+
+        if (!string.IsNullOrWhiteSpace(texto))
+            query = query.Where(pp =>
+                pp.Producto!.Nombre.Contains(texto) ||
+                pp.Producto!.Descripcion.Contains(texto) ||
+                pp.CodigoProveedor.Contains(texto));
+
+        if (!string.IsNullOrWhiteSpace(categoria))
+            query = query.Where(pp => pp.Producto!.Categoria == categoria);
+
+        return await query.OrderBy(pp => pp.Producto!.Nombre).ToListAsync(ct);
     }
 
     public async Task<ProductoProveedor?> ObtenerPorIdAsync(int id, CancellationToken ct = default)
