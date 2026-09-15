@@ -74,4 +74,5 @@ dotnet ef database update --project src/CatalogoPedidos.Infrastructure --startup
 
 ## Documentación adicional
 
+- [Dominio y casos de uso](docs/DOMINIO_NEGOCIO.md) — la idea de negocio, las entidades, la tabla intermedia Producto↔Proveedor y los casos de uso por rol.
 - [Propuestas de mejora](docs/MEJORAS_PROPUESTAS.md) — oportunidades identificadas sobre el estado actual (modelo de datos, pruebas, rendimiento, seguridad, UX, etc.).

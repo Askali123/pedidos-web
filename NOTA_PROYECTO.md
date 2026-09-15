@@ -12,7 +12,7 @@
   - Alerta de stock bajo al gestor (cuando se implemente el descuento de stock).
   - Recordatorio automático de pedidos pendientes hace varios días (hoy solo se resaltan visualmente en la Bandeja, >48h).
   - Extender el Design System al resto de páginas de Identity (Register, Manage/*) — por ahora solo Login quedó restilizado; las demás siguen con el markup scaffolded original de Microsoft.
-- **Enlaces relacionados**: [[repaso-sql-server]] · [Propuestas de mejora](docs/MEJORAS_PROPUESTAS.md)
+- **Enlaces relacionados**: [[repaso-sql-server]] · [Dominio y casos de uso](docs/DOMINIO_NEGOCIO.md) · [Propuestas de mejora](docs/MEJORAS_PROPUESTAS.md)
 
 ## Qué aprendí
 
