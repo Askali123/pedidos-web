@@ -60,6 +60,12 @@ public class ProveedorService(
     public Task<List<ProductoProveedor>> ObtenerProveedoresDeProductoAsync(int productoId, CancellationToken ct = default)
         => asociaciones.ObtenerPorProductoAsync(productoId, ct);
 
+    public async Task<Dictionary<int, ProductoProveedor>> ObtenerCodigosPreferidosAsync(IEnumerable<int> productoIds, CancellationToken ct = default)
+    {
+        var preferidos = await asociaciones.ObtenerPreferidosPorProductosAsync(productoIds, ct);
+        return preferidos.ToDictionary(pp => pp.ProductoId);
+    }
+
     public Task<List<ProductoProveedor>> ObtenerProductosDeProveedorAsync(
         int proveedorId, string? texto = null, string? categoria = null, bool soloActivos = false, CancellationToken ct = default)
         => asociaciones.ObtenerPorProveedorAsync(proveedorId, texto, categoria, soloActivos, ct);

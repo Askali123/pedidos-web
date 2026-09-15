@@ -56,6 +56,26 @@ public class ProductoProveedorRepository(IDbContextFactory<AppDbContext> dbFacto
             .FirstOrDefaultAsync(pp => pp.ProveedorId == proveedorId && pp.CodigoProveedor == codigo, ct);
     }
 
+    public async Task<List<ProductoProveedor>> ObtenerPreferidosPorProductosAsync(IEnumerable<int> productoIds, CancellationToken ct = default)
+    {
+        var ids = productoIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return [];
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var candidatas = await db.ProductoProveedores
+            .Include(pp => pp.Proveedor)
+            .Where(pp => ids.Contains(pp.ProductoId))
+            .OrderByDescending(pp => pp.EsPreferido)
+            .ThenBy(pp => pp.FechaAsociacion)
+            .ToListAsync(ct);
+
+        return candidatas
+            .GroupBy(pp => pp.ProductoId)
+            .Select(g => g.First())
+            .ToList();
+    }
+
     public async Task<bool> ExisteAsociacionAsync(int productoId, int proveedorId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);

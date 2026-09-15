@@ -2,6 +2,7 @@
 @attribute [Authorize(Roles = Roles.Gestor)]
 @using System.Security.Claims
 @inject ISolicitudService Solicitudes
+@inject IProveedorService Proveedores
 @inject UserManager<ApplicationUser> UserManager
 @inject PageHeaderState HeaderState
 
@@ -60,6 +61,7 @@
                         <thead>
                             <tr>
                                 <th>Producto</th>
+                                <th>Proveedor · Código</th>
                                 <th>Cantidad</th>
                                 <th class="text-right">Acciones</th>
                             </tr>
@@ -69,6 +71,16 @@
                             {
                                 <tr>
                                     <td class="font-medium text-gray-900">@s.Producto?.Nombre</td>
+                                    <td class="text-gray-500">
+                                        @if (codigosPorProducto.TryGetValue(s.ProductoId, out var pp))
+                                        {
+                                            @($"{pp.Proveedor!.Nombre} · {pp.CodigoProveedor}")
+                                        }
+                                        else
+                                        {
+                                            @:—
+                                        }
+                                    </td>
                                     <td>@s.Cantidad</td>
                                     <td>
                                         <div class="flex items-center gap-2 justify-end">
@@ -93,6 +105,7 @@
     private record PedidoResumen(int PedidoId, string SolicitanteNombre, string? Comentario, DateTime FechaCreacion);
 
     private List<IGrouping<PedidoResumen, SolicitudProducto>>? grupos;
+    private Dictionary<int, ProductoProveedor> codigosPorProducto = new();
     private string? mensaje;
 
     protected override async Task OnInitializedAsync()
@@ -108,6 +121,8 @@
             .GroupBy(s => new PedidoResumen(s.PedidoId, s.Pedido?.SolicitanteNombre ?? s.SolicitanteNombre, s.Pedido?.Comentario, s.Pedido?.FechaCreacion ?? s.FechaSolicitud))
             .OrderBy(g => g.Key.FechaCreacion)
             .ToList();
+
+        codigosPorProducto = await Proveedores.ObtenerCodigosPreferidosAsync(solicitudes.Select(s => s.ProductoId));
     }
 
     private async Task<(string GestorId, string GestorNombre)> DatosGestor(Microsoft.AspNetCore.Components.Authorization.AuthenticationState authState)

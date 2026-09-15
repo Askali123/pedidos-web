@@ -81,57 +81,94 @@
     }
     else
     {
-        <Card Title="@($"{resultados.Count} resultado(s)")">
-            <div class="table-wrap">
-                <table class="table-enterprise">
-                    <thead>
-                        <tr>
-                            <th>N.º</th>
-                            <th>Pedido</th>
-                            @if (proveedorId is not null)
+        <p class="text-sm text-gray-500">@resultados.Count solicitud(es) en @gruposPedido.Count pedido(s)</p>
+
+        @foreach (var grupo in paginaActual)
+        {
+            <Card>
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div>
+                        <p class="font-medium text-gray-900">Pedido #@grupo.Key.PedidoId · @grupo.Key.SolicitanteNombre</p>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            @grupo.Key.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                            @if (!string.IsNullOrWhiteSpace(grupo.Key.Comentario))
                             {
-                                <th>Código interno</th>
-                                <th>Código proveedor</th>
+                                <span> · @grupo.Key.Comentario</span>
                             }
-                            <th>Producto</th>
-                            <th>Cantidad</th>
-                            <th>Solicitante</th>
-                            <th>Fecha</th>
-                            <th>Estado</th>
-                            <th>Gestor</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var s in paginaActual)
-                        {
+                        </p>
+                    </div>
+                    <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">
+                        <Icon Name="download" Class="h-4 w-4" /> PDF del pedido
+                    </a>
+                </div>
+
+                <div class="table-wrap">
+                    <table class="table-enterprise">
+                        <thead>
                             <tr>
-                                <td class="text-gray-400">#@s.Id</td>
-                                <td class="text-gray-400">#@s.PedidoId</td>
+                                <th>N.º</th>
+                                <th>Producto</th>
                                 @if (proveedorId is not null)
                                 {
-                                    <td class="text-gray-500">#@s.ProductoId</td>
-                                    <td class="font-medium text-gray-900">@codigosProveedorPorProducto.GetValueOrDefault(s.ProductoId, "-")</td>
+                                    <th>Código interno</th>
+                                    <th>Código proveedor</th>
                                 }
-                                <td class="font-medium text-gray-900">@s.Producto?.Nombre</td>
-                                <td>@s.Cantidad</td>
-                                <td>@s.SolicitanteNombre</td>
-                                <td>@s.FechaSolicitud.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                                <td><Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge></td>
-                                <td>@(s.GestorNombre ?? "-")</td>
-                                <td class="text-right"><a class="btn btn-secondary btn-sm" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a></td>
+                                else
+                                {
+                                    <th>Proveedor · Código</th>
+                                }
+                                <th>Cantidad</th>
+                                <th>Estado</th>
+                                <th>Gestor</th>
+                                <th></th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
-                <Pagination CurrentPage="paginaNumero" TotalPages="totalPaginas" CurrentPageChanged="p => paginaNumero = p" />
-            </div>
-        </Card>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in grupo)
+                            {
+                                <tr>
+                                    <td class="text-gray-400">#@s.Id</td>
+                                    <td class="font-medium text-gray-900">@s.Producto?.Nombre</td>
+                                    @if (proveedorId is not null)
+                                    {
+                                        <td class="text-gray-500">#@s.ProductoId</td>
+                                        <td class="font-medium text-gray-900">@codigosProveedorPorProducto.GetValueOrDefault(s.ProductoId, "-")</td>
+                                    }
+                                    else
+                                    {
+                                        <td class="text-gray-500">
+                                            @if (codigosPreferidosPorProducto.TryGetValue(s.ProductoId, out var pp))
+                                            {
+                                                @($"{pp.Proveedor!.Nombre} · {pp.CodigoProveedor}")
+                                            }
+                                            else
+                                            {
+                                                @:—
+                                            }
+                                        </td>
+                                    }
+                                    <td>@s.Cantidad</td>
+                                    <td><Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge></td>
+                                    <td>@(s.GestorNombre ?? "-")</td>
+                                    <td class="text-right"><a class="btn btn-secondary btn-sm" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+        }
+
+        <div class="card">
+            <Pagination CurrentPage="paginaNumero" TotalPages="totalPaginas" CurrentPageChanged="p => paginaNumero = p" />
+        </div>
     }
 </div>
 
 @code {
-    private const int TamanoPagina = 10;
+    private const int TamanoPagina = 8;
+
+    private record PedidoResumen(int PedidoId, string SolicitanteNombre, string? Comentario, DateTime FechaCreacion);
 
     private DateTime? fechaDesde;
     private DateTime? fechaHasta;
@@ -144,13 +181,19 @@
     private int? proveedorId => int.TryParse(proveedorIdTexto, out var id) ? id : null;
 
     private List<SolicitudProducto>? resultados;
+    private List<IGrouping<PedidoResumen, SolicitudProducto>> gruposPedido = new();
     private List<SolicitanteResumenDto> solicitantes = new();
     private List<Producto> catalogo = new();
     private List<Proveedor> proveedores = new();
     private Dictionary<int, string> codigosProveedorPorProducto = new();
+    private Dictionary<int, ProductoProveedor> codigosPreferidosPorProducto = new();
 
-    private int totalPaginas => resultados is null ? 1 : Math.Max(1, (int)Math.Ceiling(resultados.Count / (double)TamanoPagina));
-    private IEnumerable<SolicitudProducto> paginaActual => (resultados ?? []).Skip((paginaNumero - 1) * TamanoPagina).Take(TamanoPagina);
+    // Paginación por pedido (no por línea de solicitud): cada página agrupa varios pedidos
+    // completos, igual que la Bandeja, para poder ver de un vistazo todo lo que pidió cada
+    // solicitante en un mismo envío.
+    private int totalPaginas => Math.Max(1, (int)Math.Ceiling(gruposPedido.Count / (double)TamanoPagina));
+    private IEnumerable<IGrouping<PedidoResumen, SolicitudProducto>> paginaActual =>
+        gruposPedido.Skip((paginaNumero - 1) * TamanoPagina).Take(TamanoPagina);
 
     protected override async Task OnInitializedAsync()
     {
@@ -176,11 +219,25 @@
 
         resultados = await Solicitudes.BuscarAsync(filtro);
 
-        // Para mostrar el código con el que ESE proveedor identifica cada producto solicitado
-        // (independiente del código interno, que es el Id del producto).
-        codigosProveedorPorProducto = proveedorId is int id
-            ? (await Proveedores.ObtenerProductosDeProveedorAsync(id)).ToDictionary(pp => pp.ProductoId, pp => pp.CodigoProveedor)
-            : new Dictionary<int, string>();
+        gruposPedido = resultados
+            .GroupBy(s => new PedidoResumen(s.PedidoId, s.Pedido?.SolicitanteNombre ?? s.SolicitanteNombre, s.Pedido?.Comentario, s.Pedido?.FechaCreacion ?? s.FechaSolicitud))
+            .OrderByDescending(g => g.Key.FechaCreacion)
+            .ToList();
+
+        if (proveedorId is int id)
+        {
+            // Filtrando por un proveedor específico: mostrar SU código exacto (el que va en el
+            // pedido que se le envía), no una referencia general.
+            codigosProveedorPorProducto = (await Proveedores.ObtenerProductosDeProveedorAsync(id)).ToDictionary(pp => pp.ProductoId, pp => pp.CodigoProveedor);
+            codigosPreferidosPorProducto = new Dictionary<int, ProductoProveedor>();
+        }
+        else
+        {
+            // Sin filtrar por proveedor: mostrar el proveedor preferido de cada producto como
+            // referencia, para no depender de que el gestor filtre uno por uno para verlo.
+            codigosProveedorPorProducto = new Dictionary<int, string>();
+            codigosPreferidosPorProducto = await Proveedores.ObtenerCodigosPreferidosAsync(resultados.Select(s => s.ProductoId));
+        }
 
         paginaNumero = 1;
     }

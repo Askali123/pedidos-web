@@ -20,6 +20,14 @@ public interface IProductoProveedorRepository
         CancellationToken ct = default);
     Task<ProductoProveedor?> ObtenerPorIdAsync(int id, CancellationToken ct = default);
     Task<ProductoProveedor?> ObtenerPorProveedorYCodigoAsync(int proveedorId, string codigo, CancellationToken ct = default);
+
+    /// <summary>
+    /// Para cada producto en <paramref name="productoIds"/>, la asociación a mostrar como
+    /// referencia rápida: la marcada <c>EsPreferido</c> si existe, si no la primera que
+    /// haya (por <c>FechaAsociacion</c>). Como máximo una fila por producto — a diferencia de
+    /// <see cref="ObtenerPorProductoAsync"/>, que trae todas sus asociaciones.
+    /// </summary>
+    Task<List<ProductoProveedor>> ObtenerPreferidosPorProductosAsync(IEnumerable<int> productoIds, CancellationToken ct = default);
     Task<bool> ExisteAsociacionAsync(int productoId, int proveedorId, CancellationToken ct = default);
     Task<bool> ExisteCodigoParaOtroProductoAsync(int proveedorId, string codigo, int productoId, CancellationToken ct = default);
     Task<ProductoProveedor> CrearAsync(ProductoProveedor asociacion, CancellationToken ct = default);
