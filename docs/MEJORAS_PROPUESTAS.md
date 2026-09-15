@@ -50,6 +50,25 @@ el proyecto (seguir aprendiendo conceptos nuevos vs. acercarlo a algo "productio
   productos nuevos, pero sus asociaciones `ProductoProveedor` existentes se conservan
   intactas (verificado: los productos de un proveedor desactivado se ven igual en
   `/proveedores/{id}/productos`).
+- ~~**Filtrar y exportar el catálogo por proveedor, mostrando código interno y código del
+  proveedor.**~~ **Hecho.** `Catalogo.razor` (solo Gestor) ahora tiene un tercer filtro
+  "Todos los proveedores" junto a texto/categoría. Al elegir uno, la tabla cambia de fuente
+  de datos — de `IProductoService.ObtenerCatalogoAsync` a
+  `IProveedorService.ObtenerProductosDeProveedorAsync` (que ya traía la asociación
+  `ProductoProveedor` con su `CodigoProveedor`) — y aparecen dos columnas nuevas: **Código
+  interno** (el `Producto.Id` que el sistema asigna solo, independiente del proveedor) y
+  **Código proveedor** (`ProductoProveedor.CodigoProveedor`, el código con el que ESE
+  proveedor identifica el producto). El buscador de texto, al filtrar por proveedor,
+  también busca por ese código. El botón "Exportar a PDF" arma la URL con los filtros
+  activos (`texto`, `categoria`, `proveedorId` — antes ignoraba cualquier filtro y siempre
+  exportaba todo el catálogo) y, cuando hay proveedor elegido, genera un PDF con las mismas
+  dos columnas de código vía el nuevo `IPdfExportService.ExportarCatalogoPorProveedor`. Por
+  seguridad, el endpoint `/api/catalogo/pdf` ignora `proveedorId` si quien lo pide no tiene
+  rol Gestor (verificado: con la cuenta `usuario@catalogo.local` el PDF resultante pesa
+  igual que el catálogo general, no el filtrado). Verificado en el navegador con el
+  proveedor "Distribuciones Andinas": la tabla mostró código interno y código de proveedor
+  por fila, y el PDF exportado con `?proveedorId=2` pesó distinto (más columnas) que el
+  general.
 
 ## 2. Importación desde Excel (`ExcelProductoImportador`)
 
@@ -249,6 +268,22 @@ en mente como patrón general para el resto del código:
   se registre como Gestor (ni por invitación, ni por dominio de correo, ni que un Gestor
   pueda promover a otro usuario después) — vale la pena definir la regla antes de que haga
   falta en la práctica.
+- ~~**Elegir el rol al iniciar sesión ("Solicitante" / "Gestor"), sin depender del
+  correo.**~~ **Hecho.** El login ahora muestra un selector tipo pestañas ("Solicitante" /
+  "Gestor") antes de los campos de email y contraseña. La cuenta sigue teniendo un único
+  rol real (como siempre), pero ahora esa intención se declara explícitamente: si las
+  credenciales son correctas pero la cuenta no tiene el rol elegido, se cierra la sesión
+  recién iniciada y se muestra un error claro ("Esta cuenta no tiene permisos de
+  Solicitante/Gestor") en vez de dejar entrar con el rol real sin avisar. El selector se
+  implementó con `InputRadioGroup`/`InputRadio` (radios nativos ocultos con `sr-only` +
+  `<label>` estilizado como botón segmentado vía CSS `:checked`), no con `@onclick` en
+  botones sueltos — se probó esa vía primero y no funcionaba, porque `Login.razor` se
+  renderiza como SSR estático (necesario para que el `EditForm` funcione sin JavaScript),
+  y ese modo no tiene circuito interactivo para atender eventos de clic en C#; los radios
+  nativos sí funcionan porque el navegador resuelve el `:checked` sin necesitar Blazor.
+  Verificado en el navegador: con la cuenta `gestor@catalogo.local`, elegir "Gestor" entra
+  normalmente; elegir "Solicitante" con esas mismas credenciales muestra el error y no deja
+  entrar.
 
 ---
 
