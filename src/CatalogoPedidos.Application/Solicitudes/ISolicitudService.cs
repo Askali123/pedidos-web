@@ -12,6 +12,13 @@ public interface ISolicitudService
     Task ResolverAsync(int solicitudId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct = default);
     Task<List<SolicitudProducto>> ResolverPedidoAsync(int pedidoId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct = default);
 
+    /// <summary>
+    /// Revisa los pedidos pendientes hace más de 48h y le avisa al gestor una sola vez por
+    /// pedido (no repite el recordatorio en cada corrida mientras siga sin resolverse).
+    /// Pensado para llamarse periódicamente desde un job en segundo plano.
+    /// </summary>
+    Task EnviarRecordatoriosPendientesAsync(CancellationToken ct = default);
+
     Task<List<SolicitudProducto>> BuscarAsync(FiltroSolicitudesDto filtro, CancellationToken ct = default);
     Task<List<SolicitanteResumenDto>> ObtenerSolicitantesAsync(CancellationToken ct = default);
 }

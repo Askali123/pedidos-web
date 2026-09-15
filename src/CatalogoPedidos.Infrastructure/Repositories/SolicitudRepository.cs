@@ -24,6 +24,13 @@ public class SolicitudRepository(IDbContextFactory<AppDbContext> dbFactory) : IS
             .FirstOrDefaultAsync(p => p.Id == pedidoId, ct);
     }
 
+    public async Task ActualizarPedidoAsync(Pedido pedido, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        db.Pedidos.Update(pedido);
+        await db.SaveChangesAsync(ct);
+    }
+
     public async Task<SolicitudProducto?> ObtenerPorIdAsync(int id, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);

@@ -6,6 +6,7 @@ public interface ISolicitudRepository
 {
     Task<Pedido> CrearPedidoAsync(Pedido pedido, CancellationToken ct = default);
     Task<Pedido?> ObtenerPedidoAsync(int pedidoId, CancellationToken ct = default);
+    Task ActualizarPedidoAsync(Pedido pedido, CancellationToken ct = default);
     Task<SolicitudProducto?> ObtenerPorIdAsync(int id, CancellationToken ct = default);
     Task<List<SolicitudProducto>> ObtenerPorSolicitanteAsync(string solicitanteId, CancellationToken ct = default);
     Task<List<SolicitudProducto>> ObtenerPendientesAsync(CancellationToken ct = default);

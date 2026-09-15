@@ -15,6 +15,9 @@ public class SolicitudService(
 {
     private const int MensajeMaxLength = 500;
 
+    /// <summary>Tiempo pendiente a partir del cual un pedido se considera urgente (ver también Bandeja.razor).</summary>
+    private static readonly TimeSpan UmbralPendienteUrgente = TimeSpan.FromHours(48);
+
     public async Task<Pedido> CrearPedidoAsync(string solicitanteId, string solicitanteNombre, string? comentario, List<CrearSolicitudDto> items, CancellationToken ct = default)
     {
         if (items.Count == 0)
@@ -105,6 +108,42 @@ public class SolicitudService(
 
     public Task<Pedido?> ObtenerPedidoAsync(int pedidoId, CancellationToken ct = default)
         => repositorio.ObtenerPedidoAsync(pedidoId, ct);
+
+    public async Task EnviarRecordatoriosPendientesAsync(CancellationToken ct = default)
+    {
+        var pendientes = await repositorio.ObtenerPendientesAsync(ct);
+        var limite = DateTime.UtcNow - UmbralPendienteUrgente;
+
+        var pedidosVencidos = pendientes
+            .Where(s => s.Pedido is not null && !s.Pedido.RecordatorioEnviado && s.Pedido.FechaCreacion <= limite)
+            .GroupBy(s => s.Pedido!)
+            .ToList();
+
+        foreach (var grupo in pedidosVencidos)
+        {
+            var pedido = grupo.Key;
+            await NotificarRecordatorioAsync(pedido, grupo.Count(), ct);
+
+            pedido.RecordatorioEnviado = true;
+            await repositorio.ActualizarPedidoAsync(pedido, ct);
+        }
+    }
+
+    private async Task NotificarRecordatorioAsync(Pedido pedido, int cantidadProductos, CancellationToken ct)
+    {
+        try
+        {
+            var horas = (int)UmbralPendienteUrgente.TotalHours;
+            var mensaje = $"El pedido #{pedido.Id} de {pedido.SolicitanteNombre} lleva más de {horas}h pendiente ({cantidadProductos} producto{(cantidadProductos == 1 ? "" : "s")}).";
+            var idsGestores = await gestores.ObtenerIdsGestoresAsync(ct);
+            foreach (var gestorId in idsGestores)
+                await NotificarAsync(gestorId, "Pedido pendiente hace tiempo", mensaje, "/solicitudes/bandeja", TipoNotificacion.RecordatorioPendiente, ct);
+        }
+        catch
+        {
+            // Best-effort: no bloquea marcar el pedido como recordado aunque falle el aviso.
+        }
+    }
 
     public async Task ResolverAsync(int solicitudId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct = default)
     {

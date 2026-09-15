@@ -16,5 +16,12 @@ public class Pedido
 
     public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
 
+    /// <summary>
+    /// True cuando ya se le avisó al gestor que este pedido lleva mucho tiempo pendiente
+    /// (ver <see cref="Application.Solicitudes.ISolicitudService.EnviarRecordatoriosPendientesAsync"/>).
+    /// Evita mandar el mismo recordatorio una y otra vez mientras siga sin resolverse.
+    /// </summary>
+    public bool RecordatorioEnviado { get; set; }
+
     public ICollection<SolicitudProducto> Items { get; set; } = new List<SolicitudProducto>();
 }

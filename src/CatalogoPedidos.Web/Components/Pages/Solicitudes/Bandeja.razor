@@ -2,6 +2,7 @@
 @attribute [Authorize(Roles = Roles.Gestor)]
 @using System.Security.Claims
 @inject ISolicitudService Solicitudes
+@inject UserManager<ApplicationUser> UserManager
 @inject PageHeaderState HeaderState
 
 <PageTitle>Bandeja de solicitudes</PageTitle>
@@ -109,16 +110,17 @@
             .ToList();
     }
 
-    private (string GestorId, string GestorNombre) DatosGestor(Microsoft.AspNetCore.Components.Authorization.AuthenticationState authState)
+    private async Task<(string GestorId, string GestorNombre)> DatosGestor(Microsoft.AspNetCore.Components.Authorization.AuthenticationState authState)
     {
         var gestorId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
-        var gestorNombre = authState.User.Identity?.Name ?? "Gestor";
+        var appUser = await UserManager.GetUserAsync(authState.User);
+        var gestorNombre = appUser.NombreParaMostrar(authState.User.Identity?.Name ?? "Gestor");
         return (gestorId, gestorNombre);
     }
 
     private async Task Resolver(int solicitudId, bool aprobar)
     {
-        var (gestorId, gestorNombre) = DatosGestor(await AuthStateTask!);
+        var (gestorId, gestorNombre) = await DatosGestor(await AuthStateTask!);
 
         await Solicitudes.ResolverAsync(solicitudId, gestorId, gestorNombre, new ResolverSolicitudDto { Aprobar = aprobar });
 
@@ -128,7 +130,7 @@
 
     private async Task ResolverPedido(int pedidoId, bool aprobar)
     {
-        var (gestorId, gestorNombre) = DatosGestor(await AuthStateTask!);
+        var (gestorId, gestorNombre) = await DatosGestor(await AuthStateTask!);
 
         var resueltas = await Solicitudes.ResolverPedidoAsync(pedidoId, gestorId, gestorNombre, new ResolverSolicitudDto { Aprobar = aprobar });
 
