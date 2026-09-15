@@ -3,6 +3,7 @@
 @using System.Security.Claims
 @inject CarritoState CarritoState
 @inject ISolicitudService Solicitudes
+@inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Navigation
 @inject PageHeaderState HeaderState
 @implements IDisposable
@@ -82,13 +83,15 @@
         var authState = await AuthStateTask!;
         var user = authState.User;
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var userName = user.Identity?.Name ?? "Desconocido";
 
         if (userId is null)
         {
             error = "No se pudo identificar al usuario actual.";
             return;
         }
+
+        var appUser = await UserManager.GetUserAsync(user);
+        var userName = appUser.NombreParaMostrar(user.Identity?.Name);
 
         var items = CarritoState.Items
             .Select(i => new CrearSolicitudDto { ProductoId = i.Producto.Id, Cantidad = i.Cantidad })

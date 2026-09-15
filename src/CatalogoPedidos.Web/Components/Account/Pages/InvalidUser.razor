@@ -1,7 +1,11 @@
 ﻿@page "/Account/InvalidUser"
+@layout CatalogoPedidos.Web.Components.Layout.AuthLayout
 
-<PageTitle>Invalid user</PageTitle>
+<PageTitle>Usuario inválido</PageTitle>
 
-<h3>Invalid user</h3>
-
-<StatusMessage />
+<Card Title="Usuario inválido">
+    <StatusMessage />
+    <div class="mt-4 text-sm text-center">
+        <a href="Account/Login" class="text-primary-700 hover:underline">Volver a iniciar sesión</a>
+    </div>
+</Card>

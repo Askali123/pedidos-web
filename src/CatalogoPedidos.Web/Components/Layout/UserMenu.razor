@@ -1,13 +1,15 @@
 @* Menú de usuario del Topbar — mismo Dropdown reutilizable que Notificaciones. *@
+@inject UserManager<ApplicationUser> UserManager
+
 <AuthorizeView>
     <Authorized Context="authContext">
         <Dropdown>
             <Trigger>
                 <button type="button" class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-gray-100">
                     <span class="h-7 w-7 rounded-full bg-primary-600 text-white text-xs font-semibold flex items-center justify-center shrink-0">
-                        @Inicial(authContext.User.Identity?.Name)
+                        @Inicial(nombreMostrado)
                     </span>
-                    <span class="hidden sm:block text-sm text-gray-700 max-w-[10rem] truncate">@authContext.User.Identity?.Name</span>
+                    <span class="hidden sm:block text-sm text-gray-700 max-w-[10rem] truncate">@nombreMostrado</span>
                     <Icon Name="chevron-down" Class="h-4 w-4 text-gray-400 hidden sm:block" />
                 </button>
             </Trigger>
@@ -15,7 +17,7 @@
                 <div class="w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
                     <div class="px-3 py-2 border-b border-gray-100">
                         <p class="text-xs text-gray-500">Sesión iniciada como</p>
-                        <p class="text-sm font-medium text-gray-900 truncate">@authContext.User.Identity?.Name</p>
+                        <p class="text-sm font-medium text-gray-900 truncate">@nombreMostrado</p>
                     </div>
                     <form action="Account/Logout" method="post">
                         <AntiforgeryToken />
@@ -38,6 +40,19 @@
 </AuthorizeView>
 
 @code {
+    [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
+
+    private string? nombreMostrado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask is null) return;
+
+        var authState = await AuthStateTask;
+        var appUser = await UserManager.GetUserAsync(authState.User);
+        nombreMostrado = appUser.NombreParaMostrar(authState.User.Identity?.Name);
+    }
+
     private static string Inicial(string? nombre) =>
         string.IsNullOrEmpty(nombre) ? "?" : nombre.Trim()[0].ToString().ToUpperInvariant();
 }

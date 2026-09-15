@@ -1,4 +1,5 @@
-﻿@page "/Account/Register"
+@page "/Account/Register"
+@layout CatalogoPedidos.Web.Components.Layout.AuthLayout
 
 @using System.ComponentModel.DataAnnotations
 @using System.Text
@@ -15,44 +16,48 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Register</PageTitle>
+<PageTitle>Crear cuenta</PageTitle>
 
-<h1>Register</h1>
+<Card Title="Crear cuenta" Subtitle="Regístrate para solicitar productos del catálogo">
+    @if (Message is not null)
+    {
+        <Alert Variant="AlertVariant.Danger">@Message</Alert>
+    }
 
-<div class="row">
-    <div class="col-lg-6">
-        <StatusMessage Message="@Message" />
-        <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
-            <DataAnnotationsValidator />
-            <h2>Create a new account.</h2>
-            <hr />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
-                <label for="Input.Email">Email</label>
-                <ValidationMessage For="() => Input.Email" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.Password">Password</label>
-                <ValidationMessage For="() => Input.Password" class="text-danger" />
-            </div>
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                <label for="Input.ConfirmPassword">Confirm Password</label>
-                <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
-        </EditForm>
-    </div>
-    <div class="col-lg-4 col-lg-offset-2">
-        <section>
-            <h3>Use another service to register.</h3>
-            <hr />
-            <ExternalLoginPicker />
-        </section>
-    </div>
-</div>
+    <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger-700 text-sm mb-2" role="alert" />
+
+        <FormField Label="Nombre completo" Required="true">
+            <InputText @bind-Value="Input.NombreCompleto" id="Input.NombreCompleto" class="form-input" autocomplete="name" aria-required="true" placeholder="Nombre y apellido" />
+            <ValidationMessage For="() => Input.NombreCompleto" class="text-danger-700 text-xs mt-1" />
+        </FormField>
+
+        <FormField Label="Email" Required="true">
+            <InputText @bind-Value="Input.Email" id="Input.Email" class="form-input" autocomplete="username" aria-required="true" placeholder="nombre@ejemplo.com" />
+            <ValidationMessage For="() => Input.Email" class="text-danger-700 text-xs mt-1" />
+        </FormField>
+
+        <FormField Label="Contraseña" Required="true">
+            <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-input" autocomplete="new-password" aria-required="true" placeholder="••••••••" />
+            <ValidationMessage For="() => Input.Password" class="text-danger-700 text-xs mt-1" />
+        </FormField>
+
+        <FormField Label="Confirmar contraseña" Required="true">
+            <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-input" autocomplete="new-password" aria-required="true" placeholder="••••••••" />
+            <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger-700 text-xs mt-1" />
+        </FormField>
+
+        <Button Type="submit" Variant="ButtonVariant.Primary">Crear cuenta</Button>
+
+        <div class="border-t border-gray-100 mt-4 pt-4 text-sm text-center">
+            <span class="text-gray-500">¿Ya tienes cuenta?</span>
+            <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Login", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))" class="text-primary-700 hover:underline">Inicia sesión</a>
+        </div>
+    </EditForm>
+</Card>
+
+<ExternalLoginPicker />
 
 @code {
     private IEnumerable<IdentityError>? identityErrors;
@@ -63,7 +68,7 @@
     [SupplyParameterFromQuery]
     private string? ReturnUrl { get; set; }
 
-    private string? Message => identityErrors is null ? null : $"Error: {string.Join(", ", identityErrors.Select(error => error.Description))}";
+    private string? Message => identityErrors is null ? null : string.Join(", ", identityErrors.Select(error => error.Description));
 
     protected override void OnInitialized()
     {
@@ -73,6 +78,7 @@
     public async Task RegisterUser(EditContext editContext)
     {
         var user = CreateUser();
+        user.NombreCompleto = Input.NombreCompleto;
 
         await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
         var emailStore = GetEmailStore();
@@ -86,6 +92,16 @@
         }
 
         Logger.LogInformation("User created a new account with password.");
+
+        // Quien se autoregistra siempre entra como Usuario; el rol Gestor se asigna
+        // aparte (ver docs/MEJORAS_PROPUESTAS.md, sección 11) — todavía no hay un
+        // mecanismo de autoregistro para ese rol.
+        var rolResult = await UserManager.AddToRoleAsync(user, Roles.Usuario);
+        if (!rolResult.Succeeded)
+        {
+            Logger.LogWarning("No se pudo asignar el rol Usuario a la cuenta {UserId}: {Errores}",
+                user.Id, string.Join(", ", rolResult.Errors.Select(e => e.Description)));
+        }
 
         var userId = await UserManager.GetUserIdAsync(user);
         var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
@@ -133,20 +149,24 @@
 
     private sealed class InputModel
     {
-        [Required]
-        [EmailAddress]
+        [Required(ErrorMessage = "El nombre completo es obligatorio.")]
+        [Display(Name = "Nombre completo")]
+        public string NombreCompleto { get; set; } = "";
+
+        [Required(ErrorMessage = "El email es obligatorio.")]
+        [EmailAddress(ErrorMessage = "El email no tiene un formato válido.")]
         [Display(Name = "Email")]
         public string Email { get; set; } = "";
 
-        [Required]
-        [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+        [Required(ErrorMessage = "La contraseña es obligatoria.")]
+        [StringLength(100, ErrorMessage = "La {0} debe tener entre {2} y {1} caracteres.", MinimumLength = 6)]
         [DataType(DataType.Password)]
-        [Display(Name = "Password")]
+        [Display(Name = "Contraseña")]
         public string Password { get; set; } = "";
 
         [DataType(DataType.Password)]
-        [Display(Name = "Confirm password")]
-        [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
+        [Display(Name = "Confirmar contraseña")]
+        [Compare("Password", ErrorMessage = "La contraseña y su confirmación no coinciden.")]
         public string ConfirmPassword { get; set; } = "";
     }
 }

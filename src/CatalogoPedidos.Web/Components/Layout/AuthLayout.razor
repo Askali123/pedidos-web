@@ -1,0 +1,19 @@
+@* Layout independiente para Login/Register: sin sidebar ni topbar, solo el formulario centrado. *@
+@inherits LayoutComponentBase
+
+<div class="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 py-10">
+    <div class="flex items-center gap-2 mb-6">
+        <div class="h-9 w-9 rounded-md bg-primary-600 flex items-center justify-center font-bold text-white text-sm shrink-0">C</div>
+        <span class="font-semibold text-lg text-gray-900">CatalogoPedidos</span>
+    </div>
+
+    <div class="w-full max-w-md">
+        @Body
+    </div>
+</div>
+
+<div id="blazor-error-ui" class="hidden fixed inset-x-0 bottom-0 z-50 bg-danger-700 text-white text-sm px-4 py-3" data-nosnippet>
+    Ha ocurrido un error inesperado.
+    <a href="." class="underline ml-2">Recargar</a>
+    <span class="dismiss ml-2 cursor-pointer">🗙</span>
+</div>

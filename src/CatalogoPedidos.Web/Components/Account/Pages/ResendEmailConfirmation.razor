@@ -1,4 +1,5 @@
 ﻿@page "/Account/ResendEmailConfirmation"
+@layout CatalogoPedidos.Web.Components.Layout.AuthLayout
 
 @using System.ComponentModel.DataAnnotations
 @using System.Text
@@ -12,26 +13,30 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Resend email confirmation</PageTitle>
+<PageTitle>Reenviar confirmación de email</PageTitle>
 
-<h1>Resend email confirmation</h1>
-<h2>Enter your email.</h2>
-<hr />
-<StatusMessage Message="@message" />
-<div class="row">
-    <div class="col-md-4">
-        <EditForm Model="Input" FormName="resend-email-confirmation" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" aria-required="true" placeholder="name@example.com" />
-                <label for="Input.Email" class="form-label">Email</label>
-                <ValidationMessage For="() => Input.Email" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Resend</button>
-        </EditForm>
-    </div>
-</div>
+<Card Title="Reenviar confirmación de email" Subtitle="Ingresa tu email para reenviar el enlace de confirmación">
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <Alert Variant="AlertVariant.Success">@message</Alert>
+    }
+
+    <EditForm Model="Input" FormName="resend-email-confirmation" OnValidSubmit="OnValidSubmitAsync" method="post">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger-700 text-sm mb-2" role="alert" />
+
+        <FormField Label="Email" Required="true">
+            <InputText @bind-Value="Input.Email" id="Input.Email" class="form-input" aria-required="true" placeholder="nombre@ejemplo.com" />
+            <ValidationMessage For="() => Input.Email" class="text-danger-700 text-xs mt-1" />
+        </FormField>
+
+        <Button Type="submit" Variant="ButtonVariant.Primary">Reenviar</Button>
+
+        <div class="border-t border-gray-100 mt-4 pt-4 text-sm text-center">
+            <a href="Account/Login" class="text-primary-700 hover:underline">Volver a iniciar sesión</a>
+        </div>
+    </EditForm>
+</Card>
 
 @code {
     private string? message;
@@ -49,7 +54,7 @@
         var user = await UserManager.FindByEmailAsync(Input.Email!);
         if (user is null)
         {
-            message = "Verification email sent. Please check your email.";
+            message = "Correo de verificación enviado. Revisa tu email.";
             return;
         }
 

@@ -1,8 +1,13 @@
 ﻿@page "/Account/Lockout"
+@layout CatalogoPedidos.Web.Components.Layout.AuthLayout
 
-<PageTitle>Locked out</PageTitle>
+<PageTitle>Cuenta bloqueada</PageTitle>
 
-<header>
-    <h1 class="text-danger">Locked out</h1>
-    <p class="text-danger" role="alert">This account has been locked out, please try again later.</p>
-</header>
+<Card Title="Cuenta bloqueada">
+    <Alert Variant="AlertVariant.Danger">
+        Esta cuenta ha sido bloqueada por demasiados intentos fallidos. Intenta de nuevo más tarde.
+    </Alert>
+    <div class="mt-4 text-sm text-center">
+        <a href="Account/Login" class="text-primary-700 hover:underline">Volver a iniciar sesión</a>
+    </div>
+</Card>
