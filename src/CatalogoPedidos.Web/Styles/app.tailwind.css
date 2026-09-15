@@ -112,6 +112,18 @@
   .btn-outline { @apply bg-transparent text-primary-700 border border-primary-300 hover:bg-primary-50; }
   .btn-ghost { @apply bg-transparent text-gray-600 hover:bg-gray-100; }
 
+  /* Grupo de radios estilizado como botones segmentados (p. ej. "Ingresar como"
+     en Login). Funciona sin JavaScript: el <label> nativo activa el radio oculto
+     y el estado visual lo resuelve el navegador vía :checked, así que sirve igual
+     en páginas renderizadas como SSR estático (sin circuito interactivo).
+     El <span> ya lleva "btn btn-outline w-full" en el markup; aquí solo se
+     sobreescribe la apariencia cuando el radio asociado está marcado. */
+  .role-toggle-input { @apply sr-only; }
+  .role-toggle-input:checked + .role-toggle-label {
+    @apply bg-primary-600 text-white border-transparent hover:bg-primary-700 active:bg-primary-800;
+  }
+  .role-toggle-input:focus-visible + .role-toggle-label { @apply ring-2 ring-primary-400 ring-offset-1; }
+
   /* ---------- Tarjetas ---------- */
   .card {
     @apply bg-white border border-gray-200 rounded-lg shadow-sm;
