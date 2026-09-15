@@ -8,6 +8,7 @@ public class FiltroSolicitudesDto
     public DateTime? FechaHasta { get; set; }
     public string? SolicitanteId { get; set; }
     public int? ProductoId { get; set; }
+    public int? ProveedorId { get; set; }
     public EstadoSolicitud? Estado { get; set; }
 }
 

@@ -9,4 +9,5 @@ public interface IPdfExportService
     byte[] ExportarCatalogo(IEnumerable<Producto> productos);
     byte[] ExportarCatalogoPorProveedor(IEnumerable<ProductoProveedor> asociaciones, string proveedorNombre);
     byte[] ExportarSolicitudes(IEnumerable<SolicitudProducto> solicitudes);
+    byte[] ExportarSolicitudesPorProveedor(IEnumerable<SolicitudProducto> solicitudes, IReadOnlyDictionary<int, string> codigosProveedorPorProducto, string proveedorNombre);
 }

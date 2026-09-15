@@ -149,42 +149,67 @@ app.MapGet("/api/pedidos/{id:int}/pdf", async (int id, ISolicitudService solicit
     return Results.File(bytes, "application/pdf", $"pedido-{pedido.Id}.pdf");
 }).RequireAuthorization();
 
-static FiltroSolicitudesDto ConstruirFiltroReporte(DateTime? desde, DateTime? hasta, string? solicitanteId, int? productoId, CatalogoPedidos.Domain.Enums.EstadoSolicitud? estado)
+static FiltroSolicitudesDto ConstruirFiltroReporte(DateTime? desde, DateTime? hasta, string? solicitanteId, int? productoId, int? proveedorId, CatalogoPedidos.Domain.Enums.EstadoSolicitud? estado)
     => new()
     {
         FechaDesde = desde,
         FechaHasta = hasta,
         SolicitanteId = solicitanteId,
         ProductoId = productoId,
+        ProveedorId = proveedorId,
         Estado = estado
     };
 
 app.MapGet("/api/solicitudes/reporte/pdf", async (
     ISolicitudService solicitudes,
+    IProveedorService proveedores,
     IPdfExportService pdf,
     DateTime? desde,
     DateTime? hasta,
     string? solicitanteId,
     int? productoId,
+    int? proveedorId,
     CatalogoPedidos.Domain.Enums.EstadoSolicitud? estado) =>
 {
-    var filtro = ConstruirFiltroReporte(desde, hasta, solicitanteId, productoId, estado);
+    var filtro = ConstruirFiltroReporte(desde, hasta, solicitanteId, productoId, proveedorId, estado);
     var resultado = await solicitudes.BuscarAsync(filtro);
+
+    if (proveedorId is int idProveedor)
+    {
+        var proveedor = await proveedores.ObtenerPorIdAsync(idProveedor);
+        var codigos = (await proveedores.ObtenerProductosDeProveedorAsync(idProveedor))
+            .ToDictionary(pp => pp.ProductoId, pp => pp.CodigoProveedor);
+        var bytesProveedor = pdf.ExportarSolicitudesPorProveedor(resultado, codigos, proveedor?.Nombre ?? "Proveedor");
+        return Results.File(bytesProveedor, "application/pdf", "pedido-proveedor.pdf");
+    }
+
     var bytes = pdf.ExportarSolicitudes(resultado);
     return Results.File(bytes, "application/pdf", "reporte-solicitudes.pdf");
 }).RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Gestor });
 
 app.MapGet("/api/solicitudes/reporte/excel", async (
     ISolicitudService solicitudes,
+    IProveedorService proveedores,
     IExcelExportService excel,
     DateTime? desde,
     DateTime? hasta,
     string? solicitanteId,
     int? productoId,
+    int? proveedorId,
     CatalogoPedidos.Domain.Enums.EstadoSolicitud? estado) =>
 {
-    var filtro = ConstruirFiltroReporte(desde, hasta, solicitanteId, productoId, estado);
+    var filtro = ConstruirFiltroReporte(desde, hasta, solicitanteId, productoId, proveedorId, estado);
     var resultado = await solicitudes.BuscarAsync(filtro);
+
+    if (proveedorId is int idProveedor)
+    {
+        var proveedor = await proveedores.ObtenerPorIdAsync(idProveedor);
+        var codigos = (await proveedores.ObtenerProductosDeProveedorAsync(idProveedor))
+            .ToDictionary(pp => pp.ProductoId, pp => pp.CodigoProveedor);
+        var bytesProveedor = excel.ExportarSolicitudesPorProveedor(resultado, codigos, proveedor?.Nombre ?? "Proveedor");
+        return Results.File(bytesProveedor, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "pedido-proveedor.xlsx");
+    }
+
     var bytes = excel.ExportarSolicitudes(resultado);
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "reporte-solicitudes.xlsx");
 }).RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Gestor });

@@ -242,6 +242,71 @@ public class PdfExportService : IPdfExportService
         return documento.GeneratePdf();
     }
 
+    public byte[] ExportarSolicitudesPorProveedor(IEnumerable<SolicitudProducto> solicitudes, IReadOnlyDictionary<int, string> codigosProveedorPorProducto, string proveedorNombre)
+    {
+        var lista = solicitudes.ToList();
+
+        var documento = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4.Landscape());
+                page.Margin(1.5f, Unit.Centimetre);
+                page.DefaultTextStyle(x => x.FontSize(9));
+
+                page.Header().Column(col =>
+                {
+                    col.Item().Text("Pedido a proveedor").FontSize(18).Bold();
+                    col.Item().Text($"Proveedor: {proveedorNombre}").FontSize(12);
+                });
+
+                page.Content().PaddingVertical(10).Table(table =>
+                {
+                    table.ColumnsDefinition(columns =>
+                    {
+                        columns.RelativeColumn(1);
+                        columns.RelativeColumn(1);
+                        columns.RelativeColumn(3);
+                        columns.RelativeColumn(1);
+                        columns.RelativeColumn(3);
+                        columns.RelativeColumn(2);
+                        columns.RelativeColumn(2);
+                    });
+
+                    table.Header(header =>
+                    {
+                        header.Cell().Text("Código interno").Bold();
+                        header.Cell().Text("Código proveedor").Bold();
+                        header.Cell().Text("Producto").Bold();
+                        header.Cell().Text("Cant.").Bold();
+                        header.Cell().Text("Solicitante").Bold();
+                        header.Cell().Text("Fecha").Bold();
+                        header.Cell().Text("Estado").Bold();
+                    });
+
+                    foreach (var s in lista)
+                    {
+                        table.Cell().Text(s.ProductoId.ToString());
+                        table.Cell().Text(codigosProveedorPorProducto.GetValueOrDefault(s.ProductoId, "-"));
+                        table.Cell().Text(s.Producto?.Nombre);
+                        table.Cell().Text(s.Cantidad.ToString());
+                        table.Cell().Text(s.SolicitanteNombre);
+                        table.Cell().Text(s.FechaSolicitud.ToLocalTime().ToString("dd/MM/yyyy"));
+                        table.Cell().Text(s.Estado.ToString());
+                    }
+                });
+
+                page.Footer().AlignCenter().Text(x =>
+                {
+                    x.Span($"{lista.Count} producto(s) - Generado por CatalogoPedidos - ").FontSize(8);
+                    x.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm")).FontSize(8);
+                });
+            });
+        });
+
+        return documento.GeneratePdf();
+    }
+
     public byte[] ExportarSolicitudes(IEnumerable<SolicitudProducto> solicitudes)
     {
         var lista = solicitudes.ToList();

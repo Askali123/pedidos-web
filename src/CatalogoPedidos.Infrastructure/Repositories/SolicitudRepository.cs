@@ -84,6 +84,9 @@ public class SolicitudRepository(IDbContextFactory<AppDbContext> dbFactory) : IS
         if (filtro.ProductoId is not null)
             query = query.Where(s => s.ProductoId == filtro.ProductoId);
 
+        if (filtro.ProveedorId is not null)
+            query = query.Where(s => s.Producto!.Proveedores.Any(pp => pp.ProveedorId == filtro.ProveedorId));
+
         if (filtro.Estado is not null)
             query = query.Where(s => s.Estado == filtro.Estado);
 

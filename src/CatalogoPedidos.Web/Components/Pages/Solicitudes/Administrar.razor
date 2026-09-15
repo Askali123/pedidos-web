@@ -2,6 +2,7 @@
 @attribute [Authorize(Roles = Roles.Gestor)]
 @inject ISolicitudService Solicitudes
 @inject IProductoService Productos
+@inject IProveedorService Proveedores
 @inject PageHeaderState HeaderState
 
 <PageTitle>Administrar pedidos</PageTitle>
@@ -51,6 +52,17 @@
                 </select>
             </div>
 
+            <div>
+                <label class="form-label">Proveedor</label>
+                <select class="form-select w-auto" @bind="proveedorIdTexto" @bind:after="Buscar">
+                    <option value="">Todos los proveedores</option>
+                    @foreach (var prov in proveedores)
+                    {
+                        <option value="@prov.Id">@prov.Nombre</option>
+                    }
+                </select>
+            </div>
+
             <div class="flex items-center gap-2">
                 <Button Variant="ButtonVariant.Secondary" OnClick="LimpiarFiltros">Limpiar</Button>
                 <a class="btn btn-secondary" href="@UrlReporte("pdf")" target="_blank"><Icon Name="download" Class="h-4 w-4" />PDF</a>
@@ -76,6 +88,11 @@
                         <tr>
                             <th>N.º</th>
                             <th>Pedido</th>
+                            @if (proveedorId is not null)
+                            {
+                                <th>Código interno</th>
+                                <th>Código proveedor</th>
+                            }
                             <th>Producto</th>
                             <th>Cantidad</th>
                             <th>Solicitante</th>
@@ -91,6 +108,11 @@
                             <tr>
                                 <td class="text-gray-400">#@s.Id</td>
                                 <td class="text-gray-400">#@s.PedidoId</td>
+                                @if (proveedorId is not null)
+                                {
+                                    <td class="text-gray-500">#@s.ProductoId</td>
+                                    <td class="font-medium text-gray-900">@codigosProveedorPorProducto.GetValueOrDefault(s.ProductoId, "-")</td>
+                                }
                                 <td class="font-medium text-gray-900">@s.Producto?.Nombre</td>
                                 <td>@s.Cantidad</td>
                                 <td>@s.SolicitanteNombre</td>
@@ -116,11 +138,16 @@
     private string solicitanteId = "";
     private string productoId = "";
     private string estado = "";
+    private string proveedorIdTexto = "";
     private int paginaNumero = 1;
+
+    private int? proveedorId => int.TryParse(proveedorIdTexto, out var id) ? id : null;
 
     private List<SolicitudProducto>? resultados;
     private List<SolicitanteResumenDto> solicitantes = new();
     private List<Producto> catalogo = new();
+    private List<Proveedor> proveedores = new();
+    private Dictionary<int, string> codigosProveedorPorProducto = new();
 
     private int totalPaginas => resultados is null ? 1 : Math.Max(1, (int)Math.Ceiling(resultados.Count / (double)TamanoPagina));
     private IEnumerable<SolicitudProducto> paginaActual => (resultados ?? []).Skip((paginaNumero - 1) * TamanoPagina).Take(TamanoPagina);
@@ -130,6 +157,7 @@
         HeaderState.Set("Administrar pedidos", [("Administrar pedidos", null)]);
         solicitantes = await Solicitudes.ObtenerSolicitantesAsync();
         catalogo = await Productos.ObtenerCatalogoAsync();
+        proveedores = await Proveedores.ObtenerTodosAsync();
         await Buscar();
     }
 
@@ -142,10 +170,18 @@
             FechaHasta = fechaHasta?.AddDays(1),
             SolicitanteId = string.IsNullOrEmpty(solicitanteId) ? null : solicitanteId,
             ProductoId = string.IsNullOrEmpty(productoId) ? null : int.Parse(productoId),
+            ProveedorId = proveedorId,
             Estado = string.IsNullOrEmpty(estado) ? null : Enum.Parse<EstadoSolicitud>(estado)
         };
 
         resultados = await Solicitudes.BuscarAsync(filtro);
+
+        // Para mostrar el código con el que ESE proveedor identifica cada producto solicitado
+        // (independiente del código interno, que es el Id del producto).
+        codigosProveedorPorProducto = proveedorId is int id
+            ? (await Proveedores.ObtenerProductosDeProveedorAsync(id)).ToDictionary(pp => pp.ProductoId, pp => pp.CodigoProveedor)
+            : new Dictionary<int, string>();
+
         paginaNumero = 1;
     }
 
@@ -156,6 +192,7 @@
         solicitanteId = "";
         productoId = "";
         estado = "";
+        proveedorIdTexto = "";
         await Buscar();
     }
 
@@ -167,6 +204,7 @@
         if (fechaHasta is not null) query.Add($"hasta={fechaHasta.Value.AddDays(1):yyyy-MM-dd}");
         if (!string.IsNullOrEmpty(solicitanteId)) query.Add($"solicitanteId={Uri.EscapeDataString(solicitanteId)}");
         if (!string.IsNullOrEmpty(productoId)) query.Add($"productoId={productoId}");
+        if (!string.IsNullOrEmpty(proveedorIdTexto)) query.Add($"proveedorId={proveedorIdTexto}");
         if (!string.IsNullOrEmpty(estado)) query.Add($"estado={estado}");
 
         var queryString = query.Count > 0 ? "?" + string.Join("&", query) : "";
