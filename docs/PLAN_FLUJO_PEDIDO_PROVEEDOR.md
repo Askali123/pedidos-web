@@ -155,24 +155,95 @@ completarse; no reordenar sin avisar — el orden es la prioridad acordada.
 
 ## P4 — Funcionalidades nuevas
 
-- [ ] **12. Pantalla de historial de envíos a proveedores**
-  Filtrable por proveedor/fecha, reutilizando `NotificacionProveedor` una vez tenga
-  `GestorId` (tarea 4).
+- [x] **12. Pantalla de historial de envíos a proveedores** — **Hecho.**
+  Nueva pantalla `/solicitudes/historial-envios` (solo Gestor), enlazada en el sidebar
+  bajo "Gestión". Reutiliza `NotificacionProveedor` tal cual quedó tras la tarea 4 (ya
+  tenía `GestorId`/`GestorNombre`) — no hizo falta tocar el dominio. Se agregó
+  `INotificacionProveedorRepository.BuscarAsync` + `FiltroEnviosProveedorDto`
+  (`ProveedorId`, `FechaDesde`, `FechaHasta`), mismo patrón que
+  `ISolicitudRepository.BuscarAsync`/`FiltroSolicitudesDto` que ya usaba Administrar
+  pedidos. La tabla muestra fecha, pedido, proveedor, correo real al que se mandó,
+  cantidad de líneas, gestor y un acceso directo al PDF del pedido; paginada de a 20.
+  Verificado en el navegador: sin filtros mostró los 18 envíos reales hechos hasta ahora
+  (ordenados del más reciente); filtrar por "Tiendas D1" los redujo a 5 (todos de ese
+  proveedor); poner "Desde" en un día futuro mostró el `EmptyState` "Sin envíos"; y
+  "Limpiar" restauró los 18.
+  Archivos: `FiltroEnviosProveedorDto.cs`, `INotificacionProveedorRepository.cs`,
+  `NotificacionProveedorRepository.cs`, `IPedidoNotificacionProveedorService.cs`,
+  `PedidoNotificacionProveedorService.cs`, `HistorialEnvios.razor` (nuevo),
+  `Components/UI/Icon.razor` (ícono `clock` nuevo), `Components/Layout/Sidebar.razor`
 
-- [ ] **13. Copia (CC/BCC) al gestor en el correo saliente**
-  Para que quede en su propia bandeja como respaldo.
+- [x] **13. Copia (CC/BCC) al gestor en el correo saliente** — **Hecho.**
+  `IEmailSender.EnviarAsync` ganó un parámetro opcional `copiaA` (CC, no BCC — se eligió CC
+  a propósito: así el proveedor también ve que hay copia, más transparente que una copia
+  oculta). `PedidoNotificacionProveedorService.EnviarAProveedorAsync` recibe ahora
+  `gestorEmail` (opcional) y lo pasa como CC; se omite si coincide con el destinatario,
+  para no duplicar el correo. `Bandeja.razor`/`Administrar.razor` ya tenían un helper
+  `DatosGestor` que resolvía `GestorId`/`GestorNombre` desde el `ApplicationUser` actual —
+  se le agregó `GestorEmail` (mismo objeto, no hizo falta una consulta nueva) y se
+  propaga en la llamada a `EnviarAProveedorAsync`. `SmtpEmailSender` agrega el CC al
+  `MailMessage` real; `LoggingEmailSender` lo deja en el log simulado igual que el resto.
+  Verificado en el navegador: envié el pedido #47 (15 líneas) a "Distribuciones Andinas"
+  logueado como `gestor@catalogo.local`, el envío fue exitoso, y el log de la app confirmó
+  `Correo enviado a vennov34@gmail.com (CC: gestor@catalogo.local) — Pedido de
+  reabastecimiento #47 — Distribuciones Andinas`.
+  Archivos: `IEmailSender.cs`, `SmtpEmailSender.cs`, `LoggingEmailSender.cs`,
+  `IPedidoNotificacionProveedorService.cs`, `PedidoNotificacionProveedorService.cs`,
+  `Bandeja.razor`, `Administrar.razor`
 
-- [ ] **14. Reply-To con el correo del gestor que envió**
-  Hoy el proveedor respondería al remitente genérico configurado en `Smtp:RemitenteEmail`,
-  no a una persona real.
+- [x] **14. Reply-To con el correo del gestor que envió** — **Hecho.**
+  Reutilizó el mismo dato que ya viajaba para la tarea 13 (`gestorEmail`/`copiaA`) — no
+  hizo falta un parámetro nuevo ni tocar la UI. `SmtpEmailSender` ahora también agrega
+  `mensaje.ReplyToList` con ese correo (misma condición que el CC: se omite si coincide
+  con el destinatario). `LoggingEmailSender` refleja el mismo dato en el log simulado.
+  Verificado en el navegador: envié el pedido #46 a "Distribuciones Andinas" (logueado
+  como `gestor@catalogo.local`) y el log de la app confirmó `Correo enviado a
+  vennov34@gmail.com (CC: gestor@catalogo.local, Reply-To: gestor@catalogo.local) —
+  Pedido de reabastecimiento #46 — Distribuciones Andinas`.
+  Archivos: `IEmailSender.cs`, `SmtpEmailSender.cs`, `LoggingEmailSender.cs`
 
-- [ ] **15. Conectar la alerta de stock bajo con "enviar a proveedor preferido"**
-  Acción directa desde la notificación de stock bajo hacia el envío ya existente.
+- [x] **15. Conectar la alerta de stock bajo con "enviar a proveedor preferido"** — **Hecho.**
+  No existe (ni tenía sentido crear) un "enviar directo desde la alerta" sin pasar por un
+  pedido — el envío real siempre va sobre líneas Aprobadas de un `Pedido` existente. En su
+  lugar, la alerta ahora es un deep link a "Administrar pedidos" ya filtrado por ESE
+  producto y, si tiene uno, su proveedor preferido (`ObtenerPreferidosPorProductosAsync`,
+  mismo criterio ya usado en el resto del sistema) — al gestor le queda el botón "Enviar a
+  proveedor" que ya existía a un clic, en vez de tener que ir a buscar manualmente el
+  pedido correspondiente. `SolicitudService.AlertarStockBajoAsync` arma la URL
+  (`/solicitudes/administrar?productoId=X&proveedorId=Y`, o solo `productoId` sin
+  preferido) en lugar de apuntar siempre a `/catalogo`; `Administrar.razor` la lee con
+  `[SupplyParameterFromQuery]` y pre-carga esos dos filtros antes de la primera búsqueda.
+  Verificado en el navegador: creé un producto de prueba (stock 5, mínimo 3, proveedor
+  preferido Tiendas D1), pedí 2 unidades como solicitante y las aprobé como gestor — llegó
+  la notificación "Stock bajo" ("...quedó con stock 3..."); al hacer clic aterrizó en
+  `/solicitudes/administrar?productoId=236&proveedorId=4` con "PRUEBA alerta tarea 15" y
+  "Tiendas D1" ya seleccionados en los filtros, mostrando el pedido #54 aprobado con
+  "Enviar a proveedor" listo para usar (abrí el diálogo de confirmación para confirmar que
+  el botón funciona; no lo envié de verdad por ser un producto de prueba).
+  Archivos: `SolicitudService.cs`, `Administrar.razor`
 
-- [ ] **16. Adjuntar también Excel (opcional)**
-  Se dejó afuera a propósito la primera vez (se eligió solo PDF); el generador de Excel
-  ya existe (`IExcelExportService.ExportarSolicitudesPorProveedor`), así que es agregar
-  el adjunto si más adelante se quiere.
+- [x] **16. Adjuntar también Excel (opcional)** — **Hecho.**
+  `IEmailSender.EnviarAsync` pasó de un `adjunto` único a `adjuntos` (lista) — el único
+  caller (`PedidoNotificacionProveedorService`) arma esa lista con el PDF (siempre) y,
+  si `incluirExcel` viene en `true`, también el Excel vía el generador que ya existía
+  (`IExcelExportService.ExportarSolicitudesPorProveedor`, mismo patrón que el PDF). Es
+  opcional por decisión explícita del gestor en cada envío, no una config global: el
+  `ConfirmDialog` de "Enviar a proveedor" ganó un checkbox "También adjuntar el detalle
+  en Excel" (para eso, `ConfirmDialog` ganó un slot `ExtraContent` reusable — parámetro
+  nuevo, no rompe los otros 4 usos existentes del componente). El cuerpo del correo
+  también menciona el Excel cuando se incluye.
+  Verificado en el navegador: envié el pedido #54 con el checkbox marcado y el log
+  confirmó ambos adjuntos (`Pedido-54-Tiendas D1.pdf, Pedido-54-Tiendas D1.xlsx`); envié
+  el pedido #48 sin marcarlo (default) y el log mostró solo el PDF — confirmando que el
+  comportamiento previo (solo PDF) sigue siendo el default.
+  Archivos: `IEmailSender.cs`, `SmtpEmailSender.cs`, `LoggingEmailSender.cs`,
+  `IPedidoNotificacionProveedorService.cs`, `PedidoNotificacionProveedorService.cs`,
+  `Components/UI/ConfirmDialog.razor`, `Bandeja.razor`, `Administrar.razor`
+
+---
+
+**Las 16 tareas de este plan están completas.** Cada una quedó verificada en vivo en el
+navegador y documentada arriba con el detalle de qué se hizo y cómo se probó.
 
 ---
 

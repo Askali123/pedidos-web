@@ -12,5 +12,12 @@ public record EmailAdjunto(string NombreArchivo, byte[] Contenido, string Conten
 /// </summary>
 public interface IEmailSender
 {
-    Task EnviarAsync(string destinatario, string asunto, string cuerpo, EmailAdjunto? adjunto = null, CancellationToken ct = default);
+    /// <param name="adjuntos">Cero o más adjuntos (p. ej. el PDF y, opcionalmente, un Excel del mismo pedido).</param>
+    /// <param name="copiaA">
+    /// Opcional — típicamente el correo de quien dispara el envío (el gestor). Se usa para
+    /// dos cosas a la vez: va en copia (CC, visible para el destinatario) y como Reply-To,
+    /// para que si el destinatario responde, la respuesta le llegue a esta persona y no al
+    /// remitente genérico configurado en <c>Smtp:RemitenteEmail</c>.
+    /// </param>
+    Task EnviarAsync(string destinatario, string asunto, string cuerpo, IReadOnlyList<EmailAdjunto>? adjuntos = null, string? copiaA = null, CancellationToken ct = default);
 }

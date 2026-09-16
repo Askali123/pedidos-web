@@ -1,5 +1,6 @@
 using CatalogoPedidos.Application.Notificaciones;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace CatalogoPedidos.Infrastructure.Email;
 
@@ -13,19 +14,24 @@ namespace CatalogoPedidos.Infrastructure.Email;
 /// </summary>
 public class LoggingEmailSender(ILogger<LoggingEmailSender> logger) : IEmailSender
 {
-    public Task EnviarAsync(string destinatario, string asunto, string cuerpo, EmailAdjunto? adjunto = null, CancellationToken ct = default)
+    public Task EnviarAsync(string destinatario, string asunto, string cuerpo, IReadOnlyList<EmailAdjunto>? adjuntos = null, string? copiaA = null, CancellationToken ct = default)
     {
-        if (adjunto is null)
+        // Mismo correo sirve de CC y de Reply-To (ver IEmailSender.EnviarAsync) — un envío
+        // real lo aplicaría en ambos campos del MailMessage.
+        var cc = string.IsNullOrWhiteSpace(copiaA) ? "(ninguna)" : copiaA;
+
+        if (adjuntos is null || adjuntos.Count == 0)
         {
             logger.LogInformation(
-                "[Correo simulado — no hay SMTP configurado] Para: {Destinatario} | Asunto: {Asunto}\n{Cuerpo}",
-                destinatario, asunto, cuerpo);
+                "[Correo simulado — no hay SMTP configurado] Para: {Destinatario} | CC: {Cc} | Reply-To: {ReplyTo} | Asunto: {Asunto}\n{Cuerpo}",
+                destinatario, cc, cc, asunto, cuerpo);
         }
         else
         {
+            var detalleAdjuntos = string.Join(", ", adjuntos.Select(a => $"{a.NombreArchivo} ({a.Contenido.Length} bytes)"));
             logger.LogInformation(
-                "[Correo simulado — no hay SMTP configurado] Para: {Destinatario} | Asunto: {Asunto} | Adjunto: {Adjunto} ({Bytes} bytes)\n{Cuerpo}",
-                destinatario, asunto, adjunto.NombreArchivo, adjunto.Contenido.Length, cuerpo);
+                "[Correo simulado — no hay SMTP configurado] Para: {Destinatario} | CC: {Cc} | Reply-To: {ReplyTo} | Asunto: {Asunto} | Adjuntos: {Adjuntos}\n{Cuerpo}",
+                destinatario, cc, cc, asunto, detalleAdjuntos, cuerpo);
         }
 
         return Task.CompletedTask;

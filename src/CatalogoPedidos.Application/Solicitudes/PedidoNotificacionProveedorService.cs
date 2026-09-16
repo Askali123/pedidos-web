@@ -12,7 +12,8 @@ public class PedidoNotificacionProveedorService(
     IProductoProveedorRepository asociaciones,
     INotificacionProveedorRepository envios,
     IEmailSender emailSender,
-    IPdfExportService pdfExport) : IPedidoNotificacionProveedorService
+    IPdfExportService pdfExport,
+    IExcelExportService excelExport) : IPedidoNotificacionProveedorService
 {
     /// <summary>
     /// Tiempo mínimo entre dos envíos del MISMO pedido al MISMO proveedor. No es
@@ -50,7 +51,7 @@ public class PedidoNotificacionProveedorService(
             .ToList();
     }
 
-    public async Task<EnvioProveedorResultadoDto> EnviarAProveedorAsync(int pedidoId, int proveedorId, string gestorId, string gestorNombre, CancellationToken ct = default)
+    public async Task<EnvioProveedorResultadoDto> EnviarAProveedorAsync(int pedidoId, int proveedorId, string gestorId, string gestorNombre, string? gestorEmail = null, bool incluirExcel = false, CancellationToken ct = default)
     {
         var pedido = await solicitudes.ObtenerPedidoAsync(pedidoId, ct)
             ?? throw new InvalidOperationException("El pedido no existe.");
@@ -108,11 +109,18 @@ public class PedidoNotificacionProveedorService(
         try
         {
             var pdf = pdfExport.ExportarSolicitudesPorProveedor(lineas, codigoPorProducto, proveedor.Nombre);
-            var adjunto = new EmailAdjunto($"Pedido-{pedido.Id}-{proveedor.Nombre}.pdf", pdf, "application/pdf");
-            var cuerpo = ArmarCuerpo(pedido, proveedor, lineas.Select(l => (l, codigoPorProducto[l.ProductoId])));
+            var adjuntos = new List<EmailAdjunto> { new($"Pedido-{pedido.Id}-{proveedor.Nombre}.pdf", pdf, "application/pdf") };
+
+            if (incluirExcel)
+            {
+                var excel = excelExport.ExportarSolicitudesPorProveedor(lineas, codigoPorProducto, proveedor.Nombre);
+                adjuntos.Add(new EmailAdjunto($"Pedido-{pedido.Id}-{proveedor.Nombre}.xlsx", excel, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            }
+
+            var cuerpo = ArmarCuerpo(pedido, proveedor, lineas.Select(l => (l, codigoPorProducto[l.ProductoId])), incluirExcel);
             var asunto = $"Pedido de reabastecimiento #{pedido.Id} — {proveedor.Nombre}";
 
-            await emailSender.EnviarAsync(proveedor.Email, asunto, cuerpo, adjunto, ct);
+            await emailSender.EnviarAsync(proveedor.Email, asunto, cuerpo, adjuntos, copiaA: gestorEmail, ct: ct);
 
             await envios.CrearAsync(new NotificacionProveedor
             {
@@ -148,7 +156,7 @@ public class PedidoNotificacionProveedorService(
         }
     }
 
-    private static string ArmarCuerpo(Pedido pedido, Proveedor proveedor, IEnumerable<(SolicitudProducto Item, string CodigoProveedor)> lineas)
+    private static string ArmarCuerpo(Pedido pedido, Proveedor proveedor, IEnumerable<(SolicitudProducto Item, string CodigoProveedor)> lineas, bool incluyeExcel)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Pedido de reabastecimiento #{pedido.Id}");
@@ -158,7 +166,9 @@ public class PedidoNotificacionProveedorService(
         if (!string.IsNullOrWhiteSpace(pedido.Comentario))
             sb.AppendLine($"Comentario: {pedido.Comentario}");
         sb.AppendLine();
-        sb.AppendLine("Adjunto el detalle en PDF con el código que ustedes le dan a cada producto.");
+        sb.AppendLine(incluyeExcel
+            ? "Adjunto el detalle en PDF y en Excel con el código que ustedes le dan a cada producto."
+            : "Adjunto el detalle en PDF con el código que ustedes le dan a cada producto.");
         sb.AppendLine();
         sb.AppendLine("Productos:");
         foreach (var (item, codigoProveedor) in lineas)
@@ -169,4 +179,7 @@ public class PedidoNotificacionProveedorService(
 
     public Task<List<NotificacionProveedor>> ObtenerEnviosAsync(int pedidoId, CancellationToken ct = default)
         => envios.ObtenerPorPedidoAsync(pedidoId, ct);
+
+    public Task<List<NotificacionProveedor>> BuscarEnviosAsync(FiltroEnviosProveedorDto filtro, CancellationToken ct = default)
+        => envios.BuscarAsync(filtro, ct);
 }

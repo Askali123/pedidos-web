@@ -6,4 +6,5 @@ public interface INotificacionProveedorRepository
 {
     Task<NotificacionProveedor> CrearAsync(NotificacionProveedor envio, CancellationToken ct = default);
     Task<List<NotificacionProveedor>> ObtenerPorPedidoAsync(int pedidoId, CancellationToken ct = default);
+    Task<List<NotificacionProveedor>> BuscarAsync(FiltroEnviosProveedorDto filtro, CancellationToken ct = default);
 }

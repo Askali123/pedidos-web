@@ -1,5 +1,6 @@
 using CatalogoPedidos.Application.Notificaciones;
 using CatalogoPedidos.Application.Productos;
+using CatalogoPedidos.Application.Proveedores;
 using CatalogoPedidos.Application.Usuarios;
 using CatalogoPedidos.Domain.Entities;
 using CatalogoPedidos.Domain.Enums;
@@ -11,7 +12,8 @@ public class SolicitudService(
     IProductoRepository productos,
     INotificacionRepository notificaciones,
     INotificacionBroadcaster broadcaster,
-    IGestorDirectory gestores) : ISolicitudService
+    IGestorDirectory gestores,
+    IProductoProveedorRepository asociaciones) : ISolicitudService
 {
     private const int MensajeMaxLength = 500;
 
@@ -233,9 +235,20 @@ public class SolicitudService(
         try
         {
             var mensaje = $"\"{producto.Nombre}\" quedó con stock {producto.Stock} (mínimo configurado: {producto.StockMinimo}).";
+
+            // Si el producto ya tiene un proveedor preferido, la alerta lleva directo a
+            // "Administrar pedidos" filtrado por ese producto Y ese proveedor — al gestor le
+            // queda a un clic el botón "Enviar a proveedor" ya existente (ver tarea 15 del
+            // plan). Sin proveedor asociado, igual filtra por producto para ubicar rápido
+            // qué pedidos lo tienen pendiente/aprobado.
+            var preferidos = await asociaciones.ObtenerPreferidosPorProductosAsync([producto.Id], ct);
+            var url = preferidos.Count > 0
+                ? $"/solicitudes/administrar?productoId={producto.Id}&proveedorId={preferidos[0].ProveedorId}"
+                : $"/solicitudes/administrar?productoId={producto.Id}";
+
             var idsGestores = await gestores.ObtenerIdsGestoresAsync(ct);
             foreach (var gestorId in idsGestores)
-                await NotificarAsync(gestorId, "Stock bajo", mensaje, "/catalogo", TipoNotificacion.StockBajo, ct);
+                await NotificarAsync(gestorId, "Stock bajo", mensaje, url, TipoNotificacion.StockBajo, ct);
         }
         catch
         {

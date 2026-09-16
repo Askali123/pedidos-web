@@ -144,7 +144,14 @@
 
 <ConfirmDialog @bind-Visible="confirmandoEnvio" Title="Enviar a proveedor"
                Message="@($"¿Enviar el pedido #{pedidoPendienteEnvio} a \"{proveedorPendienteEnvio?.ProveedorNombre}\" ({proveedorPendienteEnvio?.CantidadLineas} producto(s))? Se le manda un correo real con el detalle en PDF — no se puede deshacer.")"
-               ConfirmText="Enviar" OnConfirm="ConfirmarEnvio" />
+               ConfirmText="Enviar" OnConfirm="ConfirmarEnvio">
+    <ExtraContent>
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" class="form-checkbox" @bind="adjuntarExcel" />
+            También adjuntar el detalle en Excel
+        </label>
+    </ExtraContent>
+</ConfirmDialog>
 
 <Modal Visible="modalResolverVisible" VisibleChanged="v => modalResolverVisible = v" Title="@tituloModalResolver">
     <ChildContent>
@@ -197,12 +204,12 @@
         }
     }
 
-    private async Task<(string GestorId, string GestorNombre)> DatosGestor(Microsoft.AspNetCore.Components.Authorization.AuthenticationState authState)
+    private async Task<(string GestorId, string GestorNombre, string? GestorEmail)> DatosGestor(Microsoft.AspNetCore.Components.Authorization.AuthenticationState authState)
     {
         var gestorId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
         var appUser = await UserManager.GetUserAsync(authState.User);
         var gestorNombre = appUser.NombreParaMostrar(authState.User.Identity?.Name ?? "Gestor");
-        return (gestorId, gestorNombre);
+        return (gestorId, gestorNombre, appUser?.Email);
     }
 
     private bool modalResolverVisible;
@@ -234,7 +241,7 @@
 
     private async Task ConfirmarResolver()
     {
-        var (gestorId, gestorNombre) = await DatosGestor(await AuthStateTask!);
+        var (gestorId, gestorNombre, _) = await DatosGestor(await AuthStateTask!);
         var dto = new ResolverSolicitudDto
         {
             Aprobar = aprobarPendiente,
@@ -262,11 +269,13 @@
     private bool confirmandoEnvio;
     private int pedidoPendienteEnvio;
     private ProveedorDelPedidoDto? proveedorPendienteEnvio;
+    private bool adjuntarExcel;
 
     private void PedirConfirmacionEnvio(int pedidoId, ProveedorDelPedidoDto proveedor)
     {
         pedidoPendienteEnvio = pedidoId;
         proveedorPendienteEnvio = proveedor;
+        adjuntarExcel = false;
         confirmandoEnvio = true;
     }
 
@@ -275,11 +284,11 @@
         if (proveedorPendienteEnvio is null)
             return;
 
-        var (gestorId, gestorNombre) = await DatosGestor(await AuthStateTask!);
-        var resultado = await NotificacionesProveedor.EnviarAProveedorAsync(pedidoPendienteEnvio, proveedorPendienteEnvio.ProveedorId, gestorId, gestorNombre);
+        var (gestorId, gestorNombre, gestorEmail) = await DatosGestor(await AuthStateTask!);
+        var resultado = await NotificacionesProveedor.EnviarAProveedorAsync(pedidoPendienteEnvio, proveedorPendienteEnvio.ProveedorId, gestorId, gestorNombre, gestorEmail, adjuntarExcel);
 
         mensaje = resultado.Enviado
-            ? $"Pedido #{pedidoPendienteEnvio} enviado a {resultado.ProveedorNombre} (PDF adjunto, {resultado.CantidadLineas} producto(s))."
+            ? $"Pedido #{pedidoPendienteEnvio} enviado a {resultado.ProveedorNombre} ({(adjuntarExcel ? "PDF y Excel adjuntos" : "PDF adjunto")}, {resultado.CantidadLineas} producto(s))."
             : $"No se pudo enviar a {resultado.ProveedorNombre}: {resultado.Motivo}";
         mensajeVariante = resultado.Enviado ? AlertVariant.Success : AlertVariant.Warning;
 

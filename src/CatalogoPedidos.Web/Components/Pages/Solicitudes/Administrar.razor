@@ -219,10 +219,23 @@
 
 <ConfirmDialog @bind-Visible="confirmandoEnvio" Title="Enviar a proveedor"
                Message="@($"¿Enviar el pedido #{pedidoPendienteEnvio} a \"{proveedorPendienteEnvio?.ProveedorNombre}\" ({proveedorPendienteEnvio?.CantidadLineas} producto(s))? Se le manda un correo real con el detalle en PDF — no se puede deshacer.")"
-               ConfirmText="Enviar" OnConfirm="ConfirmarEnvio" />
+               ConfirmText="Enviar" OnConfirm="ConfirmarEnvio">
+    <ExtraContent>
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" class="form-checkbox" @bind="adjuntarExcel" />
+            También adjuntar el detalle en Excel
+        </label>
+    </ExtraContent>
+</ConfirmDialog>
 
 @code {
     [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
+
+    // Deep link desde la alerta de "Stock bajo" (ver SolicitudService.AlertarStockBajoAsync):
+    // llega con el producto y, si tiene proveedor preferido, ese proveedor ya elegidos, para
+    // dejar al gestor a un clic del botón "Enviar a proveedor" que ya existe en esta pantalla.
+    [SupplyParameterFromQuery(Name = "productoId")] private int? ProductoIdQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "proveedorId")] private int? ProveedorIdQuery { get; set; }
 
     private const int TamanoPagina = 8;
 
@@ -264,6 +277,12 @@
         solicitantes = await Solicitudes.ObtenerSolicitantesAsync();
         catalogo = await Productos.ObtenerCatalogoAsync();
         proveedores = await Proveedores.ObtenerTodosAsync();
+
+        if (ProductoIdQuery is int productoIdDesdeAlerta)
+            productoId = productoIdDesdeAlerta.ToString();
+        if (ProveedorIdQuery is int proveedorIdDesdeAlerta)
+            proveedorIdTexto = proveedorIdDesdeAlerta.ToString();
+
         await Buscar();
     }
 
@@ -328,20 +347,22 @@
     private bool confirmandoEnvio;
     private int pedidoPendienteEnvio;
     private ProveedorDelPedidoDto? proveedorPendienteEnvio;
+    private bool adjuntarExcel;
 
     private void PedirConfirmacionEnvio(int pedidoId, ProveedorDelPedidoDto proveedor)
     {
         pedidoPendienteEnvio = pedidoId;
         proveedorPendienteEnvio = proveedor;
+        adjuntarExcel = false;
         confirmandoEnvio = true;
     }
 
-    private async Task<(string GestorId, string GestorNombre)> DatosGestor(Microsoft.AspNetCore.Components.Authorization.AuthenticationState authState)
+    private async Task<(string GestorId, string GestorNombre, string? GestorEmail)> DatosGestor(Microsoft.AspNetCore.Components.Authorization.AuthenticationState authState)
     {
         var gestorId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
         var appUser = await UserManager.GetUserAsync(authState.User);
         var gestorNombre = appUser.NombreParaMostrar(authState.User.Identity?.Name ?? "Gestor");
-        return (gestorId, gestorNombre);
+        return (gestorId, gestorNombre, appUser?.Email);
     }
 
     private async Task ConfirmarEnvio()
@@ -349,11 +370,11 @@
         if (proveedorPendienteEnvio is null)
             return;
 
-        var (gestorId, gestorNombre) = await DatosGestor(await AuthStateTask!);
-        var resultado = await NotificacionesProveedor.EnviarAProveedorAsync(pedidoPendienteEnvio, proveedorPendienteEnvio.ProveedorId, gestorId, gestorNombre);
+        var (gestorId, gestorNombre, gestorEmail) = await DatosGestor(await AuthStateTask!);
+        var resultado = await NotificacionesProveedor.EnviarAProveedorAsync(pedidoPendienteEnvio, proveedorPendienteEnvio.ProveedorId, gestorId, gestorNombre, gestorEmail, adjuntarExcel);
 
         mensajeEnvio = resultado.Enviado
-            ? $"Pedido #{pedidoPendienteEnvio} enviado a {resultado.ProveedorNombre} (PDF adjunto, {resultado.CantidadLineas} producto(s))."
+            ? $"Pedido #{pedidoPendienteEnvio} enviado a {resultado.ProveedorNombre} ({(adjuntarExcel ? "PDF y Excel adjuntos" : "PDF adjunto")}, {resultado.CantidadLineas} producto(s))."
             : $"No se pudo enviar a {resultado.ProveedorNombre}: {resultado.Motivo}";
         mensajeEnvioVariante = resultado.Enviado ? AlertVariant.Success : AlertVariant.Warning;
 

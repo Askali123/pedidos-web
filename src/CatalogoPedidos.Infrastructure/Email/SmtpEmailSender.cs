@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Mail;
+using System.Linq;
 using CatalogoPedidos.Application.Notificaciones;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,7 +15,7 @@ namespace CatalogoPedidos.Infrastructure.Email;
 /// </summary>
 public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSender> logger) : IEmailSender
 {
-    public async Task EnviarAsync(string destinatario, string asunto, string cuerpo, EmailAdjunto? adjunto = null, CancellationToken ct = default)
+    public async Task EnviarAsync(string destinatario, string asunto, string cuerpo, IReadOnlyList<EmailAdjunto>? adjuntos = null, string? copiaA = null, CancellationToken ct = default)
     {
         var smtp = options.Value;
 
@@ -27,10 +28,21 @@ public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSen
         };
         mensaje.To.Add(destinatario);
 
+        // CC al gestor que hizo el envío (para que le quede como respaldo en su propia
+        // bandeja) y Reply-To al mismo correo (para que si el proveedor responde, le llegue
+        // a esta persona y no al remitente genérico de Smtp:RemitenteEmail). Se omite si por
+        // algún motivo coincide con el destinatario, para no duplicar el correo.
+        if (!string.IsNullOrWhiteSpace(copiaA) && !copiaA.Equals(destinatario, StringComparison.OrdinalIgnoreCase))
+        {
+            mensaje.CC.Add(copiaA);
+            mensaje.ReplyToList.Add(new MailAddress(copiaA));
+        }
+
         // El MemoryStream lo cierra el propio Attachment al disponerse (y ese, al disponerse
         // mensaje.Attachments más abajo con el "using var mensaje").
-        if (adjunto is not null)
-            mensaje.Attachments.Add(new Attachment(new MemoryStream(adjunto.Contenido), adjunto.NombreArchivo, adjunto.ContentType));
+        if (adjuntos is not null)
+            foreach (var adjunto in adjuntos)
+                mensaje.Attachments.Add(new Attachment(new MemoryStream(adjunto.Contenido), adjunto.NombreArchivo, adjunto.ContentType));
 
         using var cliente = new SmtpClient(smtp.Host, smtp.Port)
         {
@@ -41,7 +53,9 @@ public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSen
         try
         {
             await cliente.SendMailAsync(mensaje, ct);
-            logger.LogInformation("Correo enviado a {Destinatario} — {Asunto}", destinatario, asunto);
+            var copiaAplicada = mensaje.CC.Count > 0 ? copiaA : "ninguna";
+            var nombresAdjuntos = mensaje.Attachments.Count > 0 ? string.Join(", ", mensaje.Attachments.Select(a => a.Name)) : "ninguno";
+            logger.LogInformation("Correo enviado a {Destinatario} (CC: {Cc}, Reply-To: {ReplyTo}, Adjuntos: {Adjuntos}) — {Asunto}", destinatario, copiaAplicada, copiaAplicada, nombresAdjuntos, asunto);
         }
         catch (Exception ex)
         {
