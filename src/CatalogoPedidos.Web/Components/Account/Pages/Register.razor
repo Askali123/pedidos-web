@@ -38,6 +38,10 @@
             <ValidationMessage For="() => Input.Email" class="text-danger-700 text-xs mt-1" />
         </FormField>
 
+        <FormField Label="Dirección de entrega" Hint="Opcional — se usa para autocompletar dónde entregar tus pedidos. Puedes cambiarla luego en tu perfil.">
+            <InputText @bind-Value="Input.DireccionPredeterminada" id="Input.DireccionPredeterminada" class="form-input" autocomplete="street-address" placeholder="Ej. Bodega principal, Cra 10 # 20-30" />
+        </FormField>
+
         <FormField Label="Contraseña" Required="true">
             <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-input" autocomplete="new-password" aria-required="true" placeholder="••••••••" />
             <ValidationMessage For="() => Input.Password" class="text-danger-700 text-xs mt-1" />
@@ -79,6 +83,7 @@
     {
         var user = CreateUser();
         user.NombreCompleto = Input.NombreCompleto;
+        user.DireccionPredeterminada = string.IsNullOrWhiteSpace(Input.DireccionPredeterminada) ? null : Input.DireccionPredeterminada.Trim();
 
         await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
         var emailStore = GetEmailStore();
@@ -157,6 +162,10 @@
         [EmailAddress(ErrorMessage = "El email no tiene un formato válido.")]
         [Display(Name = "Email")]
         public string Email { get; set; } = "";
+
+        [StringLength(300, ErrorMessage = "La {0} no puede superar los {1} caracteres.")]
+        [Display(Name = "Dirección de entrega")]
+        public string? DireccionPredeterminada { get; set; }
 
         [Required(ErrorMessage = "La contraseña es obligatoria.")]
         [StringLength(100, ErrorMessage = "La {0} debe tener entre {2} y {1} caracteres.", MinimumLength = 6)]

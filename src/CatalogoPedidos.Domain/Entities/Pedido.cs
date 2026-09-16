@@ -14,6 +14,14 @@ public class Pedido
     public string SolicitanteNombre { get; set; } = string.Empty;
     public string? Comentario { get; set; }
 
+    /// <summary>
+    /// Dónde hay que entregar los insumos de este pedido. Se autocompleta desde
+    /// <c>ApplicationUser.DireccionPredeterminada</c> al armar el carrito, pero es un
+    /// snapshot editable en ese momento — igual que <c>SolicitanteNombre</c>, un cambio
+    /// posterior en el perfil no altera pedidos ya creados.
+    /// </summary>
+    public string? DireccionEntrega { get; set; }
+
     public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
 
     /// <summary>

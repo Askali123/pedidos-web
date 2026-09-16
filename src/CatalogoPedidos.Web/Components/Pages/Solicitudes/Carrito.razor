@@ -6,6 +6,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Navigation
 @inject PageHeaderState HeaderState
+@inject IServiceScopeFactory ScopeFactory
 @implements IDisposable
 
 <PageTitle>Carrito de solicitud</PageTitle>
@@ -40,6 +41,10 @@
         </Card>
 
         <Card Title="Enviar al gestor">
+            <FormField Label="Dirección de entrega" Hint="A dónde hay que llevar estos insumos. Se autocompleta con la de tu perfil, pero podés cambiarla para este pedido.">
+                <input class="form-input" @bind="direccionEntrega" placeholder="Ej. Bodega principal, Cra 10 # 20-30" />
+            </FormField>
+
             <FormField Label="Comentario (opcional)" Hint="Se guarda una sola vez para todo este pedido.">
                 <textarea class="form-textarea" rows="3" @bind="comentario"></textarea>
             </FormField>
@@ -61,6 +66,7 @@
     [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
 
     private string? comentario;
+    private string? direccionEntrega;
     private string? error;
     private bool enviando;
 
@@ -68,6 +74,24 @@
     {
         HeaderState.Set("Carrito de solicitud", [("Catálogo", "/catalogo"), ("Carrito", null)]);
         CarritoState.Changed += Refrescar;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask is null)
+            return;
+
+        // Scope aparte para el UserManager acá: UserMenu.razor (el menú del header) también
+        // llama a UserManager.GetUserAsync en su propio OnInitializedAsync, y ambos corren
+        // concurrentemente sobre el mismo AppDbContext Scoped de Identity si se usa el
+        // UserManager inyectado directo — EF Core no tolera eso ("A second operation was
+        // started on this context instance..."). Mismo problema y mismo arreglo que en
+        // Account/Pages/Manage/Index.razor (ver docs/PLAN_TRAZABILIDAD_ENTREGAS.md #3).
+        var authState = await AuthStateTask;
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var appUser = await scopedUserManager.GetUserAsync(authState.User);
+        direccionEntrega = appUser?.DireccionPredeterminada;
     }
 
     private void CambiarCantidad(int productoId, object? valor)
@@ -100,7 +124,7 @@
         enviando = true;
         try
         {
-            await Solicitudes.CrearPedidoAsync(userId, userName, comentario, items);
+            await Solicitudes.CrearPedidoAsync(userId, userName, comentario, items, direccionEntrega);
             CarritoState.Limpiar();
             Navigation.NavigateTo("/solicitudes/mis-solicitudes");
         }

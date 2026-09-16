@@ -55,8 +55,11 @@ public class ExcelExportService : IExcelExportService
 
     public byte[] ExportarSolicitudesPorProveedor(IEnumerable<SolicitudProducto> solicitudes, IReadOnlyDictionary<int, string> codigosProveedorPorProducto, string proveedorNombre)
     {
+        // "Detalle por proveedor", no "Pedido a proveedor": este export lo usa tanto el envío
+        // real de un Pedido puntual como el reporte filtrado por proveedor de Administrar
+        // pedidos, que puede traer líneas de varios pedidos a la vez (columna "Pedido" abajo).
         using var libro = new XLWorkbook();
-        var hoja = libro.Worksheets.Add("Pedido a proveedor");
+        var hoja = libro.Worksheets.Add("Detalle por proveedor");
 
         hoja.Cell(1, 1).Value = $"Proveedor: {proveedorNombre}";
         hoja.Cell(1, 1).Style.Font.Bold = true;

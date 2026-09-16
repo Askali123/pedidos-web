@@ -36,6 +36,10 @@ else
                                 <span> · @grupo.Key.Comentario</span>
                             }
                         </p>
+                        @if (!string.IsNullOrWhiteSpace(grupo.Key.DireccionEntrega))
+                        {
+                            <p class="text-xs text-gray-500 mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
+                        }
                     </div>
 
                     @if (grupo.Count() > 1)
@@ -83,7 +87,7 @@ else
 @code {
     [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
 
-    private record PedidoResumen(int PedidoId, string? Comentario, DateTime FechaCreacion);
+    private record PedidoResumen(int PedidoId, string? Comentario, string? DireccionEntrega, DateTime FechaCreacion);
 
     private List<IGrouping<PedidoResumen, SolicitudProducto>>? grupos;
 
@@ -96,7 +100,7 @@ else
         var solicitudes = await Solicitudes.ObtenerMisSolicitudesAsync(userId);
 
         grupos = solicitudes
-            .GroupBy(s => new PedidoResumen(s.PedidoId, s.Pedido?.Comentario, s.Pedido?.FechaCreacion ?? s.FechaSolicitud))
+            .GroupBy(s => new PedidoResumen(s.PedidoId, s.Pedido?.Comentario, s.Pedido?.DireccionEntrega, s.Pedido?.FechaCreacion ?? s.FechaSolicitud))
             .OrderByDescending(g => g.Key.FechaCreacion)
             .ToList();
     }

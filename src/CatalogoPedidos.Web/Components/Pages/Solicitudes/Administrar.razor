@@ -104,6 +104,10 @@
                                 <span> · @grupo.Key.Comentario</span>
                             }
                         </p>
+                        @if (!string.IsNullOrWhiteSpace(grupo.Key.DireccionEntrega))
+                        {
+                            <p class="text-xs text-gray-500 mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
+                        }
                         @if (enviosPorPedido.TryGetValue(grupo.Key.PedidoId, out var envios) && envios.Count > 0)
                         {
                             <div class="mt-1 space-y-0.5">
@@ -239,7 +243,7 @@
 
     private const int TamanoPagina = 8;
 
-    private record PedidoResumen(int PedidoId, string SolicitanteNombre, string? Comentario, DateTime FechaCreacion);
+    private record PedidoResumen(int PedidoId, string SolicitanteNombre, string? Comentario, string? DireccionEntrega, DateTime FechaCreacion);
 
     private DateTime? fechaDesde;
     private DateTime? fechaHasta;
@@ -302,7 +306,7 @@
         resultados = await Solicitudes.BuscarAsync(filtro);
 
         gruposPedido = resultados
-            .GroupBy(s => new PedidoResumen(s.PedidoId, s.Pedido?.SolicitanteNombre ?? s.SolicitanteNombre, s.Pedido?.Comentario, s.Pedido?.FechaCreacion ?? s.FechaSolicitud))
+            .GroupBy(s => new PedidoResumen(s.PedidoId, s.Pedido?.SolicitanteNombre ?? s.SolicitanteNombre, s.Pedido?.Comentario, s.Pedido?.DireccionEntrega, s.Pedido?.FechaCreacion ?? s.FechaSolicitud))
             .OrderByDescending(g => g.Key.FechaCreacion)
             .ToList();
 

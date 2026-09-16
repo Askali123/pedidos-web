@@ -33,8 +33,13 @@ public class PdfExportService : IPdfExportService
                     col.Item().Text($"Categoría: {solicitud.Producto?.Categoria}");
                     col.Item().Text($"Precio unitario: {solicitud.Producto?.Precio:C}");
                     col.Item().Text($"Cantidad solicitada: {solicitud.Cantidad}");
+                    // Es el comentario del Pedido completo (se captura una sola vez para todas
+                    // sus líneas en el carrito), no algo específico de esta línea — se rotula
+                    // así para no dar a entender que el pedido tiene una sola línea.
                     if (!string.IsNullOrWhiteSpace(solicitud.Pedido?.Comentario))
-                        col.Item().Text($"Comentario del solicitante: {solicitud.Pedido.Comentario}");
+                        col.Item().Text($"Comentario del pedido: {solicitud.Pedido.Comentario}");
+                    if (!string.IsNullOrWhiteSpace(solicitud.Pedido?.DireccionEntrega))
+                        col.Item().Text($"Dirección de entrega: {solicitud.Pedido.DireccionEntrega}");
 
                     col.Item().LineHorizontal(1);
 
@@ -86,6 +91,8 @@ public class PdfExportService : IPdfExportService
                     col.Item().Text($"Fecha: {pedido.FechaCreacion:dd/MM/yyyy HH:mm}");
                     if (!string.IsNullOrWhiteSpace(pedido.Comentario))
                         col.Item().Text($"Comentario: {pedido.Comentario}");
+                    if (!string.IsNullOrWhiteSpace(pedido.DireccionEntrega))
+                        col.Item().Text($"Dirección de entrega: {pedido.DireccionEntrega}");
 
                     col.Item().LineHorizontal(1);
 
@@ -256,7 +263,11 @@ public class PdfExportService : IPdfExportService
 
                 page.Header().Column(col =>
                 {
-                    col.Item().Text("Pedido a proveedor").FontSize(18).Bold();
+                    // "Detalle de productos", no "Pedido a proveedor": este mismo export lo
+                    // usa tanto el envío real de un Pedido puntual (PedidoNotificacionProveedorService)
+                    // como el reporte filtrado por proveedor de Administrar pedidos, que puede
+                    // traer líneas de varios pedidos distintos a la vez (columna "Pedido" abajo).
+                    col.Item().Text("Detalle de productos para proveedor").FontSize(18).Bold();
                     col.Item().Text($"Proveedor: {proveedorNombre}").FontSize(12);
                 });
 
@@ -268,9 +279,11 @@ public class PdfExportService : IPdfExportService
                         columns.RelativeColumn(1);
                         columns.RelativeColumn(3);
                         columns.RelativeColumn(1);
+                        columns.RelativeColumn(1);
                         columns.RelativeColumn(3);
                         columns.RelativeColumn(2);
                         columns.RelativeColumn(2);
+                        columns.RelativeColumn(3);
                     });
 
                     table.Header(header =>
@@ -279,9 +292,11 @@ public class PdfExportService : IPdfExportService
                         header.Cell().Text("Código proveedor").Bold();
                         header.Cell().Text("Producto").Bold();
                         header.Cell().Text("Cant.").Bold();
+                        header.Cell().Text("Pedido").Bold();
                         header.Cell().Text("Solicitante").Bold();
                         header.Cell().Text("Fecha").Bold();
                         header.Cell().Text("Estado").Bold();
+                        header.Cell().Text("Gestor").Bold();
                     });
 
                     foreach (var s in lista)
@@ -290,9 +305,11 @@ public class PdfExportService : IPdfExportService
                         table.Cell().Text(codigosProveedorPorProducto.GetValueOrDefault(s.ProductoId, "-"));
                         table.Cell().Text(s.Producto?.Nombre);
                         table.Cell().Text(s.Cantidad.ToString());
+                        table.Cell().Text($"#{s.PedidoId}");
                         table.Cell().Text(s.SolicitanteNombre);
                         table.Cell().Text(s.FechaSolicitud.ToLocalTime().ToString("dd/MM/yyyy"));
                         table.Cell().Text(s.Estado.ToString());
+                        table.Cell().Text(s.GestorNombre ?? "-");
                     }
                 });
 

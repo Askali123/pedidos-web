@@ -4,7 +4,7 @@ namespace CatalogoPedidos.Application.Solicitudes;
 
 public interface ISolicitudService
 {
-    Task<Pedido> CrearPedidoAsync(string solicitanteId, string solicitanteNombre, string? comentario, List<CrearSolicitudDto> items, CancellationToken ct = default);
+    Task<Pedido> CrearPedidoAsync(string solicitanteId, string solicitanteNombre, string? comentario, List<CrearSolicitudDto> items, string? direccionEntrega = null, CancellationToken ct = default);
     Task<List<SolicitudProducto>> ObtenerMisSolicitudesAsync(string solicitanteId, CancellationToken ct = default);
     Task<List<SolicitudProducto>> ObtenerBandejaAsync(CancellationToken ct = default);
     Task<SolicitudProducto?> ObtenerPorIdAsync(int id, CancellationToken ct = default);

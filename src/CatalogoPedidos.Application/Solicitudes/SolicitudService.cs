@@ -20,7 +20,7 @@ public class SolicitudService(
     /// <summary>Tiempo pendiente a partir del cual un pedido se considera urgente (ver también Bandeja.razor).</summary>
     private static readonly TimeSpan UmbralPendienteUrgente = TimeSpan.FromHours(48);
 
-    public async Task<Pedido> CrearPedidoAsync(string solicitanteId, string solicitanteNombre, string? comentario, List<CrearSolicitudDto> items, CancellationToken ct = default)
+    public async Task<Pedido> CrearPedidoAsync(string solicitanteId, string solicitanteNombre, string? comentario, List<CrearSolicitudDto> items, string? direccionEntrega = null, CancellationToken ct = default)
     {
         if (items.Count == 0)
             throw new InvalidOperationException("Selecciona al menos un producto antes de enviar la solicitud.");
@@ -30,6 +30,7 @@ public class SolicitudService(
             SolicitanteId = solicitanteId,
             SolicitanteNombre = solicitanteNombre,
             Comentario = comentario,
+            DireccionEntrega = string.IsNullOrWhiteSpace(direccionEntrega) ? null : direccionEntrega.Trim(),
             FechaCreacion = DateTime.UtcNow
         };
 
@@ -157,9 +158,15 @@ public class SolicitudService(
     {
         var solicitud = await ResolverSinNotificarAsync(solicitudId, gestorId, gestorNombre, dto, ct);
         var aprobada = solicitud.Estado == EstadoSolicitud.Aprobada;
-        var mensaje = $"Tu pedido de \"{solicitud.Producto?.Nombre}\" fue {(aprobada ? "aprobado" : "rechazado")} por {gestorNombre}.";
 
-        await NotificarResolucionAsync(solicitud.SolicitanteId, aprobada, mensaje, ct);
+        // Título/mensaje en singular y hablando de la SOLICITUD, no del pedido — un pedido
+        // puede tener varias líneas con estados independientes, y acá se resolvió solo esta
+        // (ver docs/PLAN_TRAZABILIDAD_ENTREGAS.md #1). "Pedido aprobado/rechazado" queda
+        // reservado para cuando de verdad se resuelve el pedido completo (ResolverPedidoAsync).
+        var titulo = aprobada ? "Solicitud aprobada" : "Solicitud rechazada";
+        var mensaje = $"Tu solicitud de \"{solicitud.Producto?.Nombre}\" fue {(aprobada ? "aprobada" : "rechazada")} por {gestorNombre}.";
+
+        await NotificarResolucionAsync(solicitud.SolicitanteId, titulo, mensaje, ct);
     }
 
     public async Task<List<SolicitudProducto>> ResolverPedidoAsync(int pedidoId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct = default)
@@ -181,8 +188,9 @@ public class SolicitudService(
         }
 
         var resumen = ResumirNombres(nombres);
+        var titulo = dto.Aprobar ? "Pedido aprobado" : "Pedido rechazado";
         var mensaje = $"Tu pedido ({resumen}) fue {(dto.Aprobar ? "aprobado" : "rechazado")} por {gestorNombre}.";
-        await NotificarResolucionAsync(pedido.SolicitanteId, dto.Aprobar, mensaje, ct);
+        await NotificarResolucionAsync(pedido.SolicitanteId, titulo, mensaje, ct);
 
         return resueltas;
     }
@@ -256,11 +264,11 @@ public class SolicitudService(
         }
     }
 
-    private async Task NotificarResolucionAsync(string solicitanteId, bool aprobada, string mensaje, CancellationToken ct)
+    private async Task NotificarResolucionAsync(string solicitanteId, string titulo, string mensaje, CancellationToken ct)
     {
         try
         {
-            await NotificarAsync(solicitanteId, aprobada ? "Pedido aprobado" : "Pedido rechazado", mensaje, "/solicitudes/mis-solicitudes", TipoNotificacion.SolicitudResuelta, ct);
+            await NotificarAsync(solicitanteId, titulo, mensaje, "/solicitudes/mis-solicitudes", TipoNotificacion.SolicitudResuelta, ct);
         }
         catch
         {

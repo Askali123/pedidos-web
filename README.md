@@ -110,3 +110,4 @@ dotnet ef database update --project src/CatalogoPedidos.Infrastructure --startup
 - [Dominio y casos de uso](docs/DOMINIO_NEGOCIO.md) — la idea de negocio, las entidades, la tabla intermedia Producto↔Proveedor y los casos de uso por rol.
 - [Propuestas de mejora](docs/MEJORAS_PROPUESTAS.md) — oportunidades identificadas sobre el estado actual (modelo de datos, pruebas, rendimiento, seguridad, UX, etc.).
 - [Plan del flujo pedido → proveedor](docs/PLAN_FLUJO_PEDIDO_PROVEEDOR.md) — checklist priorizado de mejoras al flujo de pedido, aprobación y envío a proveedor, para ir avanzando tarea por tarea.
+- [Plan de trazabilidad y entregas](docs/PLAN_TRAZABILIDAD_ENTREGAS.md) — checklist priorizado sobre mensajes de resolución por línea, dirección de entrega y confirmación de entrega.
