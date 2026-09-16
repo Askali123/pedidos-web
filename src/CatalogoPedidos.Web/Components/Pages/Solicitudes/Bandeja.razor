@@ -3,6 +3,7 @@
 @using System.Security.Claims
 @inject ISolicitudService Solicitudes
 @inject IProveedorService Proveedores
+@inject IPedidoNotificacionProveedorService NotificacionesProveedor
 @inject UserManager<ApplicationUser> UserManager
 @inject PageHeaderState HeaderState
 
@@ -11,7 +12,7 @@
 <div class="space-y-4">
     @if (!string.IsNullOrEmpty(mensaje))
     {
-        <Alert Variant="AlertVariant.Success" Dismissible="true" OnDismiss="() => mensaje = null">@mensaje</Alert>
+        <Alert Variant="mensajeVariante" Dismissible="true" OnDismiss="() => mensaje = null">@mensaje</Alert>
     }
 
     @if (grupos is null)
@@ -46,14 +47,15 @@
                         </p>
                     </div>
 
-                    @if (grupo.Count() > 1)
-                    {
-                        <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2">
+                        @if (grupo.Count() > 1)
+                        {
                             <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => ResolverPedido(grupo.Key.PedidoId, true)">Aprobar todo</Button>
                             <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => ResolverPedido(grupo.Key.PedidoId, false)">Rechazar todo</Button>
-                            <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">PDF del pedido</a>
-                        </div>
-                    }
+                        }
+                        <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">PDF del pedido</a>
+                        <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="mail" OnClick="() => EnviarAProveedores(grupo.Key.PedidoId)">Enviar a proveedor</Button>
+                    </div>
                 </div>
 
                 <div class="table-wrap">
@@ -107,6 +109,7 @@
     private List<IGrouping<PedidoResumen, SolicitudProducto>>? grupos;
     private Dictionary<int, ProductoProveedor> codigosPorProducto = new();
     private string? mensaje;
+    private AlertVariant mensajeVariante = AlertVariant.Success;
 
     protected override async Task OnInitializedAsync()
     {
@@ -152,6 +155,24 @@
         mensaje = aprobar
             ? $"Pedido #{pedidoId} aprobado ({resueltas.Count} producto(s))."
             : $"Pedido #{pedidoId} rechazado ({resueltas.Count} producto(s)).";
+        mensajeVariante = AlertVariant.Success;
         await Cargar();
+    }
+
+    private async Task EnviarAProveedores(int pedidoId)
+    {
+        var resultados = await NotificacionesProveedor.EnviarAProveedoresAsync(pedidoId);
+
+        var enviados = resultados.Where(r => r.Enviado).Select(r => r.ProveedorNombre).ToList();
+        var noEnviados = resultados.Where(r => !r.Enviado).ToList();
+
+        var partes = new List<string>();
+        if (enviados.Count > 0)
+            partes.Add($"Pedido #{pedidoId} enviado a: {string.Join(", ", enviados)}.");
+        if (noEnviados.Count > 0)
+            partes.Add("No enviado: " + string.Join("; ", noEnviados.Select(r => $"{r.ProveedorNombre} ({r.Motivo})")));
+
+        mensaje = string.Join(" ", partes);
+        mensajeVariante = noEnviados.Count > 0 ? AlertVariant.Warning : AlertVariant.Success;
     }
 }

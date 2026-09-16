@@ -24,4 +24,7 @@ public class Pedido
     public bool RecordatorioEnviado { get; set; }
 
     public ICollection<SolicitudProducto> Items { get; set; } = new List<SolicitudProducto>();
+
+    /// <summary>Historial de a qué proveedores se les notificó este pedido por correo.</summary>
+    public ICollection<NotificacionProveedor> NotificacionesProveedor { get; set; } = new List<NotificacionProveedor>();
 }

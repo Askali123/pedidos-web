@@ -1,19 +1,32 @@
 @inherits LayoutComponentBase
 
-<div class="flex h-screen overflow-hidden bg-gray-50">
-    <Sidebar Collapsed="sidebarCollapsed" CollapsedChanged="c => sidebarCollapsed = c"
-             MobileOpen="sidebarMobileOpen" MobileOpenChanged="o => sidebarMobileOpen = o" />
+@*
+  El chrome interno (sidebar/topbar, con sus enlaces a Catálogo, carrito, notificaciones,
+  menú de usuario) solo tiene sentido para alguien con sesión iniciada — mostrarlo a un
+  visitante anónimo insinúa páginas internas que igual lo van a rebotar a Login, y en la
+  home sin sesión no debe verse nada de eso. Por eso el layout mismo decide, no cada página.
+*@
+<AuthorizeView>
+    <Authorized>
+        <div class="flex h-screen overflow-hidden bg-gray-50">
+            <Sidebar Collapsed="sidebarCollapsed" CollapsedChanged="c => sidebarCollapsed = c"
+                     MobileOpen="sidebarMobileOpen" MobileOpenChanged="o => sidebarMobileOpen = o" />
 
-    <div class="flex-1 flex flex-col min-w-0">
-        <Topbar OnToggleSidebar="() => sidebarMobileOpen = !sidebarMobileOpen" />
+            <div class="flex-1 flex flex-col min-w-0">
+                <Topbar OnToggleSidebar="() => sidebarMobileOpen = !sidebarMobileOpen" />
 
-        <main class="flex-1 overflow-y-auto">
-            <div class="max-w-6xl mx-auto p-6">
-                @Body
+                <main class="flex-1 overflow-y-auto">
+                    <div class="max-w-6xl mx-auto p-6">
+                        @Body
+                    </div>
+                </main>
             </div>
-        </main>
-    </div>
-</div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        @Body
+    </NotAuthorized>
+</AuthorizeView>
 
 <div id="blazor-error-ui" class="hidden fixed inset-x-0 bottom-0 z-50 bg-danger-700 text-white text-sm px-4 py-3" data-nosnippet>
     Ha ocurrido un error inesperado.

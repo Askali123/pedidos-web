@@ -81,6 +81,15 @@ public class ProductoService(
         await repositorio.ActualizarAsync(producto, ct);
     }
 
+    public async Task DesactivarAsync(int id, CancellationToken ct = default)
+    {
+        var producto = await repositorio.ObtenerPorIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"Producto {id} no encontrado.");
+
+        producto.Activo = false;
+        await repositorio.ActualizarAsync(producto, ct);
+    }
+
     public Task<ResultadoAnalisisImportacion> AnalizarImportacionAsync(Stream archivo, int proveedorId, CancellationToken ct = default)
         => importador.AnalizarAsync(archivo, proveedorId, ct);
 

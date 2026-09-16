@@ -114,7 +114,9 @@
                                     }
                                     <AuthorizeView Roles="@Roles.Gestor" Context="gestorContext">
                                         <Authorized>
+                                            <a class="btn btn-secondary btn-sm" href="/catalogo/@p.Id/editar">Editar</a>
                                             <a class="btn btn-secondary btn-sm" href="/catalogo/@p.Id/proveedores">Proveedores</a>
+                                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="trash" OnClick="() => PedirConfirmacionDesactivar(p)">Desactivar</Button>
                                         </Authorized>
                                     </AuthorizeView>
                                 </div>
@@ -143,6 +145,10 @@
         <Button Variant="ButtonVariant.Primary" Icon="check" OnClick="GuardarStockMinimo">Guardar</Button>
     </Footer>
 </Modal>
+
+<ConfirmDialog @bind-Visible="confirmandoDesactivar" Title="Desactivar producto" Danger="true"
+               Message="@($"¿Desactivar \"{productoADesactivarNombre}\"? Dejará de verse en el catálogo y de poder solicitarse; su historial de solicitudes se conserva.")"
+               ConfirmText="Desactivar" OnConfirm="ConfirmarDesactivar" />
 
 @code {
     private const int TamanoPagina = 8;
@@ -235,6 +241,23 @@
         await Productos.ActualizarStockMinimoAsync(productoEditando.Id, stockMinimoEditado);
         productoEditando.StockMinimo = stockMinimoEditado;
         modalStockVisible = false;
+    }
+
+    private bool confirmandoDesactivar;
+    private int productoADesactivarId;
+    private string? productoADesactivarNombre;
+
+    private void PedirConfirmacionDesactivar(Producto producto)
+    {
+        productoADesactivarId = producto.Id;
+        productoADesactivarNombre = producto.Nombre;
+        confirmandoDesactivar = true;
+    }
+
+    private async Task ConfirmarDesactivar()
+    {
+        await Productos.DesactivarAsync(productoADesactivarId);
+        await Filtrar();
     }
 
     private void Refrescar() => InvokeAsync(StateHasChanged);

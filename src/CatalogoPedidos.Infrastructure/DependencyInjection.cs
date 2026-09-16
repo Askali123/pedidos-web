@@ -5,6 +5,7 @@ using CatalogoPedidos.Application.Proveedores;
 using CatalogoPedidos.Application.Solicitudes;
 using CatalogoPedidos.Application.Usuarios;
 using CatalogoPedidos.Infrastructure.BackgroundJobs;
+using CatalogoPedidos.Infrastructure.Email;
 using CatalogoPedidos.Infrastructure.Excel;
 using CatalogoPedidos.Infrastructure.Identity;
 using CatalogoPedidos.Infrastructure.Importacion;
@@ -66,6 +67,10 @@ public static class DependencyInjection
         services.AddScoped<INotificacionService, NotificacionService>();
         services.AddScoped<IGestorDirectory, GestorDirectory>();
         services.AddSingleton<INotificacionBroadcaster, NotificacionBroadcaster>();
+
+        services.AddScoped<IEmailSender, LoggingEmailSender>();
+        services.AddScoped<INotificacionProveedorRepository, NotificacionProveedorRepository>();
+        services.AddScoped<IPedidoNotificacionProveedorService, PedidoNotificacionProveedorService>();
 
         services.AddHostedService<RecordatorioPendientesHostedService>();
 

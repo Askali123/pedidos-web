@@ -1,4 +1,5 @@
 @page "/"
+@using Microsoft.AspNetCore.Components.Authorization
 @inject IProductoService Productos
 @inject ISolicitudService Solicitudes
 @inject IProveedorService ProveedorService
@@ -6,57 +7,106 @@
 
 <PageTitle>CatalogoPedidos</PageTitle>
 
-<div class="space-y-6">
-    <div>
-        <h1>CatalogoPedidos</h1>
-        <p class="text-sm text-gray-500 mt-1">
-            Proyecto de práctica: captura de productos, catálogo, solicitudes a un gestor y exportación a PDF/Excel.
-        </p>
-    </div>
-
-    @if (cargando)
-    {
-        <Loading />
-    }
-    else
-    {
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="card card-body">
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Productos en catálogo</p>
-                <p class="text-2xl font-semibold text-gray-900 mt-1">@totalProductos</p>
-            </div>
-            <div class="card card-body">
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Pedidos pendientes</p>
-                <p class="text-2xl font-semibold text-gray-900 mt-1">@pedidosPendientes</p>
-            </div>
-            <div class="card card-body">
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Proveedores registrados</p>
-                <p class="text-2xl font-semibold text-gray-900 mt-1">@totalProveedores</p>
-            </div>
+@if (autenticado)
+{
+    <div class="space-y-6">
+        <div>
+            <h1>CatalogoPedidos</h1>
+            <p class="text-sm text-gray-500 mt-1">
+                Proyecto de práctica: captura de productos, catálogo, solicitudes a un gestor y exportación a PDF/Excel.
+            </p>
         </div>
-    }
 
-    <div class="flex gap-3">
-        <Button Variant="ButtonVariant.Primary" Icon="cube" OnClick="@(() => Navigation.NavigateTo("/catalogo"))">Ir al catálogo</Button>
-    </div>
+        @if (cargando)
+        {
+            <Loading />
+        }
+        else
+        {
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="card card-body">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Productos en catálogo</p>
+                    <p class="text-2xl font-semibold text-gray-900 mt-1">@totalProductos</p>
+                </div>
+                <div class="card card-body">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Pedidos pendientes</p>
+                    <p class="text-2xl font-semibold text-gray-900 mt-1">@pedidosPendientes</p>
+                </div>
+                <div class="card card-body">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Proveedores registrados</p>
+                    <p class="text-2xl font-semibold text-gray-900 mt-1">@totalProveedores</p>
+                </div>
+            </div>
+        }
 
-    <Card Title="Cuentas de prueba" Subtitle="Sembradas automáticamente al iniciar la app">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <div class="flex items-center gap-2">
-                <Badge Variant="BadgeVariant.Info">Gestor</Badge>
-                <span class="text-gray-600">gestor@catalogo.local / Gestor123!</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <Badge Variant="BadgeVariant.Neutral">Usuario</Badge>
-                <span class="text-gray-600">usuario@catalogo.local / Usuario123!</span>
-            </div>
+        <div class="flex gap-3">
+            <Button Variant="ButtonVariant.Primary" Icon="cube" OnClick="@(() => Navigation.NavigateTo("/catalogo"))">Ir al catálogo</Button>
         </div>
-    </Card>
-</div>
+    </div>
+}
+else
+{
+    <div class="min-h-screen flex flex-col bg-gray-50">
+        <header class="px-6 py-5 flex items-center gap-2">
+            <div class="h-8 w-8 rounded-md bg-primary-600 flex items-center justify-center font-bold text-white text-sm shrink-0">C</div>
+            <span class="font-semibold text-gray-900">CatalogoPedidos</span>
+        </header>
+
+        <main class="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-primary-50 text-primary-700 text-xs font-medium px-3 py-1 mb-5">
+                <Icon Name="cube" Class="h-3.5 w-3.5" /> Catálogo y pedidos internos
+            </span>
+
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 max-w-2xl text-balance">
+                Del carrito de tu equipo al pedido al proveedor, en un solo lugar
+            </h1>
+            <p class="text-gray-500 mt-4 max-w-xl">
+                Centraliza tu catálogo de productos, deja que cualquiera arme su pedido, y aprueba,
+                controla el stock y avisa a tus proveedores — todo desde un mismo panel.
+            </p>
+
+            <div class="flex flex-wrap items-center justify-center gap-3 mt-8">
+                <a href="Account/Register" class="btn btn-primary">
+                    <Icon Name="check" Class="h-4 w-4" /> Crear una cuenta
+                </a>
+                <a href="Account/Login" class="btn btn-outline">Iniciar sesión</a>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-16 max-w-4xl w-full text-left">
+                <div class="card card-body">
+                    <Icon Name="cube" Class="h-5 w-5 text-primary-600" />
+                    <p class="font-medium text-gray-900 mt-3">Catálogo centralizado</p>
+                    <p class="text-sm text-gray-500 mt-1">Productos con stock, precio y el código de cada proveedor, en un solo lugar.</p>
+                </div>
+                <div class="card card-body">
+                    <Icon Name="clipboard-list" Class="h-5 w-5 text-primary-600" />
+                    <p class="font-medium text-gray-900 mt-3">Pedidos con aprobación</p>
+                    <p class="text-sm text-gray-500 mt-1">Cualquiera arma su carrito; un gestor aprueba o rechaza cada línea.</p>
+                </div>
+                <div class="card card-body">
+                    <Icon Name="bell" Class="h-5 w-5 text-primary-600" />
+                    <p class="font-medium text-gray-900 mt-3">Avisos en tiempo real</p>
+                    <p class="text-sm text-gray-500 mt-1">Nuevos pedidos, resoluciones y alertas de stock bajo, al instante.</p>
+                </div>
+                <div class="card card-body">
+                    <Icon Name="download" Class="h-5 w-5 text-primary-600" />
+                    <p class="font-medium text-gray-900 mt-3">Reportes listos para enviar</p>
+                    <p class="text-sm text-gray-500 mt-1">Exporta a PDF/Excel, o notifica directo al proveedor, por pedido.</p>
+                </div>
+            </div>
+        </main>
+
+        <footer class="px-6 py-5 text-center text-xs text-gray-400">
+            CatalogoPedidos — proyecto de práctica
+        </footer>
+    </div>
+}
 
 @code {
     [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
 
+    private bool autenticado;
     private bool cargando = true;
     private int totalProductos;
     private int pedidosPendientes;
@@ -64,6 +114,14 @@
 
     protected override async Task OnInitializedAsync()
     {
+        autenticado = AuthStateTask is not null && (await AuthStateTask).User.Identity?.IsAuthenticated == true;
+
+        if (!autenticado)
+        {
+            cargando = false;
+            return;
+        }
+
         HeaderState.Set("Inicio");
 
         var productos = await Productos.ObtenerCatalogoAsync();

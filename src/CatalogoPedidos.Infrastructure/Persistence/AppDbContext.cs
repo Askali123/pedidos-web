@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
     public DbSet<Proveedor> Proveedores => Set<Proveedor>();
     public DbSet<ProductoProveedor> ProductoProveedores => Set<ProductoProveedor>();
     public DbSet<Notificacion> Notificaciones => Set<Notificacion>();
+    public DbSet<NotificacionProveedor> NotificacionesProveedor => Set<NotificacionProveedor>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -79,6 +80,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
             entity.Property(n => n.Mensaje).HasMaxLength(500).IsRequired();
             entity.Property(n => n.Url).HasMaxLength(300);
             entity.HasIndex(n => new { n.UsuarioDestinoId, n.Leida });
+        });
+
+        builder.Entity<NotificacionProveedor>(entity =>
+        {
+            entity.Property(n => n.Email).HasMaxLength(256).IsRequired();
+
+            entity.HasOne(n => n.Pedido)
+                  .WithMany(p => p.NotificacionesProveedor)
+                  .HasForeignKey(n => n.PedidoId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(n => n.Proveedor)
+                  .WithMany()
+                  .HasForeignKey(n => n.ProveedorId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

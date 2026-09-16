@@ -3,6 +3,7 @@
 @inject ISolicitudService Solicitudes
 @inject IProductoService Productos
 @inject IProveedorService Proveedores
+@inject IPedidoNotificacionProveedorService NotificacionesProveedor
 @inject PageHeaderState HeaderState
 
 <PageTitle>Administrar pedidos</PageTitle>
@@ -81,6 +82,11 @@
     }
     else
     {
+        @if (!string.IsNullOrEmpty(mensajeEnvio))
+        {
+            <Alert Variant="mensajeEnvioVariante" Dismissible="true" OnDismiss="() => mensajeEnvio = null">@mensajeEnvio</Alert>
+        }
+
         <p class="text-sm text-gray-500">@resultados.Count solicitud(es) en @gruposPedido.Count pedido(s)</p>
 
         @foreach (var grupo in paginaActual)
@@ -97,9 +103,12 @@
                             }
                         </p>
                     </div>
-                    <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">
-                        <Icon Name="download" Class="h-4 w-4" /> PDF del pedido
-                    </a>
+                    <div class="flex items-center gap-2">
+                        <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">
+                            <Icon Name="download" Class="h-4 w-4" /> PDF del pedido
+                        </a>
+                        <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="mail" OnClick="() => EnviarAProveedores(grupo.Key.PedidoId)">Enviar a proveedor</Button>
+                    </div>
                 </div>
 
                 <div class="table-wrap">
@@ -187,6 +196,8 @@
     private List<Proveedor> proveedores = new();
     private Dictionary<int, string> codigosProveedorPorProducto = new();
     private Dictionary<int, ProductoProveedor> codigosPreferidosPorProducto = new();
+    private string? mensajeEnvio;
+    private AlertVariant mensajeEnvioVariante = AlertVariant.Success;
 
     // Paginación por pedido (no por línea de solicitud): cada página agrupa varios pedidos
     // completos, igual que la Bandeja, para poder ver de un vistazo todo lo que pidió cada
@@ -251,6 +262,23 @@
         estado = "";
         proveedorIdTexto = "";
         await Buscar();
+    }
+
+    private async Task EnviarAProveedores(int pedidoId)
+    {
+        var resultados = await NotificacionesProveedor.EnviarAProveedoresAsync(pedidoId);
+
+        var enviados = resultados.Where(r => r.Enviado).Select(r => r.ProveedorNombre).ToList();
+        var noEnviados = resultados.Where(r => !r.Enviado).ToList();
+
+        var partes = new List<string>();
+        if (enviados.Count > 0)
+            partes.Add($"Pedido #{pedidoId} enviado a: {string.Join(", ", enviados)}.");
+        if (noEnviados.Count > 0)
+            partes.Add("No enviado: " + string.Join("; ", noEnviados.Select(r => $"{r.ProveedorNombre} ({r.Motivo})")));
+
+        mensajeEnvio = string.Join(" ", partes);
+        mensajeEnvioVariante = noEnviados.Count > 0 ? AlertVariant.Warning : AlertVariant.Success;
     }
 
     private string UrlReporte(string formato)
