@@ -28,6 +28,13 @@ public interface IProductoProveedorRepository
     /// <see cref="ObtenerPorProductoAsync"/>, que trae todas sus asociaciones.
     /// </summary>
     Task<List<ProductoProveedor>> ObtenerPreferidosPorProductosAsync(IEnumerable<int> productoIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// TODAS las asociaciones (no solo la preferida) de los productos en <paramref name="productoIds"/>,
+    /// con el <c>Proveedor</c> ya cargado. Pensado para armar el selector "elegir proveedor para
+    /// enviarle este pedido" — un producto puede tener varios proveedores y el gestor decide cuál.
+    /// </summary>
+    Task<List<ProductoProveedor>> ObtenerPorProductosAsync(IEnumerable<int> productoIds, CancellationToken ct = default);
     Task<bool> ExisteAsociacionAsync(int productoId, int proveedorId, CancellationToken ct = default);
     Task<bool> ExisteCodigoParaOtroProductoAsync(int proveedorId, string codigo, int productoId, CancellationToken ct = default);
     Task<ProductoProveedor> CrearAsync(ProductoProveedor asociacion, CancellationToken ct = default);

@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using QuestPDF.Infrastructure;
 
 namespace CatalogoPedidos.Infrastructure;
@@ -68,7 +69,16 @@ public static class DependencyInjection
         services.AddScoped<IGestorDirectory, GestorDirectory>();
         services.AddSingleton<INotificacionBroadcaster, NotificacionBroadcaster>();
 
-        services.AddScoped<IEmailSender, LoggingEmailSender>();
+        // Envío real solo si hay un servidor SMTP configurado (Smtp:Host — ver
+        // SmtpOptions y el README). Sin eso, se sigue usando el sender simulado que solo
+        // registra el correo en el log, para no romper "Enviar a proveedor" en un ambiente
+        // sin credenciales todavía.
+        services.Configure<SmtpOptions>(configuration.GetSection("Smtp"));
+        if (!string.IsNullOrWhiteSpace(configuration["Smtp:Host"]))
+            services.AddScoped<IEmailSender, SmtpEmailSender>();
+        else
+            services.AddScoped<IEmailSender, LoggingEmailSender>();
+
         services.AddScoped<INotificacionProveedorRepository, NotificacionProveedorRepository>();
         services.AddScoped<IPedidoNotificacionProveedorService, PedidoNotificacionProveedorService>();
 

@@ -107,7 +107,32 @@
                         <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">
                             <Icon Name="download" Class="h-4 w-4" /> PDF del pedido
                         </a>
-                        <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="mail" OnClick="() => EnviarAProveedores(grupo.Key.PedidoId)">Enviar a proveedor</Button>
+
+                        <Dropdown AlignRight="true">
+                            <Trigger>
+                                <span class="btn btn-secondary btn-sm">
+                                    <Icon Name="mail" Class="h-4 w-4" /> Enviar a proveedor <Icon Name="chevron-down" Class="h-3.5 w-3.5" />
+                                </span>
+                            </Trigger>
+                            <ChildContent>
+                                <div class="w-60 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                                    @if (proveedoresPorPedido.TryGetValue(grupo.Key.PedidoId, out var opciones) && opciones.Count > 0)
+                                    {
+                                        @foreach (var op in opciones)
+                                        {
+                                            <button type="button" class="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" @onclick="() => PedirConfirmacionEnvio(grupo.Key.PedidoId, op)">
+                                                <span>@op.ProveedorNombre</span>
+                                                <span class="text-xs text-gray-400">@op.CantidadLineas prod.</span>
+                                            </button>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <p class="px-3 py-2 text-sm text-gray-400">Este pedido no tiene líneas aprobadas con proveedor asociado.</p>
+                                    }
+                                </div>
+                            </ChildContent>
+                        </Dropdown>
                     </div>
                 </div>
 
@@ -174,6 +199,10 @@
     }
 </div>
 
+<ConfirmDialog @bind-Visible="confirmandoEnvio" Title="Enviar a proveedor"
+               Message="@($"¿Enviar el pedido #{pedidoPendienteEnvio} a \"{proveedorPendienteEnvio?.ProveedorNombre}\" ({proveedorPendienteEnvio?.CantidadLineas} producto(s))? Se le manda un correo real con el detalle en PDF — no se puede deshacer.")"
+               ConfirmText="Enviar" OnConfirm="ConfirmarEnvio" />
+
 @code {
     private const int TamanoPagina = 8;
 
@@ -196,6 +225,7 @@
     private List<Proveedor> proveedores = new();
     private Dictionary<int, string> codigosProveedorPorProducto = new();
     private Dictionary<int, ProductoProveedor> codigosPreferidosPorProducto = new();
+    private Dictionary<int, List<ProveedorDelPedidoDto>> proveedoresPorPedido = new();
     private string? mensajeEnvio;
     private AlertVariant mensajeEnvioVariante = AlertVariant.Success;
 
@@ -250,6 +280,10 @@
             codigosPreferidosPorProducto = await Proveedores.ObtenerCodigosPreferidosAsync(resultados.Select(s => s.ProductoId));
         }
 
+        proveedoresPorPedido.Clear();
+        foreach (var pedidoId in gruposPedido.Select(g => g.Key.PedidoId))
+            proveedoresPorPedido[pedidoId] = await NotificacionesProveedor.ObtenerProveedoresDisponiblesAsync(pedidoId);
+
         paginaNumero = 1;
     }
 
@@ -264,21 +298,28 @@
         await Buscar();
     }
 
-    private async Task EnviarAProveedores(int pedidoId)
+    private bool confirmandoEnvio;
+    private int pedidoPendienteEnvio;
+    private ProveedorDelPedidoDto? proveedorPendienteEnvio;
+
+    private void PedirConfirmacionEnvio(int pedidoId, ProveedorDelPedidoDto proveedor)
     {
-        var resultados = await NotificacionesProveedor.EnviarAProveedoresAsync(pedidoId);
+        pedidoPendienteEnvio = pedidoId;
+        proveedorPendienteEnvio = proveedor;
+        confirmandoEnvio = true;
+    }
 
-        var enviados = resultados.Where(r => r.Enviado).Select(r => r.ProveedorNombre).ToList();
-        var noEnviados = resultados.Where(r => !r.Enviado).ToList();
+    private async Task ConfirmarEnvio()
+    {
+        if (proveedorPendienteEnvio is null)
+            return;
 
-        var partes = new List<string>();
-        if (enviados.Count > 0)
-            partes.Add($"Pedido #{pedidoId} enviado a: {string.Join(", ", enviados)}.");
-        if (noEnviados.Count > 0)
-            partes.Add("No enviado: " + string.Join("; ", noEnviados.Select(r => $"{r.ProveedorNombre} ({r.Motivo})")));
+        var resultado = await NotificacionesProveedor.EnviarAProveedorAsync(pedidoPendienteEnvio, proveedorPendienteEnvio.ProveedorId);
 
-        mensajeEnvio = string.Join(" ", partes);
-        mensajeEnvioVariante = noEnviados.Count > 0 ? AlertVariant.Warning : AlertVariant.Success;
+        mensajeEnvio = resultado.Enviado
+            ? $"Pedido #{pedidoPendienteEnvio} enviado a {resultado.ProveedorNombre} (PDF adjunto, {resultado.CantidadLineas} producto(s))."
+            : $"No se pudo enviar a {resultado.ProveedorNombre}: {resultado.Motivo}";
+        mensajeEnvioVariante = resultado.Enviado ? AlertVariant.Success : AlertVariant.Warning;
     }
 
     private string UrlReporte(string formato)

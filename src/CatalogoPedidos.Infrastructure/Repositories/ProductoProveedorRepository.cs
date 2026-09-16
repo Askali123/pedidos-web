@@ -76,6 +76,19 @@ public class ProductoProveedorRepository(IDbContextFactory<AppDbContext> dbFacto
             .ToList();
     }
 
+    public async Task<List<ProductoProveedor>> ObtenerPorProductosAsync(IEnumerable<int> productoIds, CancellationToken ct = default)
+    {
+        var ids = productoIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return [];
+
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.ProductoProveedores
+            .Include(pp => pp.Proveedor)
+            .Where(pp => ids.Contains(pp.ProductoId))
+            .ToListAsync(ct);
+    }
+
     public async Task<bool> ExisteAsociacionAsync(int productoId, int proveedorId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);

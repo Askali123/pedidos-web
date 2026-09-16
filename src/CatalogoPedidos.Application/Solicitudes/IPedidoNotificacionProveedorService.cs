@@ -5,13 +5,18 @@ namespace CatalogoPedidos.Application.Solicitudes;
 public interface IPedidoNotificacionProveedorService
 {
     /// <summary>
-    /// Agrupa las líneas del pedido por el proveedor preferido de cada producto y le manda
-    /// un correo a CADA proveedor distinto, solo con SUS líneas (un pedido puede tener
-    /// productos de varios proveedores). Deja un <see cref="NotificacionProveedor"/> por
-    /// cada envío exitoso. Es una acción manual del gestor — se puede volver a llamar para
-    /// reenviar (no bloquea reenvíos).
+    /// Proveedores asociados a los productos de este pedido (uno puede tener varios) — para
+    /// que el gestor elija a cuál enviárselo desde el selector "Enviar a proveedor".
     /// </summary>
-    Task<List<EnvioProveedorResultadoDto>> EnviarAProveedoresAsync(int pedidoId, CancellationToken ct = default);
+    Task<List<ProveedorDelPedidoDto>> ObtenerProveedoresDisponiblesAsync(int pedidoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Le manda al proveedor elegido un correo con el detalle EN PDF adjunto (solo sus
+    /// líneas del pedido, con el código que ese proveedor le da a cada producto) y deja un
+    /// <see cref="NotificacionProveedor"/> como historial. Acción manual del gestor — se
+    /// puede volver a llamar para reenviar (no bloquea reenvíos).
+    /// </summary>
+    Task<EnvioProveedorResultadoDto> EnviarAProveedorAsync(int pedidoId, int proveedorId, CancellationToken ct = default);
 
     Task<List<NotificacionProveedor>> ObtenerEnviosAsync(int pedidoId, CancellationToken ct = default);
 }

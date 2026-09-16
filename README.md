@@ -55,6 +55,39 @@ npm run build:css  # compila una vez
 npm run watch:css  # o deja corriendo mientras desarrollas
 ```
 
+## Envío de correo a proveedores (SMTP)
+
+El botón "Enviar a proveedor" (Bandeja / Administrar pedidos) manda un correo real solo si
+hay un servidor SMTP configurado; si no, el correo se simula y solo queda en el log de la
+app (`CatalogoPedidos.Infrastructure.Email.LoggingEmailSender`) — ver `IEmailSender`.
+
+Para conectar Gmail:
+
+1. Activa la verificación en dos pasos en la cuenta de Gmail que vas a usar para enviar
+   (Cuenta de Google → Seguridad → Verificación en 2 pasos). Gmail no acepta tu contraseña
+   normal para SMTP, solo **contraseñas de aplicación**.
+2. Genera una: Cuenta de Google → Seguridad → Verificación en 2 pasos → **Contraseñas de
+   aplicaciones** → elige "Otra (nombre personalizado)" → "CatalogoPedidos". Copia la
+   contraseña de 16 caracteres que te muestra (una sola vez).
+3. Configúrala en `user-secrets` (nunca en `appsettings.json`, y nunca se la pegues a
+   Claude ni a nadie por chat):
+
+   ```bash
+   cd src/CatalogoPedidos.Web
+   dotnet user-secrets set "Smtp:Host" "smtp.gmail.com"
+   dotnet user-secrets set "Smtp:Usuario" "tu-cuenta@gmail.com"
+   dotnet user-secrets set "Smtp:Password" "la-contraseña-de-aplicación-de-16-caracteres"
+   dotnet user-secrets set "Smtp:RemitenteEmail" "tu-cuenta@gmail.com"
+   ```
+
+   `Smtp:Port` (587) y `Smtp:EnableSsl` (true) ya vienen bien por defecto en
+   `appsettings.json` para Gmail — no hace falta tocarlos.
+4. Reinicia la app. Si `Smtp:Host` quedó configurado, `DependencyInjection` registra
+   `SmtpEmailSender` en vez del simulado — sin cambiar nada más del código.
+
+Para otro proveedor SMTP (Outlook, SendGrid, un servidor propio) el procedimiento es el
+mismo: solo cambian `Smtp:Host`/`Smtp:Port` y cómo genera ese proveedor la contraseña.
+
 ## Cuentas de prueba
 
 | Rol     | Email                  | Password     |
@@ -76,3 +109,4 @@ dotnet ef database update --project src/CatalogoPedidos.Infrastructure --startup
 
 - [Dominio y casos de uso](docs/DOMINIO_NEGOCIO.md) — la idea de negocio, las entidades, la tabla intermedia Producto↔Proveedor y los casos de uso por rol.
 - [Propuestas de mejora](docs/MEJORAS_PROPUESTAS.md) — oportunidades identificadas sobre el estado actual (modelo de datos, pruebas, rendimiento, seguridad, UX, etc.).
+- [Plan del flujo pedido → proveedor](docs/PLAN_FLUJO_PEDIDO_PROVEEDOR.md) — checklist priorizado de mejoras al flujo de pedido, aprobación y envío a proveedor, para ir avanzando tarea por tarea.

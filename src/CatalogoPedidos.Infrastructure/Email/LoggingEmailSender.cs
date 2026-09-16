@@ -13,11 +13,20 @@ namespace CatalogoPedidos.Infrastructure.Email;
 /// </summary>
 public class LoggingEmailSender(ILogger<LoggingEmailSender> logger) : IEmailSender
 {
-    public Task EnviarAsync(string destinatario, string asunto, string cuerpo, CancellationToken ct = default)
+    public Task EnviarAsync(string destinatario, string asunto, string cuerpo, EmailAdjunto? adjunto = null, CancellationToken ct = default)
     {
-        logger.LogInformation(
-            "[Correo simulado — no hay SMTP configurado] Para: {Destinatario} | Asunto: {Asunto}\n{Cuerpo}",
-            destinatario, asunto, cuerpo);
+        if (adjunto is null)
+        {
+            logger.LogInformation(
+                "[Correo simulado — no hay SMTP configurado] Para: {Destinatario} | Asunto: {Asunto}\n{Cuerpo}",
+                destinatario, asunto, cuerpo);
+        }
+        else
+        {
+            logger.LogInformation(
+                "[Correo simulado — no hay SMTP configurado] Para: {Destinatario} | Asunto: {Asunto} | Adjunto: {Adjunto} ({Bytes} bytes)\n{Cuerpo}",
+                destinatario, asunto, adjunto.NombreArchivo, adjunto.Contenido.Length, cuerpo);
+        }
 
         return Task.CompletedTask;
     }

@@ -37,6 +37,12 @@ public class SolicitudService(
             var producto = await productos.ObtenerPorIdAsync(item.ProductoId, ct)
                 ?? throw new InvalidOperationException("El producto seleccionado no existe.");
 
+            // El catálogo ya oculta los productos inactivos, pero si uno quedaba en el
+            // carrito de una sesión anterior y se desactivó mientras tanto, no debe poder
+            // pedirse igual solo porque el ProductoId todavía es válido.
+            if (!producto.Activo)
+                throw new InvalidOperationException($"\"{producto.Nombre}\" ya no está disponible en el catálogo.");
+
             if (item.Cantidad <= 0)
                 throw new InvalidOperationException($"La cantidad de \"{producto.Nombre}\" debe ser mayor a cero.");
 

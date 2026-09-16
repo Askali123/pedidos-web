@@ -1,7 +1,9 @@
 using System.Text;
+using CatalogoPedidos.Application.Exportacion;
 using CatalogoPedidos.Application.Notificaciones;
 using CatalogoPedidos.Application.Proveedores;
 using CatalogoPedidos.Domain.Entities;
+using CatalogoPedidos.Domain.Enums;
 
 namespace CatalogoPedidos.Application.Solicitudes;
 
@@ -9,98 +11,107 @@ public class PedidoNotificacionProveedorService(
     ISolicitudRepository solicitudes,
     IProductoProveedorRepository asociaciones,
     INotificacionProveedorRepository envios,
-    IEmailSender emailSender) : IPedidoNotificacionProveedorService
+    IEmailSender emailSender,
+    IPdfExportService pdfExport) : IPedidoNotificacionProveedorService
 {
-    public async Task<List<EnvioProveedorResultadoDto>> EnviarAProveedoresAsync(int pedidoId, CancellationToken ct = default)
+    public async Task<List<ProveedorDelPedidoDto>> ObtenerProveedoresDisponiblesAsync(int pedidoId, CancellationToken ct = default)
     {
         var pedido = await solicitudes.ObtenerPedidoAsync(pedidoId, ct)
             ?? throw new InvalidOperationException("El pedido no existe.");
 
-        if (pedido.Items.Count == 0)
-            throw new InvalidOperationException("Este pedido no tiene productos.");
+        // Solo lo aprobado tiene sentido pedirle al proveedor — lo pendiente todavía no se
+        // decidió, y lo rechazado es justo lo que NO se necesita.
+        var aprobadas = pedido.Items.Where(i => i.Estado == EstadoSolicitud.Aprobada).ToList();
+        if (aprobadas.Count == 0)
+            return [];
 
-        var productoIds = pedido.Items.Select(i => i.ProductoId).Distinct();
-        var preferidos = await asociaciones.ObtenerPreferidosPorProductosAsync(productoIds, ct);
-        var proveedorPorProducto = preferidos.ToDictionary(pp => pp.ProductoId);
+        var productoIds = aprobadas.Select(i => i.ProductoId).Distinct();
+        var todasLasAsociaciones = await asociaciones.ObtenerPorProductosAsync(productoIds, ct);
 
-        var resultados = new List<EnvioProveedorResultadoDto>();
-
-        var lineasConProveedor = pedido.Items
-            .Where(i => proveedorPorProducto.ContainsKey(i.ProductoId))
-            .Select(i => (Item: i, Asociacion: proveedorPorProducto[i.ProductoId]))
+        return todasLasAsociaciones
+            .GroupBy(a => a.ProveedorId)
+            .Select(g => new ProveedorDelPedidoDto
+            {
+                ProveedorId = g.Key,
+                ProveedorNombre = g.First().Proveedor!.Nombre,
+                CantidadLineas = aprobadas.Count(i => g.Any(a => a.ProductoId == i.ProductoId))
+            })
+            .Where(p => p.CantidadLineas > 0)
+            .OrderBy(p => p.ProveedorNombre)
             .ToList();
+    }
 
-        foreach (var grupo in lineasConProveedor.GroupBy(x => x.Asociacion.ProveedorId))
+    public async Task<EnvioProveedorResultadoDto> EnviarAProveedorAsync(int pedidoId, int proveedorId, CancellationToken ct = default)
+    {
+        var pedido = await solicitudes.ObtenerPedidoAsync(pedidoId, ct)
+            ?? throw new InvalidOperationException("El pedido no existe.");
+
+        // Mismo criterio que ObtenerProveedoresDisponiblesAsync: nunca se le manda al
+        // proveedor una línea que no esté Aprobada (ver docs/PLAN_FLUJO_PEDIDO_PROVEEDOR.md #1).
+        var aprobadas = pedido.Items.Where(i => i.Estado == EstadoSolicitud.Aprobada).ToList();
+
+        var productoIds = aprobadas.Select(i => i.ProductoId).Distinct();
+        var todasLasAsociaciones = await asociaciones.ObtenerPorProductosAsync(productoIds, ct);
+        var deEsteProveedor = todasLasAsociaciones.Where(a => a.ProveedorId == proveedorId).ToList();
+
+        if (deEsteProveedor.Count == 0)
+            throw new InvalidOperationException("Ninguna línea aprobada de este pedido está asociada a ese proveedor.");
+
+        var proveedor = deEsteProveedor[0].Proveedor!;
+        var codigoPorProducto = deEsteProveedor.ToDictionary(a => a.ProductoId, a => a.CodigoProveedor);
+        var lineas = aprobadas.Where(i => codigoPorProducto.ContainsKey(i.ProductoId)).ToList();
+
+        if (string.IsNullOrWhiteSpace(proveedor.Email))
         {
-            var lineas = grupo.ToList();
-            var proveedor = lineas[0].Asociacion.Proveedor!;
-
-            if (string.IsNullOrWhiteSpace(proveedor.Email))
+            return new EnvioProveedorResultadoDto
             {
-                resultados.Add(new EnvioProveedorResultadoDto
-                {
-                    ProveedorId = proveedor.Id,
-                    ProveedorNombre = proveedor.Nombre,
-                    CantidadLineas = lineas.Count,
-                    Enviado = false,
-                    Motivo = "El proveedor no tiene correo registrado."
-                });
-                continue;
-            }
-
-            try
-            {
-                var cuerpo = ArmarCuerpo(pedido, proveedor, lineas.Select(l => (l.Item, l.Asociacion.CodigoProveedor)));
-                var asunto = $"Pedido de reabastecimiento #{pedido.Id} — {proveedor.Nombre}";
-
-                await emailSender.EnviarAsync(proveedor.Email, asunto, cuerpo, ct);
-
-                await envios.CrearAsync(new NotificacionProveedor
-                {
-                    PedidoId = pedido.Id,
-                    ProveedorId = proveedor.Id,
-                    Email = proveedor.Email,
-                    CantidadLineas = lineas.Count,
-                    FechaEnvio = DateTime.UtcNow
-                }, ct);
-
-                resultados.Add(new EnvioProveedorResultadoDto
-                {
-                    ProveedorId = proveedor.Id,
-                    ProveedorNombre = proveedor.Nombre,
-                    CantidadLineas = lineas.Count,
-                    Enviado = true
-                });
-            }
-            catch (Exception ex)
-            {
-                // El envío es la acción que pidió el gestor (no un efecto secundario best-effort
-                // como las notificaciones internas) — si falla, se lo mostramos, no lo tragamos.
-                resultados.Add(new EnvioProveedorResultadoDto
-                {
-                    ProveedorId = proveedor.Id,
-                    ProveedorNombre = proveedor.Nombre,
-                    CantidadLineas = lineas.Count,
-                    Enviado = false,
-                    Motivo = $"No se pudo enviar el correo: {ex.Message}"
-                });
-            }
-        }
-
-        var sinProveedor = pedido.Items.Count - lineasConProveedor.Count;
-        if (sinProveedor > 0)
-        {
-            resultados.Add(new EnvioProveedorResultadoDto
-            {
-                ProveedorId = 0,
-                ProveedorNombre = "(sin proveedor asociado)",
-                CantidadLineas = sinProveedor,
+                ProveedorId = proveedor.Id,
+                ProveedorNombre = proveedor.Nombre,
+                CantidadLineas = lineas.Count,
                 Enviado = false,
-                Motivo = "Estos productos no tienen ningún proveedor asociado en el catálogo."
-            });
+                Motivo = "El proveedor no tiene correo registrado."
+            };
         }
 
-        return resultados;
+        try
+        {
+            var pdf = pdfExport.ExportarSolicitudesPorProveedor(lineas, codigoPorProducto, proveedor.Nombre);
+            var adjunto = new EmailAdjunto($"Pedido-{pedido.Id}-{proveedor.Nombre}.pdf", pdf, "application/pdf");
+            var cuerpo = ArmarCuerpo(pedido, proveedor, lineas.Select(l => (l, codigoPorProducto[l.ProductoId])));
+            var asunto = $"Pedido de reabastecimiento #{pedido.Id} — {proveedor.Nombre}";
+
+            await emailSender.EnviarAsync(proveedor.Email, asunto, cuerpo, adjunto, ct);
+
+            await envios.CrearAsync(new NotificacionProveedor
+            {
+                PedidoId = pedido.Id,
+                ProveedorId = proveedor.Id,
+                Email = proveedor.Email,
+                CantidadLineas = lineas.Count,
+                FechaEnvio = DateTime.UtcNow
+            }, ct);
+
+            return new EnvioProveedorResultadoDto
+            {
+                ProveedorId = proveedor.Id,
+                ProveedorNombre = proveedor.Nombre,
+                CantidadLineas = lineas.Count,
+                Enviado = true
+            };
+        }
+        catch (Exception ex)
+        {
+            // El envío es la acción que pidió el gestor (no un efecto secundario best-effort
+            // como las notificaciones internas) — si falla, se lo mostramos, no lo tragamos.
+            return new EnvioProveedorResultadoDto
+            {
+                ProveedorId = proveedor.Id,
+                ProveedorNombre = proveedor.Nombre,
+                CantidadLineas = lineas.Count,
+                Enviado = false,
+                Motivo = $"No se pudo enviar el correo: {ex.Message}"
+            };
+        }
     }
 
     private static string ArmarCuerpo(Pedido pedido, Proveedor proveedor, IEnumerable<(SolicitudProducto Item, string CodigoProveedor)> lineas)
@@ -112,6 +123,8 @@ public class PedidoNotificacionProveedorService(
         sb.AppendLine($"Fecha del pedido: {pedido.FechaCreacion:dd/MM/yyyy HH:mm}");
         if (!string.IsNullOrWhiteSpace(pedido.Comentario))
             sb.AppendLine($"Comentario: {pedido.Comentario}");
+        sb.AppendLine();
+        sb.AppendLine("Adjunto el detalle en PDF con el código que ustedes le dan a cada producto.");
         sb.AppendLine();
         sb.AppendLine("Productos:");
         foreach (var (item, codigoProveedor) in lineas)
