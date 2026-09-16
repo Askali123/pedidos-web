@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using CatalogoPedidos.Application.Productos;
 using CatalogoPedidos.Domain.Entities;
 
@@ -8,6 +9,21 @@ public class ProveedorService(
     IProductoProveedorRepository asociaciones,
     IProductoRepository productos) : IProveedorService
 {
+    private static readonly EmailAddressAttribute EmailValidator = new();
+
+    /// <summary>
+    /// Defensa en profundidad: <see cref="CrearProveedorDto.Email"/> ya lleva
+    /// <c>[EmailAddress]</c> para la validación del lado del formulario (Blazor
+    /// EditForm/DataAnnotationsValidator), pero este servicio puede llamarse desde
+    /// cualquier lugar, no solo desde ese formulario — mismo `EmailAddressAttribute` para
+    /// no duplicar la regla en dos sitios distintos.
+    /// </summary>
+    private static void ValidarEmail(string? email)
+    {
+        if (!string.IsNullOrWhiteSpace(email) && !EmailValidator.IsValid(email))
+            throw new InvalidOperationException("El email no tiene un formato válido.");
+    }
+
     public Task<List<Proveedor>> ObtenerTodosAsync(CancellationToken ct = default)
         => proveedores.ObtenerTodosAsync(ct);
 
@@ -18,6 +34,8 @@ public class ProveedorService(
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
             throw new InvalidOperationException("El nombre del proveedor es obligatorio.");
+
+        ValidarEmail(dto.Email);
 
         var proveedor = new Proveedor
         {
@@ -35,6 +53,8 @@ public class ProveedorService(
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
             throw new InvalidOperationException("El nombre del proveedor es obligatorio.");
+
+        ValidarEmail(dto.Email);
 
         var proveedor = await proveedores.ObtenerPorIdAsync(id, ct)
             ?? throw new InvalidOperationException($"Proveedor {id} no encontrado.");
@@ -64,6 +84,12 @@ public class ProveedorService(
     {
         var preferidos = await asociaciones.ObtenerPreferidosPorProductosAsync(productoIds, ct);
         return preferidos.ToDictionary(pp => pp.ProductoId);
+    }
+
+    public async Task<Dictionary<int, int>> ContarProveedoresPorProductoAsync(IEnumerable<int> productoIds, CancellationToken ct = default)
+    {
+        var todas = await asociaciones.ObtenerPorProductosAsync(productoIds, ct);
+        return todas.GroupBy(pp => pp.ProductoId).ToDictionary(g => g.Key, g => g.Count());
     }
 
     public Task<List<ProductoProveedor>> ObtenerProductosDeProveedorAsync(

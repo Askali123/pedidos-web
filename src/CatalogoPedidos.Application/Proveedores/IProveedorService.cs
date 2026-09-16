@@ -19,6 +19,14 @@ public interface IProveedorService
     /// que el gestor haya filtrado por un proveedor específico.
     /// </summary>
     Task<Dictionary<int, ProductoProveedor>> ObtenerCodigosPreferidosAsync(IEnumerable<int> productoIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// Cuántos proveedores distintos tiene asociado cada producto, indexado por
+    /// <c>ProductoId</c> (productos sin ninguno no aparecen en el resultado). Pensado para
+    /// avisar en la UI cuando el código "de referencia" que se muestra (el preferido) no es
+    /// la única opción — hay más proveedores entre los que elegir al enviar el pedido.
+    /// </summary>
+    Task<Dictionary<int, int>> ContarProveedoresPorProductoAsync(IEnumerable<int> productoIds, CancellationToken ct = default);
     Task<List<ProductoProveedor>> ObtenerProductosDeProveedorAsync(
         int proveedorId,
         string? texto = null,

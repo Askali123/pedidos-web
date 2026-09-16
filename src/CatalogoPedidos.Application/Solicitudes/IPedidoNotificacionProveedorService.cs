@@ -16,7 +16,7 @@ public interface IPedidoNotificacionProveedorService
     /// <see cref="NotificacionProveedor"/> como historial. Acción manual del gestor — se
     /// puede volver a llamar para reenviar (no bloquea reenvíos).
     /// </summary>
-    Task<EnvioProveedorResultadoDto> EnviarAProveedorAsync(int pedidoId, int proveedorId, CancellationToken ct = default);
+    Task<EnvioProveedorResultadoDto> EnviarAProveedorAsync(int pedidoId, int proveedorId, string gestorId, string gestorNombre, CancellationToken ct = default);
 
     Task<List<NotificacionProveedor>> ObtenerEnviosAsync(int pedidoId, CancellationToken ct = default);
 }

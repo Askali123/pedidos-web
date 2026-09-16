@@ -61,7 +61,13 @@ else
                                 <tr>
                                     <td class="font-medium text-gray-900">@s.Producto?.Nombre</td>
                                     <td>@s.Cantidad</td>
-                                    <td><Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge></td>
+                                    <td>
+                                        <Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge>
+                                        @if (!string.IsNullOrWhiteSpace(s.ComentarioGestor))
+                                        {
+                                            <p class="text-xs text-gray-500 mt-0.5">@s.ComentarioGestor</p>
+                                        }
+                                    </td>
                                     <td>@s.GestorNombre</td>
                                     <td class="text-right"><a class="btn btn-secondary btn-sm" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a></td>
                                 </tr>

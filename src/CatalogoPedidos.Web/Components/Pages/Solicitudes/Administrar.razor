@@ -1,9 +1,11 @@
 @page "/solicitudes/administrar"
 @attribute [Authorize(Roles = Roles.Gestor)]
+@using System.Security.Claims
 @inject ISolicitudService Solicitudes
 @inject IProductoService Productos
 @inject IProveedorService Proveedores
 @inject IPedidoNotificacionProveedorService NotificacionesProveedor
+@inject UserManager<ApplicationUser> UserManager
 @inject PageHeaderState HeaderState
 
 <PageTitle>Administrar pedidos</PageTitle>
@@ -102,13 +104,25 @@
                                 <span> · @grupo.Key.Comentario</span>
                             }
                         </p>
+                        @if (enviosPorPedido.TryGetValue(grupo.Key.PedidoId, out var envios) && envios.Count > 0)
+                        {
+                            <div class="mt-1 space-y-0.5">
+                                @foreach (var envio in envios)
+                                {
+                                    <p class="text-xs text-success-700 flex items-center gap-1">
+                                        <Icon Name="check-circle" Class="h-3.5 w-3.5 shrink-0" />
+                                        Enviado a @envio.Proveedor?.Nombre · @envio.FechaEnvio.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · @(envio.GestorNombre ?? "-")
+                                    </p>
+                                }
+                            </div>
+                        }
                     </div>
                     <div class="flex items-center gap-2">
                         <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">
                             <Icon Name="download" Class="h-4 w-4" /> PDF del pedido
                         </a>
 
-                        <Dropdown AlignRight="true">
+                        <Dropdown AlignRight="true" CloseOnClick="true">
                             <Trigger>
                                 <span class="btn btn-secondary btn-sm">
                                     <Icon Name="mail" Class="h-4 w-4" /> Enviar a proveedor <Icon Name="chevron-down" Class="h-3.5 w-3.5" />
@@ -174,6 +188,10 @@
                                             @if (codigosPreferidosPorProducto.TryGetValue(s.ProductoId, out var pp))
                                             {
                                                 @($"{pp.Proveedor!.Nombre} · {pp.CodigoProveedor}")
+                                                @if (cantidadProveedoresPorProducto.GetValueOrDefault(s.ProductoId) > 1)
+                                                {
+                                                    <Badge Variant="BadgeVariant.Info">+@(cantidadProveedoresPorProducto[s.ProductoId] - 1) más</Badge>
+                                                }
                                             }
                                             else
                                             {
@@ -204,6 +222,8 @@
                ConfirmText="Enviar" OnConfirm="ConfirmarEnvio" />
 
 @code {
+    [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
+
     private const int TamanoPagina = 8;
 
     private record PedidoResumen(int PedidoId, string SolicitanteNombre, string? Comentario, DateTime FechaCreacion);
@@ -225,7 +245,9 @@
     private List<Proveedor> proveedores = new();
     private Dictionary<int, string> codigosProveedorPorProducto = new();
     private Dictionary<int, ProductoProveedor> codigosPreferidosPorProducto = new();
+    private Dictionary<int, int> cantidadProveedoresPorProducto = new();
     private Dictionary<int, List<ProveedorDelPedidoDto>> proveedoresPorPedido = new();
+    private Dictionary<int, List<NotificacionProveedor>> enviosPorPedido = new();
     private string? mensajeEnvio;
     private AlertVariant mensajeEnvioVariante = AlertVariant.Success;
 
@@ -278,11 +300,16 @@
             // referencia, para no depender de que el gestor filtre uno por uno para verlo.
             codigosProveedorPorProducto = new Dictionary<int, string>();
             codigosPreferidosPorProducto = await Proveedores.ObtenerCodigosPreferidosAsync(resultados.Select(s => s.ProductoId));
+            cantidadProveedoresPorProducto = await Proveedores.ContarProveedoresPorProductoAsync(resultados.Select(s => s.ProductoId));
         }
 
         proveedoresPorPedido.Clear();
+        enviosPorPedido.Clear();
         foreach (var pedidoId in gruposPedido.Select(g => g.Key.PedidoId))
+        {
             proveedoresPorPedido[pedidoId] = await NotificacionesProveedor.ObtenerProveedoresDisponiblesAsync(pedidoId);
+            enviosPorPedido[pedidoId] = await NotificacionesProveedor.ObtenerEnviosAsync(pedidoId);
+        }
 
         paginaNumero = 1;
     }
@@ -309,17 +336,29 @@
         confirmandoEnvio = true;
     }
 
+    private async Task<(string GestorId, string GestorNombre)> DatosGestor(Microsoft.AspNetCore.Components.Authorization.AuthenticationState authState)
+    {
+        var gestorId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
+        var appUser = await UserManager.GetUserAsync(authState.User);
+        var gestorNombre = appUser.NombreParaMostrar(authState.User.Identity?.Name ?? "Gestor");
+        return (gestorId, gestorNombre);
+    }
+
     private async Task ConfirmarEnvio()
     {
         if (proveedorPendienteEnvio is null)
             return;
 
-        var resultado = await NotificacionesProveedor.EnviarAProveedorAsync(pedidoPendienteEnvio, proveedorPendienteEnvio.ProveedorId);
+        var (gestorId, gestorNombre) = await DatosGestor(await AuthStateTask!);
+        var resultado = await NotificacionesProveedor.EnviarAProveedorAsync(pedidoPendienteEnvio, proveedorPendienteEnvio.ProveedorId, gestorId, gestorNombre);
 
         mensajeEnvio = resultado.Enviado
             ? $"Pedido #{pedidoPendienteEnvio} enviado a {resultado.ProveedorNombre} (PDF adjunto, {resultado.CantidadLineas} producto(s))."
             : $"No se pudo enviar a {resultado.ProveedorNombre}: {resultado.Motivo}";
         mensajeEnvioVariante = resultado.Enviado ? AlertVariant.Success : AlertVariant.Warning;
+
+        if (resultado.Enviado)
+            enviosPorPedido[pedidoPendienteEnvio] = await NotificacionesProveedor.ObtenerEnviosAsync(pedidoPendienteEnvio);
     }
 
     private string UrlReporte(string formato)

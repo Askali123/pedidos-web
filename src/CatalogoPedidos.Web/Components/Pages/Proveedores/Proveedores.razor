@@ -77,8 +77,13 @@
 
             <FormField Label="Email">
                 <InputText @bind-Value="modelo.Email" class="form-input" />
+                <ValidationMessage For="() => modelo.Email" class="text-danger-700 text-xs mt-1" />
             </FormField>
 
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <Alert Variant="AlertVariant.Danger">@error</Alert>
+            }
             @if (!string.IsNullOrEmpty(mensaje))
             {
                 <Alert Variant="AlertVariant.Success">@mensaje</Alert>
@@ -114,6 +119,7 @@
 
             <FormField Label="Email">
                 <InputText @bind-Value="modeloEditar.Email" class="form-input" />
+                <ValidationMessage For="() => modeloEditar.Email" class="text-danger-700 text-xs mt-1" />
             </FormField>
 
             @if (!string.IsNullOrEmpty(errorEditar))
@@ -138,6 +144,7 @@
     private List<Proveedor>? proveedores;
     private CrearProveedorDto modelo = new();
     private string? mensaje;
+    private string? error;
 
     private bool modalEditarVisible;
     private int proveedorEditandoId;
@@ -161,10 +168,19 @@
 
     private async Task Guardar()
     {
-        await ProveedorService.CrearAsync(modelo);
-        mensaje = $"Proveedor '{modelo.Nombre}' guardado correctamente.";
-        modelo = new();
-        await Cargar();
+        error = null;
+        mensaje = null;
+        try
+        {
+            await ProveedorService.CrearAsync(modelo);
+            mensaje = $"Proveedor '{modelo.Nombre}' guardado correctamente.";
+            modelo = new();
+            await Cargar();
+        }
+        catch (InvalidOperationException ex)
+        {
+            error = ex.Message;
+        }
     }
 
     private void AbrirEditar(Proveedor proveedor)

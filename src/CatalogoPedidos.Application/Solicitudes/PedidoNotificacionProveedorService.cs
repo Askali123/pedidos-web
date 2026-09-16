@@ -41,7 +41,7 @@ public class PedidoNotificacionProveedorService(
             .ToList();
     }
 
-    public async Task<EnvioProveedorResultadoDto> EnviarAProveedorAsync(int pedidoId, int proveedorId, CancellationToken ct = default)
+    public async Task<EnvioProveedorResultadoDto> EnviarAProveedorAsync(int pedidoId, int proveedorId, string gestorId, string gestorNombre, CancellationToken ct = default)
     {
         var pedido = await solicitudes.ObtenerPedidoAsync(pedidoId, ct)
             ?? throw new InvalidOperationException("El pedido no existe.");
@@ -88,7 +88,9 @@ public class PedidoNotificacionProveedorService(
                 ProveedorId = proveedor.Id,
                 Email = proveedor.Email,
                 CantidadLineas = lineas.Count,
-                FechaEnvio = DateTime.UtcNow
+                FechaEnvio = DateTime.UtcNow,
+                GestorId = gestorId,
+                GestorNombre = gestorNombre
             }, ct);
 
             return new EnvioProveedorResultadoDto

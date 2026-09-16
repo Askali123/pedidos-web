@@ -41,45 +41,96 @@ completarse; no reordenar sin avisar — el orden es la prioridad acordada.
 
 ## P1 — Trazabilidad / auditoría
 
-- [ ] **4. Guardar quién envió el correo**
-  `NotificacionProveedor` no guarda `GestorId`/`GestorNombre` (a diferencia de
-  `SolicitudProducto`, que sí guarda quién aprobó/rechazó). Agregar los campos +
-  migración, y pasarlos desde la UI (mismo patrón que `ResolverAsync`).
+- [x] **4. Guardar quién envió el correo** — **Hecho.**
+  `NotificacionProveedor` ganó `GestorId`/`GestorNombre` (nullable, mismo patrón que
+  `SolicitudProducto`) + migración `AgregarGestorANotificacionProveedor`.
+  `EnviarAProveedorAsync` ahora recibe esos datos y los guarda al crear el registro.
+  `Administrar.razor` no tenía forma de saber quién era el gestor actual (no inyectaba
+  `UserManager` ni tenía el `CascadingParameter` de `AuthenticationState`) — se le agregó
+  el mismo helper `DatosGestor` que ya usaba `Bandeja.razor` para `ResolverAsync`.
+  Verificado con una consulta directa a la base de datos tras un envío real: el registro
+  quedó con `GestorId` y `GestorNombre = "Gestor de Catálogo"` correctamente guardados.
   Archivos: `NotificacionProveedor.cs` (Domain), `PedidoNotificacionProveedorService.cs`,
   `Bandeja.razor`, `Administrar.razor`
 
-- [ ] **5. Mostrar el historial de envíos en la UI**
-  `IPedidoNotificacionProveedorService.ObtenerEnviosAsync` ya existe pero ningún `.razor`
-  lo llama — los envíos quedan grabados pero invisibles. Agregar algo tipo "Enviado a
-  Tiendas D1 el 16/09 04:40 (Gestor de Catálogo)" en la tarjeta del pedido.
+- [x] **5. Mostrar el historial de envíos en la UI** — **Hecho.**
+  Cada tarjeta de pedido (Bandeja y Administrar) muestra ahora una línea por envío ya
+  hecho: "✓ Enviado a Tiendas D1 · 16/09/2026 05:49 · Gestor de Catálogo", debajo de la
+  fecha/comentario del pedido. Se recarga tras cada envío nuevo para que aparezca al
+  instante, sin recargar la página.
+  Verificado en el navegador: pedidos con envíos previos a la tarea 4 (sin gestor
+  guardado) muestran "-" en vez de romperse; los nuevos muestran el nombre del gestor;
+  el orden es el más reciente primero.
   Archivos: `Bandeja.razor`, `Administrar.razor`
 
 ## P2 — Pulido de UX
 
-- [ ] **6. Cerrar el menú desplegable tras elegir proveedor**
-  Hoy queda abierto después del clic (limitación del componente `Dropdown` genérico).
+- [x] **6. Cerrar el menú desplegable tras elegir proveedor** — **Hecho.**
+  `Dropdown.razor` (componente compartido) ganó un parámetro opcional `CloseOnClick`
+  (default `false`, sin romper otros usos): si está en `true`, cualquier clic dentro del
+  contenido cierra el menú. Se activó solo en los desplegables "Enviar a proveedor" de
+  Bandeja y Administrar. `Notificaciones.razor` sigue sin ese parámetro (usa su propio
+  `dropdown?.Cerrar()` manual solo al abrir una notificación) — "Marcar todas como
+  leídas" debía seguir dejando el menú abierto, y así quedó.
+  Verificado en el navegador: elegir un proveedor cierra el menú antes de mostrar el
+  `ConfirmDialog` (ya no queda superpuesto); en Notificaciones, "Marcar todas como
+  leídas" sigue dejando el menú abierto (badge desaparece, panel no se cierra).
+  Archivo: `Components/UI/Dropdown.razor`, `Bandeja.razor`, `Administrar.razor`
 
-- [ ] **7. Indicar cuando un producto tiene más de un proveedor**
-  En "Administrar pedidos" sin filtro, la columna "Proveedor · Código" muestra solo el
-  preferido, sin avisar que el desplegable "Enviar a proveedor" tiene más opciones para
-  ese pedido.
-  Archivo: `Administrar.razor`
+- [x] **7. Indicar cuando un producto tiene más de un proveedor** — **Hecho.**
+  Nuevo `IProveedorService.ContarProveedoresPorProductoAsync` (cuenta asociaciones por
+  producto). Cuando la columna "Proveedor · Código" muestra el preferido (Bandeja
+  siempre, Administrar sin filtro de proveedor) y el producto tiene más de un proveedor
+  asociado, aparece un badge "+N más" al lado del código — mismo criterio en ambas
+  pantallas.
+  Verificado en el navegador: asocié un segundo proveedor a un producto de prueba y
+  apareció "+1 más" junto a su código; un producto con un solo proveedor no muestra nada.
+  Archivos: `IProveedorService.cs`/`ProveedorService.cs`, `Bandeja.razor`, `Administrar.razor`
 
-- [ ] **8. Validar formato de email de proveedor**
-  `Proveedor.Email`/`CrearProveedorDto.Email` son texto libre, sin `[EmailAddress]` ni
-  validación en el formulario. Un correo mal escrito solo se descubre cuando falla el
-  envío real.
-  Archivos: `CrearProveedorDto.cs`, `Proveedores.razor`
+- [x] **8. Validar formato de email de proveedor** — **Hecho.**
+  `CrearProveedorDto.Email` ganó `[EmailAddress]` (valida en vivo al escribir, gracias a
+  `DataAnnotationsValidator` + `ValidationMessage` — mismo patrón que `Login.razor`).
+  Además, `ProveedorService` valida el mismo formato del lado del servidor con el mismo
+  `EmailAddressAttribute` (una sola regla, no duplicada) — por si el servicio se llama
+  desde otro lado que no sea este formulario. El formulario "Nuevo proveedor" (que antes
+  no atrapaba errores) ahora los muestra en un `Alert`, igual que "Editar".
+  Verificado en el navegador: un email sin formato válido bloquea tanto la creación como
+  la edición, mostrando el error en el campo; con un email válido, ambos flujos guardan
+  normalmente.
+  Archivos: `ProveedorDto.cs`, `ProveedorService.cs`, `Proveedores.razor`
 
-- [ ] **9. Comentario del gestor al aprobar/rechazar**
-  El dominio ya soporta `ResolverSolicitudDto.ComentarioGestor`, pero la Bandeja nunca lo
-  pide — el solicitante no se entera de por qué se rechazó su pedido.
-  Archivo: `Bandeja.razor`
+- [x] **9. Comentario del gestor al aprobar/rechazar** — **Hecho.**
+  "Aprobar"/"Rechazar" (línea y pedido completo) ahora abren un modal con un campo de
+  comentario opcional antes de resolver, en vez de disparar directo — mismo `Modal` que ya
+  usaba "Configurar alerta de stock" en el Catálogo. El comentario viaja en
+  `ResolverSolicitudDto.ComentarioGestor`, que el dominio ya soportaba.
+  Alcance ampliado sobre lo previsto: `MisSolicitudes.razor` **tampoco mostraba nunca**
+  `ComentarioGestor` — sin eso, capturar el comentario no le llegaba al solicitante, que
+  era el objetivo real de la tarea. Se agregó debajo del estado de cada línea.
+  Verificado en el navegador: rechacé una solicitud con comentario ("No hay presupuesto
+  disponible...") y apareció en "Mis solicitudes" del solicitante bajo el badge
+  "Rechazada"; aprobar sin comentario sigue funcionando igual de simple, sin fricción
+  extra cuando no hace falta explicar nada.
+  Archivos: `Bandeja.razor`, `MisSolicitudes.razor`
 
-- [ ] **10. Persistencia del carrito**
-  `CarritoState` vive en memoria del circuito Blazor Server — se pierde al recargar o si
-  se cae la conexión. Persistir en `localStorage` o en BD por usuario.
-  Archivo: `CarritoState.cs`
+- [x] **10. Persistencia del carrito** — **Hecho.**
+  Se eligió `localStorage` (sobre BD) — resuelve el problema real (recarga forzada, caída
+  de la conexión SignalR) sin necesitar tabla/migración nueva. Namespaced por
+  `usuarioId` (`carrito:{usuarioId}`) para que dos cuentas en el mismo navegador no se
+  mezclen. Solo guarda `ProductoId`+`Cantidad`, nunca el `Producto` completo — al
+  restaurar se vuelve a pedir cada uno a `IProductoService`, así el precio/stock/nombre
+  siempre sale actualizado, y un producto desactivado mientras tanto simplemente no
+  vuelve (mismo criterio que la tarea 3). La restauración se dispara una sola vez por
+  circuito desde `Layout/Carrito.razor` (`OnAfterRenderAsync(firstRender)`, el único
+  momento en que Blazor Server ya tiene JS interop disponible), y cada mutación
+  (agregar/quitar/cambiar cantidad/vaciar) se guarda en segundo plano (best-effort — si
+  falla, el carrito en memoria sigue funcionando igual esa sesión).
+  Verificado en el navegador: agregué 2 productos, forcé una recarga completa de la
+  página (nuevo circuito de Blazor Server) y el carrito reapareció con ambos productos
+  y cantidades intactas; confirmé también el contenido real de `localStorage`
+  (`carrito:{id}` → `[{"ProductoId":11,"Cantidad":1},...]`) y que "Vaciar carrito" lo
+  deja en `[]`.
+  Archivos: `CarritoState.cs`, `Components/Layout/Carrito.razor`
 
 ## P3 — Riesgo / seguridad
 

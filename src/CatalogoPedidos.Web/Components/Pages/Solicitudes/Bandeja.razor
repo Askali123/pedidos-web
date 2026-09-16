@@ -45,17 +45,29 @@
                                 <span> · @grupo.Key.Comentario</span>
                             }
                         </p>
+                        @if (enviosPorPedido.TryGetValue(grupo.Key.PedidoId, out var envios) && envios.Count > 0)
+                        {
+                            <div class="mt-1 space-y-0.5">
+                                @foreach (var envio in envios)
+                                {
+                                    <p class="text-xs text-success-700 flex items-center gap-1">
+                                        <Icon Name="check-circle" Class="h-3.5 w-3.5 shrink-0" />
+                                        Enviado a @envio.Proveedor?.Nombre · @envio.FechaEnvio.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · @(envio.GestorNombre ?? "-")
+                                    </p>
+                                }
+                            </div>
+                        }
                     </div>
 
                     <div class="flex items-center gap-2">
                         @if (grupo.Count() > 1)
                         {
-                            <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => ResolverPedido(grupo.Key.PedidoId, true)">Aprobar todo</Button>
-                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => ResolverPedido(grupo.Key.PedidoId, false)">Rechazar todo</Button>
+                            <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => AbrirResolverPedido(grupo.Key.PedidoId, true)">Aprobar todo</Button>
+                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => AbrirResolverPedido(grupo.Key.PedidoId, false)">Rechazar todo</Button>
                         }
                         <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">PDF del pedido</a>
 
-                        <Dropdown AlignRight="true">
+                        <Dropdown AlignRight="true" CloseOnClick="true">
                             <Trigger>
                                 <span class="btn btn-secondary btn-sm">
                                     <Icon Name="mail" Class="h-4 w-4" /> Enviar a proveedor <Icon Name="chevron-down" Class="h-3.5 w-3.5" />
@@ -102,6 +114,10 @@
                                         @if (codigosPorProducto.TryGetValue(s.ProductoId, out var pp))
                                         {
                                             @($"{pp.Proveedor!.Nombre} · {pp.CodigoProveedor}")
+                                            @if (cantidadProveedoresPorProducto.GetValueOrDefault(s.ProductoId) > 1)
+                                            {
+                                                <Badge Variant="BadgeVariant.Info">+@(cantidadProveedoresPorProducto[s.ProductoId] - 1) más</Badge>
+                                            }
                                         }
                                         else
                                         {
@@ -111,8 +127,8 @@
                                     <td>@s.Cantidad</td>
                                     <td>
                                         <div class="flex items-center gap-2 justify-end">
-                                            <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => Resolver(s.Id, true)">Aprobar</Button>
-                                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => Resolver(s.Id, false)">Rechazar</Button>
+                                            <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => AbrirResolverSolicitud(s.Id, true)">Aprobar</Button>
+                                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => AbrirResolverSolicitud(s.Id, false)">Rechazar</Button>
                                             <a class="btn btn-secondary btn-sm" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a>
                                         </div>
                                     </td>
@@ -130,6 +146,18 @@
                Message="@($"¿Enviar el pedido #{pedidoPendienteEnvio} a \"{proveedorPendienteEnvio?.ProveedorNombre}\" ({proveedorPendienteEnvio?.CantidadLineas} producto(s))? Se le manda un correo real con el detalle en PDF — no se puede deshacer.")"
                ConfirmText="Enviar" OnConfirm="ConfirmarEnvio" />
 
+<Modal Visible="modalResolverVisible" VisibleChanged="v => modalResolverVisible = v" Title="@tituloModalResolver">
+    <ChildContent>
+        <FormField Label="Comentario (opcional)" Hint="Lo ve el solicitante — útil sobre todo al rechazar, para explicar por qué.">
+            <textarea class="form-textarea" rows="3" @bind="comentarioPendiente"></textarea>
+        </FormField>
+    </ChildContent>
+    <Footer>
+        <Button Variant="ButtonVariant.Ghost" OnClick="() => modalResolverVisible = false">Cancelar</Button>
+        <Button Variant="@(aprobarPendiente ? ButtonVariant.Success : ButtonVariant.Danger)" Icon="@(aprobarPendiente ? "check" : "x")" OnClick="ConfirmarResolver">@(aprobarPendiente ? "Aprobar" : "Rechazar")</Button>
+    </Footer>
+</Modal>
+
 @code {
     [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
 
@@ -137,7 +165,9 @@
 
     private List<IGrouping<PedidoResumen, SolicitudProducto>>? grupos;
     private Dictionary<int, ProductoProveedor> codigosPorProducto = new();
+    private Dictionary<int, int> cantidadProveedoresPorProducto = new();
     private Dictionary<int, List<ProveedorDelPedidoDto>> proveedoresPorPedido = new();
+    private Dictionary<int, List<NotificacionProveedor>> enviosPorPedido = new();
     private string? mensaje;
     private AlertVariant mensajeVariante = AlertVariant.Success;
 
@@ -156,10 +186,15 @@
             .ToList();
 
         codigosPorProducto = await Proveedores.ObtenerCodigosPreferidosAsync(solicitudes.Select(s => s.ProductoId));
+        cantidadProveedoresPorProducto = await Proveedores.ContarProveedoresPorProductoAsync(solicitudes.Select(s => s.ProductoId));
 
         proveedoresPorPedido.Clear();
+        enviosPorPedido.Clear();
         foreach (var pedidoId in grupos.Select(g => g.Key.PedidoId))
+        {
             proveedoresPorPedido[pedidoId] = await NotificacionesProveedor.ObtenerProveedoresDisponiblesAsync(pedidoId);
+            enviosPorPedido[pedidoId] = await NotificacionesProveedor.ObtenerEnviosAsync(pedidoId);
+        }
     }
 
     private async Task<(string GestorId, string GestorNombre)> DatosGestor(Microsoft.AspNetCore.Components.Authorization.AuthenticationState authState)
@@ -170,26 +205,57 @@
         return (gestorId, gestorNombre);
     }
 
-    private async Task Resolver(int solicitudId, bool aprobar)
+    private bool modalResolverVisible;
+    private int? solicitudIdPendiente;
+    private int? pedidoIdPendiente;
+    private bool aprobarPendiente;
+    private string? comentarioPendiente;
+    private string tituloModalResolver = "";
+
+    private void AbrirResolverSolicitud(int solicitudId, bool aprobar)
     {
-        var (gestorId, gestorNombre) = await DatosGestor(await AuthStateTask!);
-
-        await Solicitudes.ResolverAsync(solicitudId, gestorId, gestorNombre, new ResolverSolicitudDto { Aprobar = aprobar });
-
-        mensaje = aprobar ? $"Solicitud #{solicitudId} aprobada." : $"Solicitud #{solicitudId} rechazada.";
-        await Cargar();
+        solicitudIdPendiente = solicitudId;
+        pedidoIdPendiente = null;
+        aprobarPendiente = aprobar;
+        comentarioPendiente = null;
+        tituloModalResolver = aprobar ? "Aprobar solicitud" : "Rechazar solicitud";
+        modalResolverVisible = true;
     }
 
-    private async Task ResolverPedido(int pedidoId, bool aprobar)
+    private void AbrirResolverPedido(int pedidoId, bool aprobar)
+    {
+        solicitudIdPendiente = null;
+        pedidoIdPendiente = pedidoId;
+        aprobarPendiente = aprobar;
+        comentarioPendiente = null;
+        tituloModalResolver = aprobar ? "Aprobar todo el pedido" : "Rechazar todo el pedido";
+        modalResolverVisible = true;
+    }
+
+    private async Task ConfirmarResolver()
     {
         var (gestorId, gestorNombre) = await DatosGestor(await AuthStateTask!);
+        var dto = new ResolverSolicitudDto
+        {
+            Aprobar = aprobarPendiente,
+            ComentarioGestor = string.IsNullOrWhiteSpace(comentarioPendiente) ? null : comentarioPendiente
+        };
 
-        var resueltas = await Solicitudes.ResolverPedidoAsync(pedidoId, gestorId, gestorNombre, new ResolverSolicitudDto { Aprobar = aprobar });
+        if (solicitudIdPendiente is int solicitudId)
+        {
+            await Solicitudes.ResolverAsync(solicitudId, gestorId, gestorNombre, dto);
+            mensaje = aprobarPendiente ? $"Solicitud #{solicitudId} aprobada." : $"Solicitud #{solicitudId} rechazada.";
+        }
+        else if (pedidoIdPendiente is int pedidoId)
+        {
+            var resueltas = await Solicitudes.ResolverPedidoAsync(pedidoId, gestorId, gestorNombre, dto);
+            mensaje = aprobarPendiente
+                ? $"Pedido #{pedidoId} aprobado ({resueltas.Count} producto(s))."
+                : $"Pedido #{pedidoId} rechazado ({resueltas.Count} producto(s)).";
+        }
 
-        mensaje = aprobar
-            ? $"Pedido #{pedidoId} aprobado ({resueltas.Count} producto(s))."
-            : $"Pedido #{pedidoId} rechazado ({resueltas.Count} producto(s)).";
         mensajeVariante = AlertVariant.Success;
+        modalResolverVisible = false;
         await Cargar();
     }
 
@@ -209,11 +275,15 @@
         if (proveedorPendienteEnvio is null)
             return;
 
-        var resultado = await NotificacionesProveedor.EnviarAProveedorAsync(pedidoPendienteEnvio, proveedorPendienteEnvio.ProveedorId);
+        var (gestorId, gestorNombre) = await DatosGestor(await AuthStateTask!);
+        var resultado = await NotificacionesProveedor.EnviarAProveedorAsync(pedidoPendienteEnvio, proveedorPendienteEnvio.ProveedorId, gestorId, gestorNombre);
 
         mensaje = resultado.Enviado
             ? $"Pedido #{pedidoPendienteEnvio} enviado a {resultado.ProveedorNombre} (PDF adjunto, {resultado.CantidadLineas} producto(s))."
             : $"No se pudo enviar a {resultado.ProveedorNombre}: {resultado.Motivo}";
         mensajeVariante = resultado.Enviado ? AlertVariant.Success : AlertVariant.Warning;
+
+        if (resultado.Enviado)
+            enviosPorPedido[pedidoPendienteEnvio] = await NotificacionesProveedor.ObtenerEnviosAsync(pedidoPendienteEnvio);
     }
 }

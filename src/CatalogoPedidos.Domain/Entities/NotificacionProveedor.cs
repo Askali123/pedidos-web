@@ -22,4 +22,8 @@ public class NotificacionProveedor
 
     public int CantidadLineas { get; set; }
     public DateTime FechaEnvio { get; set; } = DateTime.UtcNow;
+
+    /// <summary>Quién disparó el envío — mismo patrón que GestorId/GestorNombre en SolicitudProducto.</summary>
+    public string? GestorId { get; set; }
+    public string? GestorNombre { get; set; }
 }
