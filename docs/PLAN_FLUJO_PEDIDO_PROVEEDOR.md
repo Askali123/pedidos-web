@@ -134,9 +134,24 @@ completarse; no reordenar sin avisar — el orden es la prioridad acordada.
 
 ## P3 — Riesgo / seguridad
 
-- [ ] **11. Límite de tasa en envíos reales**
-  No hay protección contra reenviar el mismo pedido al mismo proveedor en loop — antes
-  era un log simulado, ahora es correo real a un tercero.
+- [x] **11. Límite de tasa en envíos reales** — **Hecho.**
+  `EnviarAProveedorAsync` ahora revisa, antes de armar el correo, el envío más reciente
+  a ese mismo proveedor para ese mismo pedido (reutilizando `envios.ObtenerPorPedidoAsync`,
+  que ya venía ordenado por fecha descendente — sin query nueva). Si pasaron menos de 5
+  minutos (`CooldownReenvio`), corta ahí: no arma el PDF, no llama al `IEmailSender` y no
+  crea un registro nuevo en `NotificacionProveedor` — devuelve
+  `Enviado = false` con el motivo y los minutos restantes, que la UI ya sabía mostrar
+  (mismo mecanismo que "El proveedor no tiene correo registrado."). Se eligió un cooldown
+  fijo simple (no un límite de cantidad por hora) porque el problema real es el loop de
+  clics accidental, no un volumen alto legítimo.
+  Verificado en el navegador: envié el pedido #53 a "Tiendas D1" (envío real, quedó
+  registrado a las 08:08) y al intentar reenviarlo de inmediato al mismo proveedor
+  apareció "No se pudo enviar a Tiendas D1: Ya se envió este pedido a Tiendas D1 hace
+  poco. Espera 4 minuto(s) antes de reenviarlo." — sin crear una fila nueva de envío (el
+  historial del pedido siguió mostrando solo los envíos reales). Para confirmar que no se
+  rompió el caso normal, envié el pedido #48 (sin ningún envío previo) a "Distribuciones
+  Andinas" y funcionó igual que siempre.
+  Archivo: `CatalogoPedidos.Application/Solicitudes/PedidoNotificacionProveedorService.cs`
 
 ## P4 — Funcionalidades nuevas
 

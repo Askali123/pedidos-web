@@ -14,6 +14,15 @@ public class PedidoNotificacionProveedorService(
     IEmailSender emailSender,
     IPdfExportService pdfExport) : IPedidoNotificacionProveedorService
 {
+    /// <summary>
+    /// Tiempo mínimo entre dos envíos del MISMO pedido al MISMO proveedor. No es
+    /// negocio (el gestor puede reenviar si de verdad hace falta), es solo un freno
+    /// contra un loop de clics — antes el envío era un log simulado sin costo, ahora es
+    /// un correo real a un tercero.
+    /// </summary>
+    private static readonly TimeSpan CooldownReenvio = TimeSpan.FromMinutes(5);
+
+
     public async Task<List<ProveedorDelPedidoDto>> ObtenerProveedoresDisponiblesAsync(int pedidoId, CancellationToken ct = default)
     {
         var pedido = await solicitudes.ObtenerPedidoAsync(pedidoId, ct)
@@ -71,6 +80,29 @@ public class PedidoNotificacionProveedorService(
                 Enviado = false,
                 Motivo = "El proveedor no tiene correo registrado."
             };
+        }
+
+        var envioPrevio = (await envios.ObtenerPorPedidoAsync(pedidoId, ct))
+            .Where(e => e.ProveedorId == proveedorId)
+            .OrderByDescending(e => e.FechaEnvio)
+            .FirstOrDefault();
+
+        if (envioPrevio is not null)
+        {
+            var transcurrido = DateTime.UtcNow - envioPrevio.FechaEnvio;
+            if (transcurrido < CooldownReenvio)
+            {
+                var restante = CooldownReenvio - transcurrido;
+                var minutosRestantes = Math.Max(1, (int)Math.Ceiling(restante.TotalMinutes));
+                return new EnvioProveedorResultadoDto
+                {
+                    ProveedorId = proveedor.Id,
+                    ProveedorNombre = proveedor.Nombre,
+                    CantidadLineas = lineas.Count,
+                    Enviado = false,
+                    Motivo = $"Ya se envió este pedido a {proveedor.Nombre} hace poco. Espera {minutosRestantes} minuto(s) antes de reenviarlo."
+                };
+            }
         }
 
         try
