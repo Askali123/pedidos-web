@@ -46,57 +46,112 @@
 }
 else
 {
-    <div class="min-h-screen flex flex-col bg-gray-50">
-        <header class="px-6 py-5 flex items-center gap-2">
-            <div class="h-8 w-8 rounded-md bg-primary-600 flex items-center justify-center font-bold text-white text-sm shrink-0">C</div>
-            <span class="font-semibold text-gray-900">CatalogoPedidos</span>
+    <div class="min-h-screen flex flex-col bg-gray-50 relative overflow-hidden">
+        <div class="absolute inset-0 pointer-events-none" aria-hidden="true">
+            <div class="absolute -top-32 -left-24 h-80 w-80 rounded-full bg-primary-200/40 blur-3xl"></div>
+            <div class="absolute top-24 -right-32 h-96 w-96 rounded-full bg-primary-300/30 blur-3xl"></div>
+        </div>
+
+        <header class="relative z-10 px-6 sm:px-10 py-5 flex items-center justify-between border-b border-gray-200/70">
+            <div class="flex items-center gap-2">
+                <div class="h-8 w-8 rounded-md bg-primary-600 flex items-center justify-center font-bold text-white text-sm shrink-0">C</div>
+                <span class="font-semibold text-gray-900">CatalogoPedidos</span>
+            </div>
+            <a href="Account/Login" class="text-sm font-medium text-gray-600 hover:text-primary-700">Iniciar sesión</a>
         </header>
 
-        <main class="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
-            <span class="inline-flex items-center gap-1.5 rounded-full bg-primary-50 text-primary-700 text-xs font-medium px-3 py-1 mb-5">
-                <Icon Name="cube" Class="h-3.5 w-3.5" /> Catálogo y pedidos internos
-            </span>
+        <main class="relative z-10 flex-1">
+            <section class="flex flex-col items-center text-center px-6 py-20 sm:py-28">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-primary-50 text-primary-700 text-xs font-medium px-3 py-1 mb-6 ring-1 ring-primary-100">
+                    <Icon Name="cube" Class="h-3.5 w-3.5" /> Catálogo y pedidos internos
+                </span>
 
-            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 max-w-2xl text-balance">
-                Del carrito de tu equipo al pedido al proveedor, en un solo lugar
-            </h1>
-            <p class="text-gray-500 mt-4 max-w-xl">
-                Centraliza tu catálogo de productos, deja que cualquiera arme su pedido, y aprueba,
-                controla el stock y avisa a tus proveedores — todo desde un mismo panel.
-            </p>
+                <h1 class="text-4xl sm:text-5xl font-bold text-gray-900 max-w-3xl text-balance leading-[1.1]">
+                    Del carrito de tu equipo al pedido al <span class="text-primary-600">proveedor</span>, en un solo lugar
+                </h1>
+                <p class="text-gray-500 text-base sm:text-lg mt-5 max-w-xl text-balance">
+                    Centraliza tu catálogo de productos, deja que cualquiera arme su pedido, y aprueba,
+                    controla el stock y avisa a tus proveedores — todo desde un mismo panel.
+                </p>
 
-            <div class="flex flex-wrap items-center justify-center gap-3 mt-8">
-                <a href="Account/Register" class="btn btn-primary">
-                    <Icon Name="check" Class="h-4 w-4" /> Crear una cuenta
-                </a>
-                <a href="Account/Login" class="btn btn-outline">Iniciar sesión</a>
-            </div>
+                <div class="flex flex-wrap items-center justify-center gap-3 mt-9">
+                    <a href="Account/Register" class="btn btn-primary btn-lg shadow-sm shadow-primary-600/30">
+                        <Icon Name="check" Class="h-4 w-4" /> Crear una cuenta
+                    </a>
+                    <a href="Account/Login" class="btn btn-outline btn-lg">Iniciar sesión</a>
+                </div>
+            </section>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-16 max-w-4xl w-full text-left">
-                <div class="card card-body">
-                    <Icon Name="cube" Class="h-5 w-5 text-primary-600" />
-                    <p class="font-medium text-gray-900 mt-3">Catálogo centralizado</p>
-                    <p class="text-sm text-gray-500 mt-1">Productos con stock, precio y el código de cada proveedor, en un solo lugar.</p>
+            <section class="px-6 pb-20">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-5xl mx-auto text-left">
+                    <div class="card card-body hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                        <div class="h-10 w-10 rounded-lg bg-primary-50 flex items-center justify-center">
+                            <Icon Name="cube" Class="h-5 w-5 text-primary-600" />
+                        </div>
+                        <p class="font-medium text-gray-900 mt-3">Catálogo centralizado</p>
+                        <p class="text-sm text-gray-500 mt-1">Productos con stock, precio y el código de cada proveedor, en un solo lugar.</p>
+                    </div>
+                    <div class="card card-body hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                        <div class="h-10 w-10 rounded-lg bg-success-50 flex items-center justify-center">
+                            <Icon Name="clipboard-list" Class="h-5 w-5 text-success-600" />
+                        </div>
+                        <p class="font-medium text-gray-900 mt-3">Pedidos con aprobación</p>
+                        <p class="text-sm text-gray-500 mt-1">Cualquiera arma su carrito; un gestor aprueba o rechaza cada línea.</p>
+                    </div>
+                    <div class="card card-body hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                        <div class="h-10 w-10 rounded-lg bg-warning-50 flex items-center justify-center">
+                            <Icon Name="bell" Class="h-5 w-5 text-warning-600" />
+                        </div>
+                        <p class="font-medium text-gray-900 mt-3">Avisos en tiempo real</p>
+                        <p class="text-sm text-gray-500 mt-1">Nuevos pedidos, resoluciones y alertas de stock bajo, al instante.</p>
+                    </div>
+                    <div class="card card-body hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                        <div class="h-10 w-10 rounded-lg bg-info-50 flex items-center justify-center">
+                            <Icon Name="download" Class="h-5 w-5 text-info-600" />
+                        </div>
+                        <p class="font-medium text-gray-900 mt-3">Reportes listos para enviar</p>
+                        <p class="text-sm text-gray-500 mt-1">Exporta a PDF/Excel, o notifica directo al proveedor, por pedido.</p>
+                    </div>
                 </div>
-                <div class="card card-body">
-                    <Icon Name="clipboard-list" Class="h-5 w-5 text-primary-600" />
-                    <p class="font-medium text-gray-900 mt-3">Pedidos con aprobación</p>
-                    <p class="text-sm text-gray-500 mt-1">Cualquiera arma su carrito; un gestor aprueba o rechaza cada línea.</p>
+            </section>
+
+            <section class="px-6 pb-20">
+                <div class="max-w-4xl mx-auto">
+                    <h2 class="text-center text-2xl font-semibold text-gray-900">Cómo funciona</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-6 mt-10 relative">
+                        <div class="hidden sm:block absolute top-6 left-[16.5%] right-[16.5%] h-px bg-gray-200"></div>
+
+                        <div class="relative flex flex-col items-center text-center">
+                            <span class="h-12 w-12 rounded-full bg-primary-600 text-white flex items-center justify-center font-semibold shadow-sm shrink-0">1</span>
+                            <p class="font-medium text-gray-900 mt-4">Explorá el catálogo</p>
+                            <p class="text-sm text-gray-500 mt-1 max-w-56">Buscá por nombre, categoría o proveedor y armá tu carrito.</p>
+                        </div>
+                        <div class="relative flex flex-col items-center text-center">
+                            <span class="h-12 w-12 rounded-full bg-primary-600 text-white flex items-center justify-center font-semibold shadow-sm shrink-0">2</span>
+                            <p class="font-medium text-gray-900 mt-4">Enviá tu pedido</p>
+                            <p class="text-sm text-gray-500 mt-1 max-w-56">Un solo envío con varios productos y un comentario, si hace falta.</p>
+                        </div>
+                        <div class="relative flex flex-col items-center text-center">
+                            <span class="h-12 w-12 rounded-full bg-primary-600 text-white flex items-center justify-center font-semibold shadow-sm shrink-0">3</span>
+                            <p class="font-medium text-gray-900 mt-4">El gestor resuelve</p>
+                            <p class="text-sm text-gray-500 mt-1 max-w-56">Aprueba o rechaza cada línea; vos te enterás al instante.</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="card card-body">
-                    <Icon Name="bell" Class="h-5 w-5 text-primary-600" />
-                    <p class="font-medium text-gray-900 mt-3">Avisos en tiempo real</p>
-                    <p class="text-sm text-gray-500 mt-1">Nuevos pedidos, resoluciones y alertas de stock bajo, al instante.</p>
+            </section>
+
+            <section class="px-6 pb-20">
+                <div class="max-w-4xl mx-auto rounded-2xl bg-primary-600 px-8 py-12 text-center">
+                    <h2 class="text-2xl sm:text-3xl font-bold text-white">¿Listo para ordenar tus pedidos?</h2>
+                    <p class="text-primary-100 mt-2 max-w-md mx-auto">Creá tu cuenta y empezá a armar tu primer pedido en minutos.</p>
+                    <a href="Account/Register" class="btn btn-lg bg-white text-primary-700 hover:bg-primary-50 mt-6">
+                        <Icon Name="check" Class="h-4 w-4" /> Crear una cuenta gratis
+                    </a>
                 </div>
-                <div class="card card-body">
-                    <Icon Name="download" Class="h-5 w-5 text-primary-600" />
-                    <p class="font-medium text-gray-900 mt-3">Reportes listos para enviar</p>
-                    <p class="text-sm text-gray-500 mt-1">Exporta a PDF/Excel, o notifica directo al proveedor, por pedido.</p>
-                </div>
-            </div>
+            </section>
         </main>
 
-        <footer class="px-6 py-5 text-center text-xs text-gray-400">
+        <footer class="relative z-10 px-6 py-6 text-center text-xs text-gray-400 border-t border-gray-200/70">
             CatalogoPedidos — proyecto de práctica
         </footer>
     </div>
