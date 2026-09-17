@@ -5,6 +5,7 @@
 
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
+@inject IServiceScopeFactory ScopeFactory
 
 <PageTitle>Personal Data</PageTitle>
 
@@ -33,7 +34,12 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var user  = await UserManager.GetUserAsync(HttpContext.User);
+        // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
+        // docs/PLAN_MEJORAS_AUTENTICACION.md #2.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        var user = await scopedUserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);

@@ -111,3 +111,4 @@ dotnet ef database update --project src/CatalogoPedidos.Infrastructure --startup
 - [Propuestas de mejora](docs/MEJORAS_PROPUESTAS.md) — oportunidades identificadas sobre el estado actual (modelo de datos, pruebas, rendimiento, seguridad, UX, etc.).
 - [Plan del flujo pedido → proveedor](docs/PLAN_FLUJO_PEDIDO_PROVEEDOR.md) — checklist priorizado de mejoras al flujo de pedido, aprobación y envío a proveedor, para ir avanzando tarea por tarea.
 - [Plan de trazabilidad y entregas](docs/PLAN_TRAZABILIDAD_ENTREGAS.md) — checklist priorizado sobre mensajes de resolución por línea, dirección de entrega y confirmación de entrega.
+- [Plan de mejoras de autenticación](docs/PLAN_MEJORAS_AUTENTICACION.md) — checklist priorizado sobre Identity: recuperación de contraseña rota, concurrencia de DbContext en "Administrar cuenta", bloqueo por fuerza bruta y gestión de roles.

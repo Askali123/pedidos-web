@@ -8,6 +8,7 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IUserStore<ApplicationUser> UserStore
 @inject IdentityRedirectManager RedirectManager
+@inject IServiceScopeFactory ScopeFactory
 
 <PageTitle>Manage your external logins</PageTitle>
 
@@ -84,20 +85,28 @@
 
     protected override async Task OnInitializedAsync()
     {
-        user = await UserManager.GetUserAsync(HttpContext.User);
+        // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
+        // docs/PLAN_MEJORAS_AUTENTICACION.md #2. IUserStore también se resuelve del mismo
+        // scope: por dentro usa el mismo AppDbContext Scoped que UserManager.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var scopedSignInManager = scope.ServiceProvider.GetRequiredService<SignInManager<ApplicationUser>>();
+        var scopedUserStore = scope.ServiceProvider.GetRequiredService<IUserStore<ApplicationUser>>();
+
+        user = await scopedUserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
 
-        currentLogins = await UserManager.GetLoginsAsync(user);
-        otherLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync())
+        currentLogins = await scopedUserManager.GetLoginsAsync(user);
+        otherLogins = (await scopedSignInManager.GetExternalAuthenticationSchemesAsync())
             .Where(auth => currentLogins.All(ul => auth.Name != ul.LoginProvider))
             .ToList();
 
         string? passwordHash = null;
-        if (UserStore is IUserPasswordStore<ApplicationUser> userPasswordStore)
+        if (scopedUserStore is IUserPasswordStore<ApplicationUser> userPasswordStore)
         {
             passwordHash = await userPasswordStore.GetPasswordHashAsync(user, HttpContext.RequestAborted);
         }
@@ -106,7 +115,8 @@
 
         if (HttpMethods.IsGet(HttpContext.Request.Method) && Action == LinkLoginCallbackAction)
         {
-            await OnGetLinkLoginCallbackAsync();
+            // Misma llamada, mismo scope todavía abierto — no una nueva.
+            await OnGetLinkLoginCallbackAsync(scopedUserManager, scopedSignInManager, user);
         }
     }
 
@@ -118,35 +128,40 @@
             return;
         }
 
-        var result = await UserManager.RemoveLoginAsync(user, LoginProvider!, ProviderKey!);
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var scopedSignInManager = scope.ServiceProvider.GetRequiredService<SignInManager<ApplicationUser>>();
+
+        var scopedUser = await scopedUserManager.GetUserAsync(HttpContext.User);
+        if (scopedUser is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        var result = await scopedUserManager.RemoveLoginAsync(scopedUser, LoginProvider!, ProviderKey!);
         if (!result.Succeeded)
         {
             RedirectManager.RedirectToCurrentPageWithStatus("Error: The external login was not removed.", HttpContext);
         }
         else
         {
-            await SignInManager.RefreshSignInAsync(user);
+            await scopedSignInManager.RefreshSignInAsync(scopedUser);
             RedirectManager.RedirectToCurrentPageWithStatus("The external login was removed.", HttpContext);
         }
     }
 
-    private async Task OnGetLinkLoginCallbackAsync()
+    private async Task OnGetLinkLoginCallbackAsync(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, ApplicationUser currentUser)
     {
-        if (user is null)
-        {
-            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
-            return;
-        }
-
-        var userId = await UserManager.GetUserIdAsync(user);
-        var info = await SignInManager.GetExternalLoginInfoAsync(userId);
+        var userId = await userManager.GetUserIdAsync(currentUser);
+        var info = await signInManager.GetExternalLoginInfoAsync(userId);
         if (info is null)
         {
             RedirectManager.RedirectToCurrentPageWithStatus("Error: Could not load external login info.", HttpContext);
             return;
         }
 
-        var result = await UserManager.AddLoginAsync(user, info);
+        var result = await userManager.AddLoginAsync(currentUser, info);
         if (result.Succeeded)
         {
             // Clear the existing external cookie to ensure a clean login process

@@ -8,6 +8,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
+@inject IServiceScopeFactory ScopeFactory
 
 <PageTitle>Manage your passkeys</PageTitle>
 
@@ -81,13 +82,18 @@ else
     {
         Input ??= new();
 
-        user = await UserManager.GetUserAsync(HttpContext.User);
+        // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
+        // docs/PLAN_MEJORAS_AUTENTICACION.md #2.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        user = await scopedUserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
-        currentPasskeys = await UserManager.GetPasskeysAsync(user);
+        currentPasskeys = await scopedUserManager.GetPasskeysAsync(user);
     }
 
     private async Task AddPasskey()
@@ -116,14 +122,25 @@ else
             return;
         }
 
-        var attestationResult = await SignInManager.PerformPasskeyAttestationAsync(Input.CredentialJson);
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var scopedSignInManager = scope.ServiceProvider.GetRequiredService<SignInManager<ApplicationUser>>();
+
+        var scopedUser = await scopedUserManager.GetUserAsync(HttpContext.User);
+        if (scopedUser is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        var attestationResult = await scopedSignInManager.PerformPasskeyAttestationAsync(Input.CredentialJson);
         if (!attestationResult.Succeeded)
         {
             RedirectManager.RedirectToCurrentPageWithStatus($"Error: Could not add the passkey: {attestationResult.Failure.Message}", HttpContext);
             return;
         }
 
-        var addPasskeyResult = await UserManager.AddOrUpdatePasskeyAsync(user, attestationResult.Passkey);
+        var addPasskeyResult = await scopedUserManager.AddOrUpdatePasskeyAsync(scopedUser, attestationResult.Passkey);
         if (!addPasskeyResult.Succeeded)
         {
             RedirectManager.RedirectToCurrentPageWithStatus("Error: The passkey could not be added to your account.", HttpContext);
@@ -170,7 +187,17 @@ else
             return;
         }
 
-        var result = await UserManager.RemovePasskeyAsync(user, credentialId);
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        var scopedUser = await scopedUserManager.GetUserAsync(HttpContext.User);
+        if (scopedUser is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        var result = await scopedUserManager.RemovePasskeyAsync(scopedUser, credentialId);
         if (!result.Succeeded)
         {
             RedirectManager.RedirectToCurrentPageWithStatus("Error: The passkey could not be deleted.", HttpContext);

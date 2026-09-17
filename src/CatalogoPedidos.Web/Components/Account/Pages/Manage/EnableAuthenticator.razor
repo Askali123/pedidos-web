@@ -11,6 +11,7 @@
 @inject UrlEncoder UrlEncoder
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<EnableAuthenticator> Logger
+@inject IServiceScopeFactory ScopeFactory
 
 <PageTitle>Configure authenticator app</PageTitle>
 
@@ -84,14 +85,19 @@ else
     {
         Input ??= new();
 
-        user = await UserManager.GetUserAsync(HttpContext.User);
+        // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
+        // docs/PLAN_MEJORAS_AUTENTICACION.md #2.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        user = await scopedUserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
 
-        await LoadSharedKeyAndQrCodeUriAsync(user);
+        await LoadSharedKeyAndQrCodeUriAsync(scopedUserManager, user);
     }
 
     private async Task OnValidSubmitAsync()
@@ -102,11 +108,21 @@ else
             return;
         }
 
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        var scopedUser = await scopedUserManager.GetUserAsync(HttpContext.User);
+        if (scopedUser is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
         // Strip spaces and hyphens
         var verificationCode = Input.Code.Replace(" ", string.Empty).Replace("-", string.Empty);
 
-        var is2faTokenValid = await UserManager.VerifyTwoFactorTokenAsync(
-            user, UserManager.Options.Tokens.AuthenticatorTokenProvider, verificationCode);
+        var is2faTokenValid = await scopedUserManager.VerifyTwoFactorTokenAsync(
+            scopedUser, scopedUserManager.Options.Tokens.AuthenticatorTokenProvider, verificationCode);
 
         if (!is2faTokenValid)
         {
@@ -114,15 +130,15 @@ else
             return;
         }
 
-        await UserManager.SetTwoFactorEnabledAsync(user, true);
-        var userId = await UserManager.GetUserIdAsync(user);
+        await scopedUserManager.SetTwoFactorEnabledAsync(scopedUser, true);
+        var userId = await scopedUserManager.GetUserIdAsync(scopedUser);
         Logger.LogInformation("User with ID '{UserId}' has enabled 2FA with an authenticator app.", userId);
 
         message = "Your authenticator app has been verified.";
 
-        if (await UserManager.CountRecoveryCodesAsync(user) == 0)
+        if (await scopedUserManager.CountRecoveryCodesAsync(scopedUser) == 0)
         {
-            recoveryCodes = await UserManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
+            recoveryCodes = await scopedUserManager.GenerateNewTwoFactorRecoveryCodesAsync(scopedUser, 10);
         }
         else
         {
@@ -130,19 +146,19 @@ else
         }
     }
 
-    private async ValueTask LoadSharedKeyAndQrCodeUriAsync(ApplicationUser user)
+    private async ValueTask LoadSharedKeyAndQrCodeUriAsync(UserManager<ApplicationUser> userManager, ApplicationUser user)
     {
         // Load the authenticator key & QR code URI to display on the form
-        var unformattedKey = await UserManager.GetAuthenticatorKeyAsync(user);
+        var unformattedKey = await userManager.GetAuthenticatorKeyAsync(user);
         if (string.IsNullOrEmpty(unformattedKey))
         {
-            await UserManager.ResetAuthenticatorKeyAsync(user);
-            unformattedKey = await UserManager.GetAuthenticatorKeyAsync(user);
+            await userManager.ResetAuthenticatorKeyAsync(user);
+            unformattedKey = await userManager.GetAuthenticatorKeyAsync(user);
         }
 
         sharedKey = FormatKey(unformattedKey!);
 
-        var email = await UserManager.GetEmailAsync(user);
+        var email = await userManager.GetEmailAsync(user);
         authenticatorUri = GenerateQrCodeUri(email!, unformattedKey!);
     }
 

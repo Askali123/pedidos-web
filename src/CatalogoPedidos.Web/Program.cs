@@ -44,13 +44,24 @@ builder.Services.AddAuthentication(options =>
     })
     .AddIdentityCookies();
 
-builder.Services.AddAuthorization();
+// Autenticado por defecto: cualquier página o endpoint sin [Authorize]/[AllowAnonymous]
+// explícito requiere sesión iniciada, en vez de quedar público por accidente — ver
+// docs/PLAN_MEJORAS_AUTENTICACION.md #5.
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 // Registra DbContext (SQL Server), Identity con roles, repositorios y servicios de Application.
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+// Scoped (no Singleton) porque delega en el IEmailSender de Application, que también es
+// Scoped (SmtpEmailSender/LoggingEmailSender según haya Smtp:Host configurado) — un
+// Singleton reteniendo una dependencia Scoped sería una captive dependency.
+builder.Services.AddScoped<IEmailSender<ApplicationUser>, IdentityEmailSender>();
 
 var app = builder.Build();
 
@@ -83,7 +94,8 @@ app.UseAuthorization();
 
 app.UseAntiforgery();
 
-app.MapStaticAssets();
+// CSS/JS/imágenes deben poder cargar en páginas públicas (ej. Login) antes de autenticarse.
+app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

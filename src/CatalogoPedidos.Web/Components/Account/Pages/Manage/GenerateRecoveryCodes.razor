@@ -6,6 +6,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<GenerateRecoveryCodes> Logger
+@inject IServiceScopeFactory ScopeFactory
 
 <PageTitle>Generate two-factor authentication (2FA) recovery codes</PageTitle>
 
@@ -47,14 +48,19 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        user = await UserManager.GetUserAsync(HttpContext.User);
+        // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
+        // docs/PLAN_MEJORAS_AUTENTICACION.md #2.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        user = await scopedUserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
 
-        var isTwoFactorEnabled = await UserManager.GetTwoFactorEnabledAsync(user);
+        var isTwoFactorEnabled = await scopedUserManager.GetTwoFactorEnabledAsync(user);
         if (!isTwoFactorEnabled)
         {
             throw new InvalidOperationException("Cannot generate recovery codes for user because they do not have 2FA enabled.");
@@ -69,8 +75,18 @@ else
             return;
         }
 
-        var userId = await UserManager.GetUserIdAsync(user);
-        recoveryCodes = await UserManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        var scopedUser = await scopedUserManager.GetUserAsync(HttpContext.User);
+        if (scopedUser is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        var userId = await scopedUserManager.GetUserIdAsync(scopedUser);
+        recoveryCodes = await scopedUserManager.GenerateNewTwoFactorRecoveryCodesAsync(scopedUser, 10);
         message = "You have generated new recovery codes.";
 
         Logger.LogInformation("User with ID '{UserId}' has generated new 2FA recovery codes.", userId);

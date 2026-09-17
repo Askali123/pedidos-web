@@ -63,6 +63,10 @@
                     <Icon Name="truck" Class="h-5 w-5 shrink-0" />
                     @if (!Collapsed) { <span>Proveedores</span> }
                 </NavLink>
+                <NavLink href="/usuarios/roles" class="sidebar-link" ActiveClass="sidebar-link-active">
+                    <Icon Name="user" Class="h-5 w-5 shrink-0" />
+                    @if (!Collapsed) { <span>Gestión de roles</span> }
+                </NavLink>
             </Authorized>
         </AuthorizeView>
     </nav>

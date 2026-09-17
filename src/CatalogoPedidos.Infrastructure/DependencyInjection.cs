@@ -46,6 +46,21 @@ public static class DependencyInjection
                 options.SignIn.RequireConfirmedAccount = false;
                 options.Password.RequireNonAlphanumeric = false;
                 options.Password.RequiredLength = 6;
+
+                // Sin esto, cualquier operación de passkeys tira "This operation is not
+                // permitted because the underlying 'DbContext' does not include
+                // 'IdentityUserPasskey`1' in its model" — ver docs/PLAN_MEJORAS_AUTENTICACION.md #13.
+                options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
+
+                // Bloqueo por fuerza bruta — Login.razor ya llama a PasswordSignInAsync con
+                // lockoutOnFailure: true, pero eso solo CUENTA los intentos fallidos; estos
+                // valores son los que de verdad definen cuándo se bloquea una cuenta y por
+                // cuánto tiempo. Se dejan explícitos (son los mismos que trae Identity por
+                // defecto) para que quede documentado como decisión deliberada, no un
+                // default accidental — ver docs/PLAN_MEJORAS_AUTENTICACION.md #3.
+                options.Lockout.AllowedForNewUsers = true;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
             })
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<AppDbContext>()
@@ -67,6 +82,7 @@ public static class DependencyInjection
         services.AddScoped<INotificacionRepository, NotificacionRepository>();
         services.AddScoped<INotificacionService, NotificacionService>();
         services.AddScoped<IGestorDirectory, GestorDirectory>();
+        services.AddScoped<IUsuarioRolService, UsuarioRolService>();
         services.AddSingleton<INotificacionBroadcaster, NotificacionBroadcaster>();
 
         // Envío real solo si hay un servidor SMTP configurado (Smtp:Host — ver

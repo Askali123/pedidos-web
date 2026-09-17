@@ -1,4 +1,5 @@
 ﻿@page "/Account/Login"
+@attribute [AllowAnonymous]
 @layout CatalogoPedidos.Web.Components.Layout.AuthLayout
 
 @using System.ComponentModel.DataAnnotations
@@ -120,9 +121,11 @@
                 return;
             }
 
-            // This doesn't count login failures towards account lockout
-            // To enable password failures to trigger account lockout, set lockoutOnFailure: true
-            result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+            // lockoutOnFailure: true — cuenta los intentos fallidos hacia el bloqueo por
+            // fuerza bruta (options.Lockout.* en DependencyInjection.cs). El manejo de
+            // result.IsLockedOut más abajo ya estaba armado, solo nunca se disparaba — ver
+            // docs/PLAN_MEJORAS_AUTENTICACION.md #3.
+            result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
         }
 
         if (result.Succeeded)

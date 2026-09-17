@@ -8,6 +8,7 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<DeletePersonalData> Logger
+@inject IServiceScopeFactory ScopeFactory
 
 <PageTitle>Delete Personal Data</PageTitle>
 
@@ -52,13 +53,18 @@
     {
         Input ??= new();
 
-        user = await UserManager.GetUserAsync(HttpContext.User);
+        // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
+        // docs/PLAN_MEJORAS_AUTENTICACION.md #2.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        user = await scopedUserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
-        requirePassword = await UserManager.HasPasswordAsync(user);
+        requirePassword = await scopedUserManager.HasPasswordAsync(user);
     }
 
     private async Task OnValidSubmitAsync()
@@ -69,21 +75,32 @@
             return;
         }
 
-        if (requirePassword && !await UserManager.CheckPasswordAsync(user, Input.Password))
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var scopedSignInManager = scope.ServiceProvider.GetRequiredService<SignInManager<ApplicationUser>>();
+
+        var scopedUser = await scopedUserManager.GetUserAsync(HttpContext.User);
+        if (scopedUser is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        if (requirePassword && !await scopedUserManager.CheckPasswordAsync(scopedUser, Input.Password))
         {
             message = "Error: Incorrect password.";
             return;
         }
 
-        var result = await UserManager.DeleteAsync(user);
+        var result = await scopedUserManager.DeleteAsync(scopedUser);
         if (!result.Succeeded)
         {
             throw new InvalidOperationException("Unexpected error occurred deleting user.");
         }
 
-        await SignInManager.SignOutAsync();
+        await scopedSignInManager.SignOutAsync();
 
-        var userId = await UserManager.GetUserIdAsync(user);
+        var userId = await scopedUserManager.GetUserIdAsync(scopedUser);
         Logger.LogInformation("User with ID '{UserId}' deleted themselves.", userId);
 
         RedirectManager.RedirectToCurrentPage();

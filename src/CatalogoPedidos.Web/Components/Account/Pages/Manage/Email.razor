@@ -11,6 +11,7 @@
 @inject IEmailSender<ApplicationUser> EmailSender
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
+@inject IServiceScopeFactory ScopeFactory
 
 <PageTitle>Manage email</PageTitle>
 
@@ -69,15 +70,20 @@
     {
         Input ??= new();
 
-        user = await UserManager.GetUserAsync(HttpContext.User);
+        // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
+        // docs/PLAN_MEJORAS_AUTENTICACION.md #2.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        user = await scopedUserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
 
-        email = await UserManager.GetEmailAsync(user);
-        isEmailConfirmed = await UserManager.IsEmailConfirmedAsync(user);
+        email = await scopedUserManager.GetEmailAsync(user);
+        isEmailConfirmed = await scopedUserManager.IsEmailConfirmedAsync(user);
 
         Input.NewEmail ??= email;
     }
@@ -96,14 +102,24 @@
             return;
         }
 
-        var userId = await UserManager.GetUserIdAsync(user);
-        var code = await UserManager.GenerateChangeEmailTokenAsync(user, Input.NewEmail);
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        var scopedUser = await scopedUserManager.GetUserAsync(HttpContext.User);
+        if (scopedUser is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        var userId = await scopedUserManager.GetUserIdAsync(scopedUser);
+        var code = await scopedUserManager.GenerateChangeEmailTokenAsync(scopedUser, Input.NewEmail);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
         var callbackUrl = NavigationManager.GetUriWithQueryParameters(
             NavigationManager.ToAbsoluteUri("Account/ConfirmEmailChange").AbsoluteUri,
             new Dictionary<string, object?> { ["userId"] = userId, ["email"] = Input.NewEmail, ["code"] = code });
 
-        await EmailSender.SendConfirmationLinkAsync(user, Input.NewEmail, HtmlEncoder.Default.Encode(callbackUrl));
+        await EmailSender.SendConfirmationLinkAsync(scopedUser, Input.NewEmail, HtmlEncoder.Default.Encode(callbackUrl));
 
         message = "Confirmation link to change email sent. Please check your email.";
     }
@@ -121,14 +137,24 @@
             return;
         }
 
-        var userId = await UserManager.GetUserIdAsync(user);
-        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        var scopedUser = await scopedUserManager.GetUserAsync(HttpContext.User);
+        if (scopedUser is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        var userId = await scopedUserManager.GetUserIdAsync(scopedUser);
+        var code = await scopedUserManager.GenerateEmailConfirmationTokenAsync(scopedUser);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
         var callbackUrl = NavigationManager.GetUriWithQueryParameters(
             NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
             new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
 
-        await EmailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(callbackUrl));
+        await EmailSender.SendConfirmationLinkAsync(scopedUser, email, HtmlEncoder.Default.Encode(callbackUrl));
 
         message = "Verification email sent. Please check your email.";
     }
