@@ -152,21 +152,70 @@ el orden es la prioridad acordada.
 
 ## P2 — UX pulido (resolución de solicitudes)
 
-- [ ] **8. Deep link más preciso en la notificación de resolución**
-  Hoy `NotificarResolucionAsync` siempre manda a `/solicitudes/mis-solicitudes` genérico
-  (sin importar si fue una línea o el pedido completo). Llevar al pedido específico,
-  mismo criterio de deep link ya usado para la alerta de stock bajo (tarea 15 del plan
-  anterior).
+- [x] **8. Deep link más preciso en la notificación de resolución** — **Hecho.**
+  `Mis solicitudes` lista TODOS los pedidos del solicitante sin paginar ni filtrar — no
+  hay un query param de "pedido" que filtrar como en la alerta de stock bajo (tarea 15
+  del plan anterior), así que el criterio análogo acá es un ancla de fragmento: cada
+  tarjeta de pedido ahora tiene `id="pedido-{PedidoId}"`, y `NotificarResolucionAsync`
+  arma la URL como `/solicitudes/mis-solicitudes#pedido-{pedidoId}` (antes mandaba
+  siempre a la lista genérica sin apuntar a nada). `ResolverAsync`/`ResolverPedidoAsync`
+  le pasan el `PedidoId` correspondiente.
+  Verificado en el navegador: rechacé una línea del pedido #55 (que para ese solicitante
+  ya NO es el más reciente — hay pedidos #56/#57/#58 después) y al hacer clic en la
+  notificación la URL quedó en `...mis-solicitudes#pedido-55` y la página hizo scroll
+  automático hasta esa tarjeta específica, salteándose las más recientes que aparecen
+  primero en la lista — confirma que el ancla apunta al pedido correcto, no solo a la
+  lista en general.
+  Archivos: `SolicitudService.cs`, `MisSolicitudes.razor`
 
-- [ ] **9. Indicador de "pedido parcialmente resuelto" en Mis solicitudes**
-  Si un pedido tiene, por ejemplo, 2 líneas aprobadas y 1 rechazada, hoy no hay ningún
-  resumen a nivel de pedido — solo los badges por línea. Agregar algo tipo "2 de 3
-  resueltas" en el encabezado del grupo.
+- [x] **9. Indicador de "pedido parcialmente resuelto" en Mis solicitudes** — **Hecho.**
+  Nuevo helper `ResumenEstado` que arma un badge en el encabezado del pedido, pero solo
+  cuando aporta algo que los badges por línea no dicen ya: pedidos de una sola línea, sin
+  nada resuelto todavía, o resueltos de forma pareja (todo aprobado o todo rechazado) no
+  muestran nada — ahí el detalle por línea ya cuenta toda la historia. Dos casos sí lo
+  muestran: (1) progreso parcial — "X de N resueltas" (badge celeste) cuando algunas
+  líneas ya se resolvieron y otras siguen pendientes; (2) resultado mixto — "X
+  aprobada(s), Y rechazada(s)" (badge amarillo) cuando el pedido ya está 100% resuelto
+  pero con una mezcla de aprobaciones y rechazos.
+  Verificado en el navegador con un pedido de 3 líneas: tras aprobar 1 de 3, apareció
+  "1 de 3 resueltas"; tras resolver las 3 (2 aprobadas + 1 rechazada), cambió a "2
+  aprobada(s), 1 rechazada(s)"; un pedido de 2 líneas ambas aprobadas (sin mezcla) no
+  mostró ningún badge, como se esperaba.
+  Archivo: `MisSolicitudes.razor`
 
-- [ ] **10. Notificación agrupada al resolver una mezcla de líneas de un tirón**
-  `ResolverPedidoAsync` dispara una notificación por línea cuando el gestor aprueba/
-  rechaza varias a la vez — evaluar si conviene una sola notificación resumen en vez de
-  varias seguidas.
+- [x] **10. Notificación agrupada al resolver una mezcla de líneas de un tirón** — **Hecho.**
+  Al revisar el código se confirmó que `ResolverPedidoAsync` ("Aprobar todo"/"Rechazar
+  todo") ya mandaba una sola notificación resumen — quedó así de las tareas P1. El hueco
+  real era otro: no existía forma de resolver una MEZCLA de decisiones (algunas líneas
+  aprobadas, otras rechazadas) en un solo paso — solo se podía línea por línea, cada clic
+  con su propia notificación inmediata, o "todo" con una única decisión uniforme.
+  Se agregó `ResolverVariasAsync` en `SolicitudService`, que resuelve una lista de
+  decisiones (`SolicitudId` + `Aprobar` por línea) y manda UNA sola notificación armada
+  por el nuevo helper `ArmarResolucionPedido`: título/mensaje "aprobado"/"rechazado" si
+  todas las líneas comparten la decisión (mismo texto que antes), o "Pedido resuelto" con
+  el desglose "X aprobado(s) (...), Y rechazado(s) (...)" si es mixto.
+  `ResolverPedidoAsync` ahora es un caso particular que arma una lista de decisiones
+  uniformes y delega en `ResolverVariasAsync`, así ambos caminos comparten la misma
+  lógica de notificación.
+  En `Bandeja.razor` se agregó un botón "Resolver mezcla…" (solo visible en pedidos de
+  más de una línea) que activa un modo de selección: cada línea muestra botones
+  Aprobar/Rechazar tipo toggle para marcar la decisión sin resolver todavía, y una barra
+  al pie del pedido con "N marcada(s)" + "Confirmar selección", que abre el mismo modal
+  de comentario y llama a `ResolverVariasAsync` con todas las decisiones marcadas.
+  Verificado en el navegador end-to-end: se creó el pedido #60 (3 líneas) como
+  `usuario@catalogo.local`; como `gestor@catalogo.local` se activó "Resolver mezcla…",
+  se marcó Aprobar en 2 líneas y Rechazar en 1, y el modal mostró "2 aprobación(es) y 1
+  rechazo(s)" antes de confirmar. Tras confirmar, la bandeja mostró "Pedido #60 resuelto
+  (3 producto(s))" y el pedido desapareció de pendientes. Se confirmó por SQL que solo se
+  insertó UNA fila en `Notificaciones` para el pedido (título "Pedido resuelto", mensaje
+  "Tu pedido fue resuelto por Gestor de Catálogo: 2 aprobado(s) (2 productos: 1x Abrasivo
+  REGULAR, 1x Ajax Bicarbonato x 2000 ml), 1 rechazado(s) (1x Alcohol Antiseptico Fire x
+  3750 ml)."). Como el solicitante, la campana mostró esa única notificación (no 3), el
+  clic navegó al deep link `#pedido-60`, y "Mis solicitudes" mostró el pedido con el
+  badge de la tarea 9 ("2 aprobada(s), 1 rechazada(s)") y cada línea con su estado
+  correcto.
+  Archivo(s): `SolicitudDto.cs`, `ISolicitudService.cs`, `SolicitudService.cs`,
+  `Bandeja.razor`
 
 ## P3 — Confirmación de entrega (funcionalidad nueva, núcleo)
 
@@ -196,6 +245,7 @@ el orden es la prioridad acordada.
 - [ ] **16. Incluir la confirmación de entrega en el PDF del pedido**
   Sección "Entrega" en `ExportarPedido` (fecha, quién confirmó, dirección entregada, si
   coincidió, observaciones) — solo cuando ya exista el registro de `ConfirmacionEntrega`.
+
 
 ## P4 — Nuevas funcionalidades adicionales
 

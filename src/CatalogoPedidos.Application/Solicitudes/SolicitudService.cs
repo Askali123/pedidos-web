@@ -166,7 +166,7 @@ public class SolicitudService(
         var titulo = aprobada ? "Solicitud aprobada" : "Solicitud rechazada";
         var mensaje = $"Tu solicitud de \"{solicitud.Producto?.Nombre}\" fue {(aprobada ? "aprobada" : "rechazada")} por {gestorNombre}.";
 
-        await NotificarResolucionAsync(solicitud.SolicitanteId, titulo, mensaje, ct);
+        await NotificarResolucionAsync(solicitud.SolicitanteId, solicitud.PedidoId, titulo, mensaje, ct);
     }
 
     public async Task<List<SolicitudProducto>> ResolverPedidoAsync(int pedidoId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct = default)
@@ -178,21 +178,57 @@ public class SolicitudService(
         if (pendientes.Count == 0)
             throw new InvalidOperationException("Este pedido ya no tiene productos pendientes.");
 
+        // "Aprobar/rechazar todo" es el caso particular de ResolverVariasAsync donde
+        // todas las líneas comparten la misma decisión — se delega ahí para que ambos
+        // caminos manden la misma notificación resumen (ver #10 del plan).
+        var decisiones = pendientes
+            .Select(i => new DecisionSolicitudDto { SolicitudId = i.Id, Aprobar = dto.Aprobar })
+            .ToList();
+        var dtoVarias = new ResolverVariasDto { Decisiones = decisiones, ComentarioGestor = dto.ComentarioGestor };
+
+        return await ResolverVariasAsync(pedidoId, gestorId, gestorNombre, dtoVarias, ct);
+    }
+
+    public async Task<List<SolicitudProducto>> ResolverVariasAsync(int pedidoId, string gestorId, string gestorNombre, ResolverVariasDto dto, CancellationToken ct = default)
+    {
+        if (dto.Decisiones.Count == 0)
+            throw new InvalidOperationException("Selecciona al menos una línea para resolver.");
+
+        var pedido = await repositorio.ObtenerPedidoAsync(pedidoId, ct)
+            ?? throw new InvalidOperationException("El pedido no existe.");
+
         var resueltas = new List<SolicitudProducto>();
-        var nombres = new List<string>();
-        foreach (var item in pendientes)
+        var aprobadas = new List<string>();
+        var rechazadas = new List<string>();
+        foreach (var decision in dto.Decisiones)
         {
-            var resuelta = await ResolverSinNotificarAsync(item.Id, gestorId, gestorNombre, dto, ct);
+            var itemDto = new ResolverSolicitudDto { Aprobar = decision.Aprobar, ComentarioGestor = dto.ComentarioGestor };
+            var resuelta = await ResolverSinNotificarAsync(decision.SolicitudId, gestorId, gestorNombre, itemDto, ct);
             resueltas.Add(resuelta);
-            nombres.Add($"{resuelta.Cantidad}x {resuelta.Producto?.Nombre}");
+            (decision.Aprobar ? aprobadas : rechazadas).Add($"{resuelta.Cantidad}x {resuelta.Producto?.Nombre}");
         }
 
-        var resumen = ResumirNombres(nombres);
-        var titulo = dto.Aprobar ? "Pedido aprobado" : "Pedido rechazado";
-        var mensaje = $"Tu pedido ({resumen}) fue {(dto.Aprobar ? "aprobado" : "rechazado")} por {gestorNombre}.";
-        await NotificarResolucionAsync(pedido.SolicitanteId, titulo, mensaje, ct);
+        var (titulo, mensaje) = ArmarResolucionPedido(gestorNombre, aprobadas, rechazadas);
+        await NotificarResolucionAsync(pedido.SolicitanteId, pedido.Id, titulo, mensaje, ct);
 
         return resueltas;
+    }
+
+    /// <summary>
+    /// Arma el título/mensaje de la notificación agrupada que recibe el solicitante
+    /// cuando se resuelven varias líneas de un pedido de un tirón, sea con la misma
+    /// decisión ("aprobar/rechazar todo") o con una mezcla de aprobaciones y rechazos.
+    /// </summary>
+    private static (string Titulo, string Mensaje) ArmarResolucionPedido(string gestorNombre, List<string> aprobadas, List<string> rechazadas)
+    {
+        if (rechazadas.Count == 0)
+            return ("Pedido aprobado", $"Tu pedido ({ResumirNombres(aprobadas)}) fue aprobado por {gestorNombre}.");
+
+        if (aprobadas.Count == 0)
+            return ("Pedido rechazado", $"Tu pedido ({ResumirNombres(rechazadas)}) fue rechazado por {gestorNombre}.");
+
+        var mensaje = $"Tu pedido fue resuelto por {gestorNombre}: {aprobadas.Count} aprobado(s) ({ResumirNombres(aprobadas)}), {rechazadas.Count} rechazado(s) ({ResumirNombres(rechazadas)}).";
+        return ("Pedido resuelto", mensaje);
     }
 
     private async Task<SolicitudProducto> ResolverSinNotificarAsync(int solicitudId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct)
@@ -264,11 +300,16 @@ public class SolicitudService(
         }
     }
 
-    private async Task NotificarResolucionAsync(string solicitanteId, string titulo, string mensaje, CancellationToken ct)
+    private async Task NotificarResolucionAsync(string solicitanteId, int pedidoId, string titulo, string mensaje, CancellationToken ct)
     {
         try
         {
-            await NotificarAsync(solicitanteId, titulo, mensaje, "/solicitudes/mis-solicitudes", TipoNotificacion.SolicitudResuelta, ct);
+            // Ancla al pedido específico (Mis solicitudes lista todos sin paginar ni
+            // filtrar — ver MisSolicitudes.razor) en vez de mandar siempre a la lista
+            // genérica, mismo criterio de deep link que ya usa la alerta de stock bajo
+            // (ver AlertarStockBajoAsync).
+            var url = $"/solicitudes/mis-solicitudes#pedido-{pedidoId}";
+            await NotificarAsync(solicitanteId, titulo, mensaje, url, TipoNotificacion.SolicitudResuelta, ct);
         }
         catch
         {

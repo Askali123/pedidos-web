@@ -68,6 +68,14 @@
                         {
                             <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => AbrirResolverPedido(grupo.Key.PedidoId, true)">Aprobar todo</Button>
                             <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => AbrirResolverPedido(grupo.Key.PedidoId, false)">Rechazar todo</Button>
+                            @if (pedidosEnSeleccion.Contains(grupo.Key.PedidoId))
+                            {
+                                <Button Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" OnClick="() => CancelarSeleccion(grupo.Key.PedidoId)">Cancelar selección</Button>
+                            }
+                            else
+                            {
+                                <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="() => IniciarSeleccion(grupo.Key.PedidoId)">Resolver mezcla…</Button>
+                            }
                         }
                         <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">PDF del pedido</a>
 
@@ -131,8 +139,17 @@
                                     <td>@s.Cantidad</td>
                                     <td>
                                         <div class="flex items-center gap-2 justify-end">
-                                            <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => AbrirResolverSolicitud(s.Id, true)">Aprobar</Button>
-                                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => AbrirResolverSolicitud(s.Id, false)">Rechazar</Button>
+                                            @if (pedidosEnSeleccion.Contains(grupo.Key.PedidoId))
+                                            {
+                                                var decision = decisiones.GetValueOrDefault(s.Id);
+                                                <Button Variant="@(decision == true ? ButtonVariant.Success : ButtonVariant.Outline)" Size="ButtonSize.Small" Icon="check" OnClick="() => MarcarDecision(s.Id, true)">Aprobar</Button>
+                                                <Button Variant="@(decision == false ? ButtonVariant.Danger : ButtonVariant.Outline)" Size="ButtonSize.Small" Icon="x" OnClick="() => MarcarDecision(s.Id, false)">Rechazar</Button>
+                                            }
+                                            else
+                                            {
+                                                <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => AbrirResolverSolicitud(s.Id, true)">Aprobar</Button>
+                                                <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => AbrirResolverSolicitud(s.Id, false)">Rechazar</Button>
+                                            }
                                             <a class="btn btn-secondary btn-sm" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a>
                                         </div>
                                     </td>
@@ -141,6 +158,15 @@
                         </tbody>
                     </table>
                 </div>
+
+                @if (pedidosEnSeleccion.Contains(grupo.Key.PedidoId))
+                {
+                    var cantidadMarcadas = grupo.Count(s => decisiones.ContainsKey(s.Id));
+                    <div class="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
+                        <span class="text-sm text-gray-500">@cantidadMarcadas marcada(s)</span>
+                        <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" Disabled="cantidadMarcadas == 0" OnClick="() => AbrirConfirmarVarias(grupo.Key.PedidoId)">Confirmar selección</Button>
+                    </div>
+                }
             </Card>
         }
     }
@@ -159,13 +185,26 @@
 
 <Modal Visible="modalResolverVisible" VisibleChanged="v => modalResolverVisible = v" Title="@tituloModalResolver">
     <ChildContent>
+        @if (pedidoIdVariasPendiente is not null)
+        {
+            <p class="text-sm text-gray-600 mb-3">
+                @cantidadAprobarPendiente aprobación(es) y @cantidadRechazarPendiente rechazo(s). El solicitante recibe una sola notificación con el resumen.
+            </p>
+        }
         <FormField Label="Comentario (opcional)" Hint="Lo ve el solicitante — útil sobre todo al rechazar, para explicar por qué.">
             <textarea class="form-textarea" rows="3" @bind="comentarioPendiente"></textarea>
         </FormField>
     </ChildContent>
     <Footer>
         <Button Variant="ButtonVariant.Ghost" OnClick="() => modalResolverVisible = false">Cancelar</Button>
-        <Button Variant="@(aprobarPendiente ? ButtonVariant.Success : ButtonVariant.Danger)" Icon="@(aprobarPendiente ? "check" : "x")" OnClick="ConfirmarResolver">@(aprobarPendiente ? "Aprobar" : "Rechazar")</Button>
+        @if (pedidoIdVariasPendiente is not null)
+        {
+            <Button Variant="ButtonVariant.Primary" Icon="check" OnClick="ConfirmarResolver">Confirmar</Button>
+        }
+        else
+        {
+            <Button Variant="@(aprobarPendiente ? ButtonVariant.Success : ButtonVariant.Danger)" Icon="@(aprobarPendiente ? "check" : "x")" OnClick="ConfirmarResolver">@(aprobarPendiente ? "Aprobar" : "Rechazar")</Button>
+        }
     </Footer>
 </Modal>
 
@@ -219,14 +258,24 @@
     private bool modalResolverVisible;
     private int? solicitudIdPendiente;
     private int? pedidoIdPendiente;
+    private int? pedidoIdVariasPendiente;
+    private int cantidadAprobarPendiente;
+    private int cantidadRechazarPendiente;
     private bool aprobarPendiente;
     private string? comentarioPendiente;
     private string tituloModalResolver = "";
+
+    // Estado del modo "Resolver mezcla…": qué pedidos están en selección múltiple y,
+    // por solicitud marcada, qué decisión (aprobar/rechazar) se le va a aplicar al
+    // confirmar — ver docs/PLAN_TRAZABILIDAD_ENTREGAS.md #10.
+    private HashSet<int> pedidosEnSeleccion = new();
+    private Dictionary<int, bool> decisiones = new();
 
     private void AbrirResolverSolicitud(int solicitudId, bool aprobar)
     {
         solicitudIdPendiente = solicitudId;
         pedidoIdPendiente = null;
+        pedidoIdVariasPendiente = null;
         aprobarPendiente = aprobar;
         comentarioPendiente = null;
         tituloModalResolver = aprobar ? "Aprobar solicitud" : "Rechazar solicitud";
@@ -237,19 +286,81 @@
     {
         solicitudIdPendiente = null;
         pedidoIdPendiente = pedidoId;
+        pedidoIdVariasPendiente = null;
         aprobarPendiente = aprobar;
         comentarioPendiente = null;
         tituloModalResolver = aprobar ? "Aprobar todo el pedido" : "Rechazar todo el pedido";
         modalResolverVisible = true;
     }
 
+    private void IniciarSeleccion(int pedidoId) => pedidosEnSeleccion.Add(pedidoId);
+
+    private void CancelarSeleccion(int pedidoId)
+    {
+        pedidosEnSeleccion.Remove(pedidoId);
+        var grupo = grupos?.FirstOrDefault(g => g.Key.PedidoId == pedidoId);
+        if (grupo is not null)
+            foreach (var s in grupo)
+                decisiones.Remove(s.Id);
+    }
+
+    private void MarcarDecision(int solicitudId, bool aprobar)
+    {
+        if (decisiones.TryGetValue(solicitudId, out var actual) && actual == aprobar)
+            decisiones.Remove(solicitudId);
+        else
+            decisiones[solicitudId] = aprobar;
+    }
+
+    private void AbrirConfirmarVarias(int pedidoId)
+    {
+        var grupo = grupos!.First(g => g.Key.PedidoId == pedidoId);
+        var marcadas = grupo.Where(s => decisiones.ContainsKey(s.Id)).ToList();
+        if (marcadas.Count == 0)
+            return;
+
+        solicitudIdPendiente = null;
+        pedidoIdPendiente = null;
+        pedidoIdVariasPendiente = pedidoId;
+        cantidadAprobarPendiente = marcadas.Count(s => decisiones[s.Id]);
+        cantidadRechazarPendiente = marcadas.Count - cantidadAprobarPendiente;
+        comentarioPendiente = null;
+        tituloModalResolver = "Confirmar resolución";
+        modalResolverVisible = true;
+    }
+
     private async Task ConfirmarResolver()
     {
         var (gestorId, gestorNombre, _) = await DatosGestor(await AuthStateTask!);
+        var comentario = string.IsNullOrWhiteSpace(comentarioPendiente) ? null : comentarioPendiente;
+
+        if (pedidoIdVariasPendiente is int pedidoIdVarias)
+        {
+            var grupo = grupos!.First(g => g.Key.PedidoId == pedidoIdVarias);
+            var decisionesDto = grupo
+                .Where(s => decisiones.ContainsKey(s.Id))
+                .Select(s => new DecisionSolicitudDto { SolicitudId = s.Id, Aprobar = decisiones[s.Id] })
+                .ToList();
+            var dtoVarias = new ResolverVariasDto { Decisiones = decisionesDto, ComentarioGestor = comentario };
+
+            var resueltasVarias = await Solicitudes.ResolverVariasAsync(pedidoIdVarias, gestorId, gestorNombre, dtoVarias);
+            mensaje = $"Pedido #{pedidoIdVarias} resuelto ({resueltasVarias.Count} producto(s)).";
+            mensajeVariante = AlertVariant.Success;
+
+            pedidosEnSeleccion.Remove(pedidoIdVarias);
+            foreach (var s in grupo)
+                decisiones.Remove(s.Id);
+            pedidoIdVariasPendiente = null;
+
+            modalResolverVisible = false;
+            await Cargar();
+            return;
+        }
+
         var dto = new ResolverSolicitudDto
         {
             Aprobar = aprobarPendiente,
-            ComentarioGestor = string.IsNullOrWhiteSpace(comentarioPendiente) ? null : comentarioPendiente
+            ComentarioGestor = comentario
         };
 
         if (solicitudIdPendiente is int solicitudId)

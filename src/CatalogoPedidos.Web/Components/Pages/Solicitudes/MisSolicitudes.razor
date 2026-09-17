@@ -25,10 +25,18 @@ else
     <div class="space-y-4">
         @foreach (var grupo in grupos)
         {
+            <div id="@($"pedido-{grupo.Key.PedidoId}")">
             <Card>
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
-                        <p class="font-medium text-gray-900">Pedido #@grupo.Key.PedidoId</p>
+                        <p class="font-medium text-gray-900">
+                            Pedido #@grupo.Key.PedidoId
+                            @{ var resumen = ResumenEstado(grupo); }
+                            @if (resumen is not null)
+                            {
+                                <Badge Variant="resumen.Value.Variant">@resumen.Value.Texto</Badge>
+                            }
+                        </p>
                         <p class="text-xs text-gray-500 mt-0.5">
                             @grupo.Key.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                             @if (!string.IsNullOrWhiteSpace(grupo.Key.Comentario))
@@ -80,6 +88,7 @@ else
                     </table>
                 </div>
             </Card>
+            </div>
         }
     </div>
 }
@@ -90,6 +99,37 @@ else
     private record PedidoResumen(int PedidoId, string? Comentario, string? DireccionEntrega, DateTime FechaCreacion);
 
     private List<IGrouping<PedidoResumen, SolicitudProducto>>? grupos;
+
+    /// <summary>
+    /// Resumen a nivel de pedido para el caso "parcialmente resuelto" — un pedido de
+    /// varias líneas donde no todas comparten el mismo estado. Se queda en null (no
+    /// muestra nada) cuando el pedido es de una sola línea, cuando todavía no se resolvió
+    /// nada, o cuando ya está resuelto de forma pareja (todo aprobado o todo rechazado) —
+    /// en esos casos los badges por línea ya cuentan toda la historia sin necesidad de un
+    /// resumen aparte.
+    /// </summary>
+    private static (string Texto, BadgeVariant Variant)? ResumenEstado(IGrouping<PedidoResumen, SolicitudProducto> grupo)
+    {
+        var total = grupo.Count();
+        if (total <= 1)
+            return null;
+
+        var aprobadas = grupo.Count(s => s.Estado == EstadoSolicitud.Aprobada);
+        var rechazadas = grupo.Count(s => s.Estado == EstadoSolicitud.Rechazada);
+        var pendientes = total - aprobadas - rechazadas;
+        var resueltas = aprobadas + rechazadas;
+
+        if (resueltas == 0)
+            return null;
+
+        if (pendientes > 0)
+            return ($"{resueltas} de {total} resueltas", BadgeVariant.Info);
+
+        if (aprobadas > 0 && rechazadas > 0)
+            return ($"{aprobadas} aprobada(s), {rechazadas} rechazada(s)", BadgeVariant.Warning);
+
+        return null;
+    }
 
     protected override async Task OnInitializedAsync()
     {
