@@ -12,4 +12,12 @@ public interface IConfirmacionEntregaService
     /// <see cref="InvalidOperationException"/>.
     /// </summary>
     Task<ConfirmacionEntrega> ConfirmarAsync(int pedidoId, string gestorId, string gestorNombre, ConfirmarEntregaDto dto, CancellationToken ct = default);
+
+    /// <summary>
+    /// Revisa los pedidos con algo Aprobado hace más de 72h sin confirmar la entrega y le
+    /// avisa a los gestores una sola vez por pedido (no repite mientras siga sin
+    /// confirmarse). Pensado para llamarse periódicamente desde un job en segundo plano —
+    /// mismo espíritu que <see cref="ISolicitudService.EnviarRecordatoriosPendientesAsync"/>.
+    /// </summary>
+    Task EnviarRecordatoriosEntregaPendienteAsync(CancellationToken ct = default);
 }

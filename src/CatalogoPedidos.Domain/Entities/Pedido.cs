@@ -31,6 +31,15 @@ public class Pedido
     /// </summary>
     public bool RecordatorioEnviado { get; set; }
 
+    /// <summary>
+    /// True cuando ya se le avisó al gestor que este pedido tiene algo Aprobado hace
+    /// mucho tiempo sin confirmar la entrega (ver
+    /// <see cref="Application.Solicitudes.IConfirmacionEntregaService.EnviarRecordatoriosEntregaPendienteAsync"/>).
+    /// Mismo criterio que <see cref="RecordatorioEnviado"/> pero para la otra punta del
+    /// flujo — evita repetir el mismo aviso mientras siga sin confirmarse.
+    /// </summary>
+    public bool RecordatorioEntregaEnviado { get; set; }
+
     public ICollection<SolicitudProducto> Items { get; set; } = new List<SolicitudProducto>();
 
     /// <summary>Historial de a qué proveedores se les notificó este pedido por correo.</summary>

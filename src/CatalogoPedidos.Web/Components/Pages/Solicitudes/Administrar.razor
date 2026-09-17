@@ -72,6 +72,11 @@
                 <a class="btn btn-secondary" href="@UrlReporte("pdf")" target="_blank"><Icon Name="download" Class="h-4 w-4" />PDF</a>
                 <a class="btn btn-success" href="@UrlReporte("excel")" target="_blank"><Icon Name="download" Class="h-4 w-4" />Excel</a>
             </div>
+
+            <label class="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" class="form-checkbox" @bind="soloPendientesEntrega" @bind:after="() => paginaNumero = 1" />
+                Solo pendientes de confirmar entrega
+            </label>
         </div>
     </Card>
 
@@ -83,6 +88,10 @@
     {
         <div class="card"><EmptyState Icon="adjustments" Title="Sin resultados" Description="Ningún pedido coincide con estos filtros." /></div>
     }
+    else if (gruposPedidoVisibles.Count == 0)
+    {
+        <div class="card"><EmptyState Icon="adjustments" Title="Sin resultados" Description="Ningún pedido coincide con estos filtros — probá destildar &quot;Solo pendientes de confirmar entrega&quot;." /></div>
+    }
     else
     {
         @if (!string.IsNullOrEmpty(mensajeEnvio))
@@ -90,7 +99,7 @@
             <Alert Variant="mensajeEnvioVariante" Dismissible="true" OnDismiss="() => mensajeEnvio = null">@mensajeEnvio</Alert>
         }
 
-        <p class="text-sm text-gray-500">@resultados.Count solicitud(es) en @gruposPedido.Count pedido(s)</p>
+        <p class="text-sm text-gray-500">@gruposPedidoVisibles.Sum(g => g.Count()) solicitud(es) en @gruposPedidoVisibles.Count pedido(s)</p>
 
         @foreach (var grupo in paginaActual)
         {
@@ -277,6 +286,7 @@
     private string productoId = "";
     private string estado = "";
     private string proveedorIdTexto = "";
+    private bool soloPendientesEntrega;
     private int paginaNumero = 1;
 
     private int? proveedorId => int.TryParse(proveedorIdTexto, out var id) ? id : null;
@@ -296,12 +306,22 @@
     private string? mensajeEnvio;
     private AlertVariant mensajeEnvioVariante = AlertVariant.Success;
 
+    // "Solo pendientes de confirmar entrega" es un filtro a nivel de PEDIDO (algo
+    // Aprobado + sin ConfirmacionEntrega todavía), no de línea — no encaja en
+    // FiltroSolicitudesDto/BuscarAsync (que filtra líneas sueltas), así que se aplica acá
+    // sobre los grupos ya armados, reusando los diccionarios que ya se cargan para el
+    // botón/badge de entrega (ver tarea 12/15 del plan).
+    private List<IGrouping<PedidoResumen, SolicitudProducto>> gruposPedidoVisibles =>
+        soloPendientesEntrega
+            ? gruposPedido.Where(g => tieneAprobadasPorPedido.GetValueOrDefault(g.Key.PedidoId) && confirmacionesPorPedido.GetValueOrDefault(g.Key.PedidoId) is null).ToList()
+            : gruposPedido;
+
     // Paginación por pedido (no por línea de solicitud): cada página agrupa varios pedidos
     // completos, igual que la Bandeja, para poder ver de un vistazo todo lo que pidió cada
     // solicitante en un mismo envío.
-    private int totalPaginas => Math.Max(1, (int)Math.Ceiling(gruposPedido.Count / (double)TamanoPagina));
+    private int totalPaginas => Math.Max(1, (int)Math.Ceiling(gruposPedidoVisibles.Count / (double)TamanoPagina));
     private IEnumerable<IGrouping<PedidoResumen, SolicitudProducto>> paginaActual =>
-        gruposPedido.Skip((paginaNumero - 1) * TamanoPagina).Take(TamanoPagina);
+        gruposPedidoVisibles.Skip((paginaNumero - 1) * TamanoPagina).Take(TamanoPagina);
 
     protected override async Task OnInitializedAsync()
     {
@@ -382,6 +402,7 @@
         productoId = "";
         estado = "";
         proveedorIdTexto = "";
+        soloPendientesEntrega = false;
         await Buscar();
     }
 

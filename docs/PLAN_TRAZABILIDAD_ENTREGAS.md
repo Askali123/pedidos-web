@@ -351,17 +351,80 @@ el orden es la prioridad acordada.
 
 ## P4 — Nuevas funcionalidades adicionales
 
-- [ ] **17. Historial/auditoría de resoluciones para el gestor**
-  Filtro por gestor/fecha de quién resolvió qué y cuándo, mismo espíritu que la pantalla
-  de historial de envíos a proveedor ya construida (tarea 12 del plan anterior).
+- [x] **17. Historial/auditoría de resoluciones para el gestor** — **Hecho.**
+  Nueva pantalla `/solicitudes/historial-resoluciones` (sidebar, junto a "Historial de
+  envíos"), calcada del mismo patrón que `HistorialEnvios.razor`: filtros Desde/Hasta,
+  Gestor y Resultado (Aprobadas/Rechazadas), tabla con fecha de resolución, pedido,
+  producto, cantidad, resultado (badge + comentario del gestor si lo dejó), solicitante,
+  gestor y link al PDF, con paginación.
+  Backend: `FiltroHistorialResolucionesDto` (`GestorId`, `FechaDesde/Hasta` — sobre
+  `FechaResolucion`, no `FechaSolicitud`, `Estado`) y `ISolicitudRepository
+  .BuscarResueltasAsync` (excluye `Pendiente` de entrada, ya que una auditoría de
+  resoluciones no tiene sentido para lo que todavía no se resolvió) +
+  `ObtenerGestoresAsync` (gestores distintos que aparecen en `Solicitudes.GestorId/
+  GestorNombre`, mismo criterio que ya usa `ObtenerSolicitantesAsync` para solicitantes).
+  Verificado en el navegador: la pantalla cargó 126 resoluciones sin filtrar; filtrando
+  por Resultado="Rechazadas" bajó a 15, todas mostrando el badge rojo correcto (incluida
+  una con su comentario del gestor "No hay presupuesto disponible este mes para este
+  ítem."); combinado con Gestor="Gestor de Catálogo" siguió en 15 (único gestor en el
+  entorno de prueba); agregando Desde=16/09/2026 bajó a 6, todas de esa fecha; "Limpiar"
+  volvió a las 126 sin filtros. Nota: el dropdown de Gestor muestra dos entradas para el
+  mismo `GestorId` ("Gestor de Catálogo" y "gestor@catalogo.local") porque
+  `GestorNombre` es un snapshot al momento de cada resolución (mismo criterio ya
+  documentado para `SolicitanteNombre`/`GestorNombre` en todo el proyecto) — no es un
+  bug, es la consecuencia esperada de ese diseño cuando el nombre para mostrar cambió
+  entre resoluciones antiguas y nuevas.
+  Archivo(s): `FiltroHistorialResolucionesDto.cs`, `ISolicitudRepository.cs`,
+  `ISolicitudService.cs`, `SolicitudService.cs`, `SolicitudRepository.cs`,
+  `HistorialResoluciones.razor`, `Sidebar.razor`
 
-- [ ] **18. Filtro "pendientes de confirmar entrega" en Administrar pedidos**
-  Para que el gestor no pierda de vista los pedidos ya aprobados que todavía no tienen
-  `ConfirmacionEntrega`.
+- [x] **18. Filtro "pendientes de confirmar entrega" en Administrar pedidos** — **Hecho.**
+  Es un filtro a nivel de PEDIDO (algo Aprobado + sin `ConfirmacionEntrega` todavía), no
+  de línea suelta, así que no encajaba en `FiltroSolicitudesDto`/`BuscarAsync` (que
+  filtra líneas). Se resolvió con un checkbox "Solo pendientes de confirmar entrega" que
+  filtra del lado del cliente sobre `gruposPedido` ya cargado, reusando los mismos
+  diccionarios `tieneAprobadasPorPedido`/`confirmacionesPorPedido` que ya se cargaban
+  para el botón/badge de entrega (tareas 12/15) — nueva propiedad computada
+  `gruposPedidoVisibles` de la que ahora dependen la paginación y el conteo de
+  resultados. "Limpiar" también destilda el checkbox.
+  Verificado en el navegador: sin el filtro, "Administrar pedidos" mostraba 129
+  solicitud(es) en 62 pedido(s); al tildar el checkbox bajó a 117 solicitud(es) en 54
+  pedido(s), con el pedido #60 (2 aprobadas + 1 rechazada, nunca confirmado) arriba de
+  todo — y los pedidos #59/#61/#62 (confirmados en tareas 12/14) correctamente ausentes
+  de la lista completa de la página 1. Se cruzó el número con una consulta SQL directa
+  (pedidos con al menos una línea Aprobada y sin fila en `ConfirmacionesEntrega`) que dio
+  exactamente 54, igual que la UI.
+  Archivo: `Administrar.razor`
 
-- [ ] **19. Recordatorio si un pedido aprobado lleva mucho tiempo sin entrega confirmada**
-  Mismo patrón que `Pedido.RecordatorioEnviado` (ya existe para pedidos sin resolver) —
-  aplicado ahora a pedidos aprobados que llevan demasiado tiempo sin `ConfirmacionEntrega`.
+- [x] **19. Recordatorio si un pedido aprobado lleva mucho tiempo sin entrega confirmada** — **Hecho.**
+  Mismo patrón que `Pedido.RecordatorioEnviado`: nuevo campo `Pedido
+  .RecordatorioEntregaEnviado` (migración `AgregarRecordatorioEntregaEnviado`) que evita
+  repetir el aviso mientras el pedido siga sin confirmarse. Nuevo
+  `ISolicitudRepository.ObtenerAprobadosSinEntregaAsync` (pedidos con algo Aprobado, sin
+  `ConfirmacionEntrega` y sin recordatorio previo) y
+  `IConfirmacionEntregaService.EnviarRecordatoriosEntregaPendienteAsync`, que mide el
+  tiempo transcurrido desde la ÚLTIMA aprobación del pedido (no desde que se creó — un
+  pedido puede tener líneas pendientes mucho tiempo antes de que se apruebe lo que sí hay
+  que entregar) contra un umbral de 72h, y le avisa a TODOS los gestores (mismo criterio
+  que el recordatorio de pendientes) con link a `/solicitudes/administrar`.
+  `RecordatorioPendientesHostedService` (ya corría cada 1h para los pendientes) ahora
+  también dispara este segundo chequeo en la misma pasada.
+  Verificado con datos reales de la base de desarrollo (sin esperar el umbral —
+  pedidos antiguos que ya lo superaban de sobra): antes de arrancar el servidor había 0
+  notificaciones de este tipo; el job corre una vez al iniciar el host (antes del primer
+  tick del timer), y tras levantar el server aparecieron exactamente 6 notificaciones
+  "Entrega pendiente de confirmar" — una por cada uno de los 6 pedidos que superaban las
+  72h sin confirmar (cruzado con una consulta SQL directa que dio el mismo número), con
+  singular/plural correcto en el mensaje ("1 producto aprobado" vs "2 productos
+  aprobados") y los 6 pedidos marcados `RecordatorioEntregaEnviado = 1`. En el navegador,
+  la campana del gestor mostró las notificaciones y el clic navegó correctamente a
+  `/solicitudes/administrar`. Reinicié el servidor una segunda vez y se confirmó
+  idempotencia: siguieron siendo exactamente 6 notificaciones, sin duplicados, ya que los
+  6 pedidos quedaron marcados como recordados.
+  Archivo(s): `Pedido.cs`, `TipoNotificacion.cs`, `ISolicitudRepository.cs`,
+  `SolicitudRepository.cs`, `IConfirmacionEntregaService.cs`,
+  `ConfirmacionEntregaService.cs`, `RecordatorioPendientesHostedService.cs`, migración
+  `20260917093948_AgregarRecordatorioEntregaEnviado`
 
 ---
 

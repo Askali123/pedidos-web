@@ -28,4 +28,7 @@ public interface ISolicitudService
 
     Task<List<SolicitudProducto>> BuscarAsync(FiltroSolicitudesDto filtro, CancellationToken ct = default);
     Task<List<SolicitanteResumenDto>> ObtenerSolicitantesAsync(CancellationToken ct = default);
+
+    Task<List<SolicitudProducto>> BuscarResueltasAsync(FiltroHistorialResolucionesDto filtro, CancellationToken ct = default);
+    Task<List<GestorResumenDto>> ObtenerGestoresAsync(CancellationToken ct = default);
 }

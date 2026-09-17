@@ -104,4 +104,54 @@ public class SolicitudRepository(IDbContextFactory<AppDbContext> dbFactory) : IS
             .Select(s => new SolicitanteResumenDto { Id = s.SolicitanteId, Nombre = s.SolicitanteNombre })
             .ToListAsync(ct);
     }
+
+    public async Task<List<SolicitudProducto>> BuscarResueltasAsync(FiltroHistorialResolucionesDto filtro, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+        // Solo lo que ya se resolvió — una pantalla de auditoría de "quién resolvió qué
+        // y cuándo" no tiene sentido para líneas todavía Pendientes.
+        var query = db.Solicitudes
+            .Include(s => s.Producto)
+            .Include(s => s.Pedido)
+            .Where(s => s.Estado != EstadoSolicitud.Pendiente)
+            .AsQueryable();
+
+        if (!string.IsNullOrEmpty(filtro.GestorId))
+            query = query.Where(s => s.GestorId == filtro.GestorId);
+
+        if (filtro.FechaDesde is not null)
+            query = query.Where(s => s.FechaResolucion >= filtro.FechaDesde);
+
+        if (filtro.FechaHasta is not null)
+            query = query.Where(s => s.FechaResolucion < filtro.FechaHasta);
+
+        if (filtro.Estado is not null)
+            query = query.Where(s => s.Estado == filtro.Estado);
+
+        return await query.OrderByDescending(s => s.FechaResolucion).ToListAsync(ct);
+    }
+
+    public async Task<List<GestorResumenDto>> ObtenerGestoresAsync(CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.Solicitudes
+            .Where(s => s.GestorId != null)
+            .Select(s => new { s.GestorId, s.GestorNombre })
+            .Distinct()
+            .OrderBy(s => s.GestorNombre)
+            .Select(s => new GestorResumenDto { Id = s.GestorId!, Nombre = s.GestorNombre! })
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<Pedido>> ObtenerAprobadosSinEntregaAsync(CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.Pedidos
+            .Include(p => p.Items).ThenInclude(i => i.Producto)
+            .Where(p => !p.RecordatorioEntregaEnviado
+                     && p.ConfirmacionEntrega == null
+                     && p.Items.Any(i => i.Estado == EstadoSolicitud.Aprobada))
+            .ToListAsync(ct);
+    }
 }

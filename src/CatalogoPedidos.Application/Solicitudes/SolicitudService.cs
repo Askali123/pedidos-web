@@ -340,4 +340,10 @@ public class SolicitudService(
 
     public Task<List<SolicitanteResumenDto>> ObtenerSolicitantesAsync(CancellationToken ct = default)
         => repositorio.ObtenerSolicitantesAsync(ct);
+
+    public Task<List<SolicitudProducto>> BuscarResueltasAsync(FiltroHistorialResolucionesDto filtro, CancellationToken ct = default)
+        => repositorio.BuscarResueltasAsync(filtro, ct);
+
+    public Task<List<GestorResumenDto>> ObtenerGestoresAsync(CancellationToken ct = default)
+        => repositorio.ObtenerGestoresAsync(ct);
 }

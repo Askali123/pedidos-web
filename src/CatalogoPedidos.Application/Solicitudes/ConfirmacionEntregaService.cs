@@ -1,4 +1,5 @@
 using CatalogoPedidos.Application.Notificaciones;
+using CatalogoPedidos.Application.Usuarios;
 using CatalogoPedidos.Domain.Entities;
 using CatalogoPedidos.Domain.Enums;
 
@@ -8,9 +9,13 @@ public class ConfirmacionEntregaService(
     ISolicitudRepository solicitudes,
     IConfirmacionEntregaRepository confirmaciones,
     INotificacionRepository notificaciones,
-    INotificacionBroadcaster broadcaster) : IConfirmacionEntregaService
+    INotificacionBroadcaster broadcaster,
+    IGestorDirectory gestores) : IConfirmacionEntregaService
 {
     private const int MensajeMaxLength = 500;
+
+    /// <summary>Tiempo aprobado sin confirmar entrega a partir del cual se manda el recordatorio.</summary>
+    private static readonly TimeSpan UmbralEntregaPendiente = TimeSpan.FromHours(72);
 
     public Task<ConfirmacionEntrega?> ObtenerPorPedidoAsync(int pedidoId, CancellationToken ct = default)
         => confirmaciones.ObtenerPorPedidoAsync(pedidoId, ct);
@@ -59,24 +64,72 @@ public class ConfirmacionEntregaService(
             if (!confirmacion.CoincideConDireccionIndicada)
                 mensaje += " La dirección de entrega no coincidió con la que indicaste.";
 
-            if (mensaje.Length > MensajeMaxLength)
-                mensaje = string.Concat(mensaje.AsSpan(0, MensajeMaxLength - 1), "…");
-
-            var notificacion = new Notificacion
-            {
-                UsuarioDestinoId = pedido.SolicitanteId,
-                Tipo = TipoNotificacion.EntregaConfirmada,
-                Titulo = "Entrega confirmada",
-                Mensaje = mensaje,
-                Url = $"/solicitudes/mis-solicitudes#pedido-{pedido.Id}"
-            };
-
-            var guardada = await notificaciones.CrearAsync(notificacion, ct);
-            broadcaster.Publicar(guardada);
+            var url = $"/solicitudes/mis-solicitudes#pedido-{pedido.Id}";
+            await NotificarAsync(pedido.SolicitanteId, "Entrega confirmada", mensaje, url, TipoNotificacion.EntregaConfirmada, ct);
         }
         catch
         {
             // Best-effort: la entrega ya quedó confirmada aunque la notificación falle.
         }
+    }
+
+    public async Task EnviarRecordatoriosEntregaPendienteAsync(CancellationToken ct = default)
+    {
+        var candidatos = await solicitudes.ObtenerAprobadosSinEntregaAsync(ct);
+        var limite = DateTime.UtcNow - UmbralEntregaPendiente;
+
+        foreach (var pedido in candidatos)
+        {
+            // El reloj arranca desde la ÚLTIMA aprobación del pedido, no desde que se
+            // creó — un pedido puede quedar con líneas pendientes mucho tiempo antes de
+            // que se apruebe lo que sí hay que entregar (ver #19 del plan).
+            var ultimaAprobacion = pedido.Items
+                .Where(i => i.Estado == EstadoSolicitud.Aprobada)
+                .Max(i => i.FechaResolucion);
+
+            if (ultimaAprobacion is null || ultimaAprobacion > limite)
+                continue;
+
+            await NotificarRecordatorioEntregaAsync(pedido, ct);
+
+            pedido.RecordatorioEntregaEnviado = true;
+            await solicitudes.ActualizarPedidoAsync(pedido, ct);
+        }
+    }
+
+    private async Task NotificarRecordatorioEntregaAsync(Pedido pedido, CancellationToken ct)
+    {
+        try
+        {
+            var horas = (int)UmbralEntregaPendiente.TotalHours;
+            var aprobadas = pedido.Items.Count(i => i.Estado == EstadoSolicitud.Aprobada);
+            var mensaje = $"El pedido #{pedido.Id} de {pedido.SolicitanteNombre} tiene {aprobadas} producto{(aprobadas == 1 ? "" : "s")} aprobado{(aprobadas == 1 ? "" : "s")} hace más de {horas}h sin confirmar la entrega.";
+
+            var idsGestores = await gestores.ObtenerIdsGestoresAsync(ct);
+            foreach (var gestorId in idsGestores)
+                await NotificarAsync(gestorId, "Entrega pendiente de confirmar", mensaje, "/solicitudes/administrar", TipoNotificacion.RecordatorioEntregaPendiente, ct);
+        }
+        catch
+        {
+            // Best-effort: no bloquea marcar el pedido como recordado aunque falle el aviso.
+        }
+    }
+
+    private async Task NotificarAsync(string usuarioDestinoId, string titulo, string mensaje, string url, TipoNotificacion tipo, CancellationToken ct)
+    {
+        if (mensaje.Length > MensajeMaxLength)
+            mensaje = string.Concat(mensaje.AsSpan(0, MensajeMaxLength - 1), "…");
+
+        var notificacion = new Notificacion
+        {
+            UsuarioDestinoId = usuarioDestinoId,
+            Tipo = tipo,
+            Titulo = titulo,
+            Mensaje = mensaje,
+            Url = url
+        };
+
+        var guardada = await notificaciones.CrearAsync(notificacion, ct);
+        broadcaster.Publicar(guardada);
     }
 }

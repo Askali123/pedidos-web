@@ -6,5 +6,6 @@ public enum TipoNotificacion
     SolicitudResuelta = 1,
     StockBajo = 2,
     RecordatorioPendiente = 3,
-    EntregaConfirmada = 4
+    EntregaConfirmada = 4,
+    RecordatorioEntregaPendiente = 5
 }
