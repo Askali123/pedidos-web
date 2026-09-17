@@ -219,33 +219,135 @@ el orden es la prioridad acordada.
 
 ## P3 — Confirmación de entrega (funcionalidad nueva, núcleo)
 
-- [ ] **11. Entidad `ConfirmacionEntrega` (dominio + migración + repositorio)**
-  Campos: `PedidoId`, `FechaEntrega`, `ConfirmadoPorId`, `ConfirmadoPorNombre`,
-  `DireccionEntregada`, `CoincideConDireccionIndicada`, `Observaciones`. Repositorio con
-  `ObtenerPorPedidoAsync`/`CrearAsync`, mismo patrón que `NotificacionProveedorRepository`.
+- [x] **11. Entidad `ConfirmacionEntrega` (dominio + migración + repositorio)** — **Hecho.**
+  Nueva entidad `ConfirmacionEntrega` con exactamente los campos acordados (`PedidoId`,
+  `FechaEntrega`, `ConfirmadoPorId`, `ConfirmadoPorNombre`, `DireccionEntregada`,
+  `CoincideConDireccionIndicada`, `Observaciones`), navegación 1:1 con `Pedido`
+  (`Pedido.ConfirmacionEntrega`) y un índice único en `PedidoId` en `AppDbContext` — un
+  pedido tiene como máximo una confirmación, a diferencia de `NotificacionProveedor` que
+  sí puede repetirse por proveedor. `IConfirmacionEntregaRepository` expone
+  `CrearAsync`/`ObtenerPorPedidoAsync` (este último devuelve `ConfirmacionEntrega?`
+  nullable, no una lista, justamente por ser 1:1), implementado en
+  `ConfirmacionEntregaRepository` con el mismo patrón de `IDbContextFactory` que
+  `NotificacionProveedorRepository`. Migración `AgregarConfirmacionEntrega` generada y
+  aplicada.
+  Verificado: `dotnet build` sin errores/advertencias; la migración se aplicó
+  correctamente (`dotnet ef database update`) y por SQL (`sp_help
+  'ConfirmacionesEntrega'`) se confirmaron las 8 columnas, el `PK`, el `FK` a `Pedidos`
+  con `ON DELETE CASCADE` y el índice único en `PedidoId`; se levantó el servidor de
+  desarrollo y arrancó sin errores tras el cambio de esquema. Sin verificación visual en
+  navegador porque esta tarea es solo dominio/infraestructura — no hay UI todavía (eso es
+  la tarea 12).
+  Archivo(s): `ConfirmacionEntrega.cs`, `Pedido.cs`, `IConfirmacionEntregaRepository.cs`,
+  `ConfirmacionEntregaRepository.cs`, `AppDbContext.cs`, `DependencyInjection.cs`,
+  migración `20260917001535_AgregarConfirmacionEntrega`
 
-- [ ] **12. Servicio + UI: "Confirmar entrega" en Bandeja/Administrar**
-  Botón visible cuando el pedido tiene al menos una línea Aprobada. Abre un modal (mismo
-  patrón que "Enviar a proveedor"): dirección entregada prellenada con
-  `Pedido.DireccionEntrega`, checkbox "¿Coincide con la dirección indicada?" y
-  observaciones opcionales.
+- [x] **12. Servicio + UI: "Confirmar entrega" en Bandeja/Administrar** — **Hecho.**
+  Nuevo `IConfirmacionEntregaService`/`ConfirmacionEntregaService` (mismo espíritu que
+  `PedidoNotificacionProveedorService`, como servicio aparte en vez de sumarlo a
+  `SolicitudService`): `ObtenerPorPedidoAsync` y `ConfirmarAsync`, este último con guarda
+  de idempotencia (`InvalidOperationException` si el pedido ya tiene una confirmación —
+  el índice único de la tarea 11 respalda esto a nivel de datos también). Nuevo
+  `ConfirmarEntregaDto` (`DireccionEntregada`, `CoincideConDireccionIndicada`,
+  `Observaciones`).
+  En `Bandeja.razor` y `Administrar.razor` se agregó el botón "Confirmar entrega" junto a
+  "Enviar a proveedor", visible solo cuando el pedido tiene al menos una línea Aprobada
+  y todavía no tiene confirmación — si ya la tiene, se muestra "✓ Entrega confirmada" en
+  su lugar. Ojo con un detalle no obvio: la Bandeja solo trae líneas *Pendientes*
+  (`ObtenerBandejaAsync`) y Administrar puede estar filtrada por estado, así que el grupo
+  local NO alcanza para saber si el pedido tiene algo Aprobado — hubo que ir a buscar el
+  `Pedido` completo (`Solicitudes.ObtenerPedidoAsync`) por cada pedido listado, igual que
+  ya se hacía para `proveedoresPorPedido`/`enviosPorPedido`. El modal reutiliza el
+  componente `Modal` (no `ConfirmDialog`, que es más simple) para alojar el campo de
+  dirección prellenado con `Pedido.DireccionEntrega`, el checkbox y las observaciones.
+  Verificado en el navegador con dos escenarios: (1) en Administrar, confirmé la entrega
+  del pedido #59 marcando "no coincide" con observaciones — el botón cambió a "Entrega
+  confirmada" y por SQL se confirmó la fila con los 7 campos correctos; (2) en Bandeja,
+  creé el pedido #61 (2 líneas), aprobé solo una y dejé la otra Pendiente — el botón
+  "Confirmar entrega" apareció igual aunque la línea aprobada ya no se veía en esa tabla
+  (confirmando que la consulta al pedido completo funciona), y tras confirmar la entrega
+  el pedido siguió mostrando correctamente su línea pendiente. De paso se detectó y
+  corrigió un problema real de espaciado (el checkbox y el campo "Observaciones" quedaban
+  pegados sin margen) antes de dar la tarea por terminada.
+  Archivo(s): `ConfirmarEntregaDto.cs`, `IConfirmacionEntregaService.cs`,
+  `ConfirmacionEntregaService.cs`, `DependencyInjection.cs`, `Bandeja.razor`,
+  `Administrar.razor`
 
-- [ ] **13. Validar que solo se confirme entrega de pedidos con algo Aprobado**
-  Regla de negocio: no debería poder confirmarse la entrega de un pedido totalmente
-  Pendiente o totalmente Rechazado — no hay nada que entregar.
+- [x] **13. Validar que solo se confirme entrega de pedidos con algo Aprobado** — **Hecho.**
+  La UI de la tarea 12 ya ocultaba el botón en ese caso, pero eso es solo cosmético — un
+  servicio de Application no debería confiar en que la UI que lo llama nunca lo haga mal.
+  Se agregó la guarda en `ConfirmacionEntregaService.ConfirmarAsync`: si el pedido no
+  tiene ninguna línea `Aprobada`, tira `InvalidOperationException("Este pedido no tiene
+  ninguna línea aprobada — no hay nada que entregar.")`, antes incluso de chequear si ya
+  existe una confirmación previa.
+  Verificado con un proyecto de consola descartable que instancia
+  `ConfirmacionEntregaService` directo contra la base de datos de desarrollo (sin pasar
+  por la UI, que es justo el punto — probar que el servicio se defiende solo): pedido
+  #58 (1 línea Pendiente, nada aprobado) y pedido #57 (ídem) rechazados con el mensaje
+  esperado; pedido #61 (ya confirmado en la tarea 12) rechazado por la guarda de
+  idempotencia de la tarea 12 ("La entrega de este pedido ya fue confirmada."). Por SQL
+  se confirmó que ningún intento fallido dejó una fila espuria en `ConfirmacionesEntrega`
+  — la tabla siguió con exactamente las 2 filas legítimas de la tarea 12. Proyecto de
+  verificación descartado al terminar.
+  Archivo(s): `ConfirmacionEntregaService.cs`
 
-- [ ] **14. Notificación al solicitante cuando se confirma la entrega**
-  Nuevo mensaje (y eventualmente `TipoNotificacion.EntregaConfirmada`) avisando que su
-  pedido fue entregado, con la fecha y si coincidió con la dirección indicada.
+- [x] **14. Notificación al solicitante cuando se confirma la entrega** — **Hecho.**
+  Nuevo valor `TipoNotificacion.EntregaConfirmada = 4` (entero al final del enum, sin
+  migración necesaria — EF ya lo guarda como `int`). `ConfirmacionEntregaService` ahora
+  inyecta `INotificacionRepository`/`INotificacionBroadcaster` y, tras crear la
+  `ConfirmacionEntrega`, arma una notificación best-effort (mismo criterio que las demás
+  notificaciones de `SolicitudService`: la confirmación ya quedó guardada aunque el aviso
+  falle) con título "Entrega confirmada" y mensaje "Tu pedido #N fue entregado el
+  dd/MM/yyyy HH:mm en \"dirección\"." — sumando "La dirección de entrega no coincidió con
+  la que indicaste." solo cuando `CoincideConDireccionIndicada` es `false`. Deep link al
+  mismo patrón ya usado (`/solicitudes/mis-solicitudes#pedido-N`).
+  Verificado end-to-end en el navegador con el pedido #62 (dirección original "Sede
+  Norte, Av. Siempre Viva 742"): como gestor confirmé la entrega en "Bodega temporal,
+  Calle 99 #1-1" marcando explícitamente que NO coincidía; como solicitante, la campana
+  mostró "Entrega confirmada — Tu pedido #62 fue entregado el 17/09/2026 01:27 en
+  \"Bodega temporal, Calle 99 #1-1\". La dirección de entrega no coincidió con la que
+  indicaste.", el clic navegó al deep link `#pedido-62` correctamente, y por SQL se
+  confirmó la fila con `Tipo=4` y el mensaje exacto.
+  Archivo(s): `TipoNotificacion.cs`, `ConfirmacionEntregaService.cs`
 
-- [ ] **15. Badge de estado de entrega en Mis solicitudes/Administrar/Bandeja**
-  "✓ Entregado el X por Y" o, si no coincidió la dirección, algo que llame la atención y
-  muestre las observaciones del gestor.
+- [x] **15. Badge de estado de entrega en Mis solicitudes/Administrar/Bandeja** — **Hecho.**
+  Nuevo componente reutilizable `EntregaBadge.razor` (recibe un `ConfirmacionEntrega?` y
+  no dibuja nada si es null): badge verde "✓ Entregado el dd/MM/yyyy HH:mm por
+  {ConfirmadoPorNombre}" cuando la dirección coincidió, o badge ámbar "⚠ Entregado el
+  dd/MM/yyyy HH:mm — dirección distinta a la indicada" + un párrafo con las
+  observaciones del gestor (si las dejó) cuando no coincidió. Se insertó en el bloque de
+  encabezado de cada pedido (junto a fecha/comentario/dirección) en las tres pantallas,
+  reemplazando el texto plano "Entrega confirmada" que había quedado como placeholder de
+  la tarea 12 en Bandeja/Administrar — ahí también se simplificó la fila de botones para
+  no repetir la información (el botón "Confirmar entrega" ahora solo se oculta cuando ya
+  hay confirmación, sin el `else` redundante). `MisSolicitudes.razor` no tenía ninguna
+  noción de entregas hasta esta tarea: se le agregó `IConfirmacionEntregaService` y el
+  mismo diccionario `confirmacionesPorPedido` que ya usaban Bandeja/Administrar.
+  Verificado en el navegador en las tres pantallas con los datos reales de tareas
+  anteriores: pedido #62 (Administrar) muestra el badge ámbar con la observación "No
+  había nadie en la sede norte, se dejó en la bodega temporal."; pedido #61 muestra el
+  badge verde en Administrar, Bandeja (con una línea todavía Pendiente, sin que eso
+  afecte el badge) y Mis solicitudes, en los tres casos con la misma fecha/gestor.
+  Archivo(s): `EntregaBadge.razor`, `Bandeja.razor`, `Administrar.razor`,
+  `MisSolicitudes.razor`
 
-- [ ] **16. Incluir la confirmación de entrega en el PDF del pedido**
-  Sección "Entrega" en `ExportarPedido` (fecha, quién confirmó, dirección entregada, si
-  coincidió, observaciones) — solo cuando ya exista el registro de `ConfirmacionEntrega`.
-
+- [x] **16. Incluir la confirmación de entrega en el PDF del pedido** — **Hecho.**
+  `SolicitudRepository.ObtenerPedidoAsync` ahora también hace `.Include(p =>
+  p.ConfirmacionEntrega)`, así que `PdfExportService.ExportarPedido` puede leer
+  `pedido.ConfirmacionEntrega` directo sin cambiar la firma pública del método ni tocar
+  el endpoint `/api/pedidos/{id}/pdf` — cambio de bajo riesgo ya que solo agrega datos a
+  una consulta que ya se usa en todos lados (resolución, confirmación de entrega, etc.).
+  Nueva sección "Entrega" al final del PDF (después de la tabla de líneas), visible SOLO
+  cuando `pedido.ConfirmacionEntrega is not null`: fecha, quién confirmó, dirección
+  entregada (si se cargó), si coincidió o no con la indicada, y las observaciones del
+  gestor (si las dejó).
+  Verificado descargando y leyendo tres PDFs reales: pedido #58 (sin confirmar) no tiene
+  sección "Entrega"; pedido #61 (coincidió, sin observaciones) muestra "Entrega" con
+  fecha/gestor/dirección/"Coincidió con la dirección indicada por el solicitante." y sin
+  línea de observaciones; pedido #62 (no coincidió, con observaciones) muestra "NO
+  coincidió..." más la línea "Observaciones: No había nadie en la sede norte, se dejó en
+  la bodega temporal.".
+  Archivo(s): `SolicitudRepository.cs`, `PdfExportService.cs`
 
 ## P4 — Nuevas funcionalidades adicionales
 

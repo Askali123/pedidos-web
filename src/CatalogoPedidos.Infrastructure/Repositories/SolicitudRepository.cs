@@ -21,6 +21,7 @@ public class SolicitudRepository(IDbContextFactory<AppDbContext> dbFactory) : IS
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         return await db.Pedidos
             .Include(p => p.Items).ThenInclude(i => i.Producto)
+            .Include(p => p.ConfirmacionEntrega)
             .FirstOrDefaultAsync(p => p.Id == pedidoId, ct);
     }
 

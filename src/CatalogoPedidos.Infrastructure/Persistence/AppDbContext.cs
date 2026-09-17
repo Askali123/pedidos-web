@@ -14,6 +14,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
     public DbSet<ProductoProveedor> ProductoProveedores => Set<ProductoProveedor>();
     public DbSet<Notificacion> Notificaciones => Set<Notificacion>();
     public DbSet<NotificacionProveedor> NotificacionesProveedor => Set<NotificacionProveedor>();
+    public DbSet<ConfirmacionEntrega> ConfirmacionesEntrega => Set<ConfirmacionEntrega>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -95,6 +96,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
                   .WithMany()
                   .HasForeignKey(n => n.ProveedorId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ConfirmacionEntrega>(entity =>
+        {
+            entity.Property(c => c.ConfirmadoPorNombre).HasMaxLength(200).IsRequired();
+
+            entity.HasOne(c => c.Pedido)
+                  .WithOne(p => p.ConfirmacionEntrega)
+                  .HasForeignKey<ConfirmacionEntrega>(c => c.PedidoId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Un pedido tiene como máximo una confirmación de entrega.
+            entity.HasIndex(c => c.PedidoId).IsUnique();
         });
     }
 }

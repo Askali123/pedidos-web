@@ -82,6 +82,9 @@ public static class DependencyInjection
         services.AddScoped<INotificacionProveedorRepository, NotificacionProveedorRepository>();
         services.AddScoped<IPedidoNotificacionProveedorService, PedidoNotificacionProveedorService>();
 
+        services.AddScoped<IConfirmacionEntregaRepository, ConfirmacionEntregaRepository>();
+        services.AddScoped<IConfirmacionEntregaService, ConfirmacionEntregaService>();
+
         services.AddHostedService<RecordatorioPendientesHostedService>();
 
         return services;

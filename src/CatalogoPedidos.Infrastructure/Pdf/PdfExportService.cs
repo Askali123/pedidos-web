@@ -122,6 +122,25 @@ public class PdfExportService : IPdfExportService
                             table.Cell().Text(item.GestorNombre ?? "-");
                         }
                     });
+
+                    // Solo aparece cuando ya se confirmó la entrega — un pedido recién
+                    // aprobado, o uno todavía sin nada aprobado, no tiene ConfirmacionEntrega
+                    // (ver docs/PLAN_TRAZABILIDAD_ENTREGAS.md #16).
+                    if (pedido.ConfirmacionEntrega is { } confirmacion)
+                    {
+                        col.Item().LineHorizontal(1);
+
+                        col.Item().Text("Entrega").Bold().FontSize(14);
+                        col.Item().Text($"Fecha: {confirmacion.FechaEntrega:dd/MM/yyyy HH:mm}");
+                        col.Item().Text($"Confirmada por: {confirmacion.ConfirmadoPorNombre}");
+                        if (!string.IsNullOrWhiteSpace(confirmacion.DireccionEntregada))
+                            col.Item().Text($"Dirección entregada: {confirmacion.DireccionEntregada}");
+                        col.Item().Text(confirmacion.CoincideConDireccionIndicada
+                            ? "Coincidió con la dirección indicada por el solicitante."
+                            : "NO coincidió con la dirección indicada por el solicitante.");
+                        if (!string.IsNullOrWhiteSpace(confirmacion.Observaciones))
+                            col.Item().Text($"Observaciones: {confirmacion.Observaciones}");
+                    }
                 });
 
                 page.Footer().AlignCenter().Text(x =>

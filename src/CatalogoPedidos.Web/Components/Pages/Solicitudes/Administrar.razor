@@ -5,6 +5,7 @@
 @inject IProductoService Productos
 @inject IProveedorService Proveedores
 @inject IPedidoNotificacionProveedorService NotificacionesProveedor
+@inject IConfirmacionEntregaService ConfirmacionesEntrega
 @inject UserManager<ApplicationUser> UserManager
 @inject PageHeaderState HeaderState
 
@@ -120,11 +121,17 @@
                                 }
                             </div>
                         }
+                        <EntregaBadge Confirmacion="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId)" />
                     </div>
                     <div class="flex items-center gap-2">
                         <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">
                             <Icon Name="download" Class="h-4 w-4" /> PDF del pedido
                         </a>
+
+                        @if (tieneAprobadasPorPedido.GetValueOrDefault(grupo.Key.PedidoId) && confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId) is null)
+                        {
+                            <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" Icon="truck" OnClick="() => AbrirConfirmarEntrega(grupo.Key.PedidoId, grupo.Key.DireccionEntrega)">Confirmar entrega</Button>
+                        }
 
                         <Dropdown AlignRight="true" CloseOnClick="true">
                             <Trigger>
@@ -232,6 +239,25 @@
     </ExtraContent>
 </ConfirmDialog>
 
+<Modal Visible="modalEntregaVisible" VisibleChanged="v => modalEntregaVisible = v" Title="Confirmar entrega">
+    <ChildContent>
+        <FormField Label="Dirección entregada" Hint="A dónde se llevaron los insumos en la práctica — prellenada con la que pidió el solicitante, pero editable si terminó siendo otra.">
+            <input class="form-input" @bind="direccionEntregadaPendiente" placeholder="Ej. Bodega principal, Cra 10 # 20-30" />
+        </FormField>
+        <label class="flex items-center gap-2 text-sm text-gray-700 mt-2 mb-4">
+            <input type="checkbox" class="form-checkbox" @bind="coincideDireccionPendiente" />
+            ¿Coincide con la dirección indicada por el solicitante?
+        </label>
+        <FormField Label="Observaciones (opcional)" Hint="Útil sobre todo si no coincidió la dirección, para explicar qué pasó.">
+            <textarea class="form-textarea" rows="3" @bind="observacionesEntregaPendiente"></textarea>
+        </FormField>
+    </ChildContent>
+    <Footer>
+        <Button Variant="ButtonVariant.Ghost" OnClick="() => modalEntregaVisible = false">Cancelar</Button>
+        <Button Variant="ButtonVariant.Primary" Icon="truck" OnClick="ConfirmarEntregaSubmit">Confirmar entrega</Button>
+    </Footer>
+</Modal>
+
 @code {
     [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
 
@@ -265,6 +291,8 @@
     private Dictionary<int, int> cantidadProveedoresPorProducto = new();
     private Dictionary<int, List<ProveedorDelPedidoDto>> proveedoresPorPedido = new();
     private Dictionary<int, List<NotificacionProveedor>> enviosPorPedido = new();
+    private Dictionary<int, bool> tieneAprobadasPorPedido = new();
+    private Dictionary<int, ConfirmacionEntrega?> confirmacionesPorPedido = new();
     private string? mensajeEnvio;
     private AlertVariant mensajeEnvioVariante = AlertVariant.Success;
 
@@ -328,10 +356,19 @@
 
         proveedoresPorPedido.Clear();
         enviosPorPedido.Clear();
+        tieneAprobadasPorPedido.Clear();
+        confirmacionesPorPedido.Clear();
         foreach (var pedidoId in gruposPedido.Select(g => g.Key.PedidoId))
         {
             proveedoresPorPedido[pedidoId] = await NotificacionesProveedor.ObtenerProveedoresDisponiblesAsync(pedidoId);
             enviosPorPedido[pedidoId] = await NotificacionesProveedor.ObtenerEnviosAsync(pedidoId);
+
+            // Los filtros de esta pantalla pueden acotar `resultados` a un solo estado (p.ej.
+            // Estado=Pendiente), así que el grupo local no sirve para saber si el pedido
+            // tiene algo Aprobado — hay que ir a buscar el pedido completo.
+            var pedidoCompleto = await Solicitudes.ObtenerPedidoAsync(pedidoId);
+            tieneAprobadasPorPedido[pedidoId] = pedidoCompleto?.Items.Any(i => i.Estado == EstadoSolicitud.Aprobada) ?? false;
+            confirmacionesPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerPorPedidoAsync(pedidoId);
         }
 
         paginaNumero = 1;
@@ -384,6 +421,39 @@
 
         if (resultado.Enviado)
             enviosPorPedido[pedidoPendienteEnvio] = await NotificacionesProveedor.ObtenerEnviosAsync(pedidoPendienteEnvio);
+    }
+
+    private bool modalEntregaVisible;
+    private int pedidoIdEntregaPendiente;
+    private string? direccionEntregadaPendiente;
+    private bool coincideDireccionPendiente;
+    private string? observacionesEntregaPendiente;
+
+    private void AbrirConfirmarEntrega(int pedidoId, string? direccionSugerida)
+    {
+        pedidoIdEntregaPendiente = pedidoId;
+        direccionEntregadaPendiente = direccionSugerida;
+        coincideDireccionPendiente = true;
+        observacionesEntregaPendiente = null;
+        modalEntregaVisible = true;
+    }
+
+    private async Task ConfirmarEntregaSubmit()
+    {
+        var (gestorId, gestorNombre, _) = await DatosGestor(await AuthStateTask!);
+        var dto = new ConfirmarEntregaDto
+        {
+            DireccionEntregada = direccionEntregadaPendiente,
+            CoincideConDireccionIndicada = coincideDireccionPendiente,
+            Observaciones = observacionesEntregaPendiente
+        };
+
+        await ConfirmacionesEntrega.ConfirmarAsync(pedidoIdEntregaPendiente, gestorId, gestorNombre, dto);
+        mensajeEnvio = $"Entrega del pedido #{pedidoIdEntregaPendiente} confirmada.";
+        mensajeEnvioVariante = AlertVariant.Success;
+
+        modalEntregaVisible = false;
+        await Buscar();
     }
 
     private string UrlReporte(string formato)

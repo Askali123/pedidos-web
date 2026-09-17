@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using System.Security.Claims
 @inject ISolicitudService Solicitudes
+@inject IConfirmacionEntregaService ConfirmacionesEntrega
 @inject PageHeaderState HeaderState
 
 <PageTitle>Mis solicitudes</PageTitle>
@@ -48,6 +49,7 @@ else
                         {
                             <p class="text-xs text-gray-500 mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
                         }
+                        <EntregaBadge Confirmacion="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId)" />
                     </div>
 
                     @if (grupo.Count() > 1)
@@ -99,6 +101,7 @@ else
     private record PedidoResumen(int PedidoId, string? Comentario, string? DireccionEntrega, DateTime FechaCreacion);
 
     private List<IGrouping<PedidoResumen, SolicitudProducto>>? grupos;
+    private Dictionary<int, ConfirmacionEntrega?> confirmacionesPorPedido = new();
 
     /// <summary>
     /// Resumen a nivel de pedido para el caso "parcialmente resuelto" — un pedido de
@@ -143,5 +146,9 @@ else
             .GroupBy(s => new PedidoResumen(s.PedidoId, s.Pedido?.Comentario, s.Pedido?.DireccionEntrega, s.Pedido?.FechaCreacion ?? s.FechaSolicitud))
             .OrderByDescending(g => g.Key.FechaCreacion)
             .ToList();
+
+        confirmacionesPorPedido.Clear();
+        foreach (var pedidoId in grupos.Select(g => g.Key.PedidoId))
+            confirmacionesPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerPorPedidoAsync(pedidoId);
     }
 }

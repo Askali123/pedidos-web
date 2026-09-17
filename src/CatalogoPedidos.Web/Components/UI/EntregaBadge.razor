@@ -1,0 +1,26 @@
+@* Resume el estado de entrega de un pedido — no muestra nada si todavía no se confirmó.
+   Si la dirección entregada coincidió con la indicada, un badge verde con fecha y quién
+   la confirmó alcanza. Si NO coincidió, se usa un badge de advertencia que llama la
+   atención y, debajo, las observaciones del gestor si las dejó — ver
+   docs/PLAN_TRAZABILIDAD_ENTREGAS.md #15. *@
+@if (Confirmacion is not null)
+{
+    <div class="mt-1">
+        @if (Confirmacion.CoincideConDireccionIndicada)
+        {
+            <Badge Variant="BadgeVariant.Success">✓ Entregado el @Confirmacion.FechaEntrega.ToLocalTime().ToString("dd/MM/yyyy HH:mm") por @Confirmacion.ConfirmadoPorNombre</Badge>
+        }
+        else
+        {
+            <Badge Variant="BadgeVariant.Warning">⚠ Entregado el @Confirmacion.FechaEntrega.ToLocalTime().ToString("dd/MM/yyyy HH:mm") — dirección distinta a la indicada</Badge>
+            @if (!string.IsNullOrWhiteSpace(Confirmacion.Observaciones))
+            {
+                <p class="text-xs text-gray-500 mt-0.5">@Confirmacion.Observaciones</p>
+            }
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public ConfirmacionEntrega? Confirmacion { get; set; }
+}
