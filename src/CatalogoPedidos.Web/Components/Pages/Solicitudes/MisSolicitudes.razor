@@ -136,7 +136,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        HeaderState.Set("Mis solicitudes", [("Mis solicitudes", null)]);
+        HeaderState.Set("Mis solicitudes");
 
         var authState = await AuthStateTask!;
         var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";

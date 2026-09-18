@@ -18,9 +18,11 @@
         {
         <EditForm Model="modelo" OnValidSubmit="Guardar" FormName="nuevo-producto">
             <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger-700 text-sm mb-2" role="alert" />
 
             <FormField Label="Nombre" Required="true">
                 <InputText @bind-Value="modelo.Nombre" class="form-input" />
+                <ValidationMessage For="() => modelo.Nombre" class="text-danger-700 text-xs mt-1" />
             </FormField>
 
             <div class="grid grid-cols-2 gap-4">
@@ -40,6 +42,7 @@
             <div class="grid grid-cols-2 gap-4">
                 <FormField Label="Precio">
                     <InputNumber @bind-Value="modelo.Precio" class="form-input" />
+                    <ValidationMessage For="() => modelo.Precio" class="text-danger-700 text-xs mt-1" />
                 </FormField>
 
                 <FormField Label="Stock">

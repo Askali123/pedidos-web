@@ -174,8 +174,13 @@
   }
 
   /* ---------- Tablas ---------- */
+  /* container-type habilita @container más abajo: reacciona al ancho REAL del
+     contenedor de la tabla, no al del viewport — así funciona igual si la tabla
+     vive en una columna angosta de un grid en desktop (ver Proveedores.razor) y
+     no solo en mobile. Ver docs/PLAN_MEJORAS_UI_UX.md #2. */
   .table-wrap {
     @apply overflow-x-auto rounded-lg border border-gray-200 bg-white;
+    container-type: inline-size;
   }
   .table-enterprise {
     @apply w-full text-sm;
@@ -193,6 +198,38 @@
     @apply border-b border-gray-100 last:border-0 hover:bg-gray-50;
   }
 
+  /* Por debajo de este ancho de CONTENEDOR, la tabla se re-apila como una lista de
+     tarjetas: cada <tr> pasa a ser un bloque con borde propio, y cada <td> muestra
+     su valor junto a una etiqueta (columna original) tomada de data-label en el
+     markup — así ninguna acción queda escondida detrás de un scroll horizontal sin
+     ninguna señal visual. Las celdas sin data-label (típicamente la de acciones,
+     que ya no necesita repetir "Acciones" como etiqueta) se muestran como un bloque
+     simple de ancho completo. */
+  @container (max-width: 640px) {
+    .table-enterprise thead {
+      @apply hidden;
+    }
+    .table-enterprise, .table-enterprise tbody, .table-enterprise tr, .table-enterprise td {
+      @apply block w-full;
+    }
+    .table-enterprise tbody tr {
+      @apply border border-gray-200 rounded-lg mb-3 p-3;
+    }
+    .table-enterprise td {
+      @apply px-0 py-1.5 border-0;
+    }
+    .table-enterprise td[data-label] {
+      @apply flex items-start justify-between gap-3 text-right;
+    }
+    .table-enterprise td[data-label]::before {
+      content: attr(data-label);
+      @apply text-xs font-medium text-gray-500 uppercase tracking-wide shrink-0 pt-0.5 text-left;
+    }
+    .table-enterprise td:empty {
+      @apply hidden;
+    }
+  }
+
   /* ---------- Navegación lateral ---------- */
   .sidebar-link {
     @apply flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-300
@@ -201,6 +238,18 @@
   /* Se combina con .sidebar-link en el markup */
   .sidebar-link-active {
     @apply bg-primary-600! text-white! hover:bg-primary-600!;
+  }
+
+  /* Misma idea que .sidebar-link, pero para navegación secundaria sobre fondo claro
+     (ej. el menú de "Mi cuenta" en Account/Manage/*) — no tiene sentido reusar el
+     sidebar oscuro para una sub-navegación dentro del contenido de la página. */
+  .nav-link-light {
+    @apply flex items-center rounded-md px-3 py-2 text-sm font-medium text-gray-600
+           hover:bg-gray-100 hover:text-gray-900 transition-colors;
+  }
+  /* Se combina con .nav-link-light en el markup */
+  .nav-link-light-active {
+    @apply bg-primary-50! text-primary-700!;
   }
 
   /* ---------- Switch (toggle) ---------- */

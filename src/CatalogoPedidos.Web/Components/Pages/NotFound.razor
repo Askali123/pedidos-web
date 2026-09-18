@@ -1,6 +1,20 @@
-﻿@page "/not-found"
+@page "/not-found"
 @attribute [AllowAnonymous]
 @layout MainLayout
 
-<h3>Not Found</h3>
-<p>Sorry, the content you are looking for does not exist.</p>
+<PageTitle>Página no encontrada</PageTitle>
+
+@* Wrapper propio con centrado/padding: esta página también la ve un visitante sin
+   sesión, para quien MainLayout no agrega ningún chrome ni margen alrededor de
+   @Body — no puede depender del layout para verse bien. *@
+<div class="min-h-[60vh] flex items-center justify-center p-6">
+    <div class="w-full max-w-md">
+        <div class="card">
+            <EmptyState Icon="search" Title="Página no encontrada" Description="La página que buscás no existe o fue movida.">
+                <Action>
+                    <a href="/" class="btn btn-primary btn-sm">Volver al inicio</a>
+                </Action>
+            </EmptyState>
+        </div>
+    </div>
+</div>

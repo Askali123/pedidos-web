@@ -7,27 +7,27 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<Disable2fa> Logger
 @inject IServiceScopeFactory ScopeFactory
+@inject PageHeaderState HeaderState
 
-<PageTitle>Disable two-factor authentication (2FA)</PageTitle>
+<PageTitle>Desactivar 2FA</PageTitle>
 
-<StatusMessage />
-<h3>Disable two-factor authentication (2FA)</h3>
+<div class="max-w-xl">
+    <Card Title="Desactivar autenticación en dos pasos">
+        <StatusMessage />
 
-<div class="alert alert-warning" role="alert">
-    <p>
-        <strong>This action only disables 2FA.</strong>
-    </p>
-    <p>
-        Disabling 2FA does not change the keys used in authenticator apps. If you wish to change the key
-        used in an authenticator app you should <a href="Account/Manage/ResetAuthenticator">reset your authenticator keys.</a>
-    </p>
-</div>
+        <Alert Variant="AlertVariant.Warning">
+            <p><strong>Esta acción solo desactiva el 2FA.</strong></p>
+            <p class="mt-1">
+                Desactivar el 2FA no cambia las claves que ya usan tus apps autenticadoras. Si querés cambiar
+                esa clave, tenés que <a href="Account/Manage/ResetAuthenticator" class="underline">restablecer tu app autenticadora</a>.
+            </p>
+        </Alert>
 
-<div>
-    <form @formname="disable-2fa" @onsubmit="OnSubmitAsync" method="post">
-        <AntiforgeryToken />
-        <button class="btn btn-danger" type="submit">Disable 2FA</button>
-    </form>
+        <form @formname="disable-2fa" @onsubmit="OnSubmitAsync" method="post" class="mt-4">
+            <AntiforgeryToken />
+            <Button Type="submit" Variant="ButtonVariant.Danger" Icon="x">Desactivar 2FA</Button>
+        </form>
+    </Card>
 </div>
 
 @code {
@@ -38,6 +38,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        HeaderState.Set("Desactivar 2FA", [("Mi cuenta", "/Account/Manage"), ("Autenticación en dos pasos", "/Account/Manage/TwoFactorAuthentication"), ("Desactivar 2FA", null)]);
+
         // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
         // docs/PLAN_MEJORAS_AUTENTICACION.md #2.
         await using var scope = ScopeFactory.CreateAsyncScope();
@@ -84,7 +86,7 @@
         Logger.LogInformation("User with ID '{UserId}' has disabled 2fa.", userId);
         RedirectManager.RedirectToWithStatus(
             "Account/Manage/TwoFactorAuthentication",
-            "2fa has been disabled. You can reenable 2fa when you setup an authenticator app",
+            "Se desactivó el 2FA. Podés volver a activarlo cuando configures una app autenticadora.",
             HttpContext);
     }
 }

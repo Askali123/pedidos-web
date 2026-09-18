@@ -103,7 +103,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        HeaderState.Set("Historial de envíos a proveedores", [("Historial de envíos", null)]);
+        HeaderState.Set("Historial de envíos a proveedores");
         proveedores = await Proveedores.ObtenerTodosAsync();
         await Buscar();
     }

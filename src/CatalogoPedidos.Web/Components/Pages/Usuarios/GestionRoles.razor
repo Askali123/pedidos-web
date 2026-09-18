@@ -84,7 +84,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        HeaderState.Set("Gestión de roles", [("Gestión de roles", null)]);
+        HeaderState.Set("Gestión de roles");
 
         var authState = await AuthStateTask!;
         currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

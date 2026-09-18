@@ -9,59 +9,52 @@
 @inject IUserStore<ApplicationUser> UserStore
 @inject IdentityRedirectManager RedirectManager
 @inject IServiceScopeFactory ScopeFactory
+@inject PageHeaderState HeaderState
 
-<PageTitle>Manage your external logins</PageTitle>
+<PageTitle>Inicios de sesión externos</PageTitle>
 
-<StatusMessage />
-@if (currentLogins?.Count > 0)
-{
-    <h3>Registered Logins</h3>
-    <table class="table">
-        <tbody>
-            @foreach (var login in currentLogins)
-            {
-                <tr>
-                    <td>@login.ProviderDisplayName</td>
-                    <td>
+<div class="max-w-xl">
+    <Card Title="Inicios de sesión externos">
+        <StatusMessage />
+
+        @if (currentLogins?.Count > 0)
+        {
+            <h4 class="mb-2">Cuentas vinculadas</h4>
+            <div class="divide-y divide-gray-100 border border-gray-200 rounded-lg mb-4">
+                @foreach (var login in currentLogins)
+                {
+                    <div class="flex items-center justify-between gap-3 px-3 py-2.5">
+                        <span class="text-sm text-gray-900">@login.ProviderDisplayName</span>
                         @if (showRemoveButton)
                         {
                             <form @formname="@($"remove-login-{login.LoginProvider}")" @onsubmit="OnSubmitAsync" method="post">
                                 <AntiforgeryToken />
-                                <div>
-                                    <input type="hidden" name="@nameof(LoginProvider)" value="@login.LoginProvider" />
-                                    <input type="hidden" name="@nameof(ProviderKey)" value="@login.ProviderKey" />
-                                    <button type="submit" class="btn btn-primary" title="Remove this @login.ProviderDisplayName login from your account">Remove</button>
-                                </div>
+                                <input type="hidden" name="@nameof(LoginProvider)" value="@login.LoginProvider" />
+                                <input type="hidden" name="@nameof(ProviderKey)" value="@login.ProviderKey" />
+                                <button type="submit" class="btn btn-secondary btn-sm" title="Quitar este inicio de sesión (@login.ProviderDisplayName) de tu cuenta">Quitar</button>
                             </form>
                         }
-                        else
-                        {
-                            @: &nbsp;
-                        }
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
-@if (otherLogins?.Count > 0)
-{
-    <h4>Add another service to log in.</h4>
-    <hr />
-    <form class="form-horizontal" action="Account/Manage/LinkExternalLogin" method="post">
-        <AntiforgeryToken />
-        <div>
-            <p>
-                @foreach (var provider in otherLogins)
-                {
-                    <button type="submit" class="btn btn-primary" name="Provider" value="@provider.Name" title="Log in using your @provider.DisplayName account">
-                        @provider.DisplayName
-                    </button>
+                    </div>
                 }
-            </p>
-        </div>
-    </form>
-}
+            </div>
+        }
+        @if (otherLogins?.Count > 0)
+        {
+            <h4 class="mb-2">Agregar otro servicio para iniciar sesión</h4>
+            <form action="Account/Manage/LinkExternalLogin" method="post">
+                <AntiforgeryToken />
+                <div class="flex items-center gap-2 flex-wrap">
+                    @foreach (var provider in otherLogins)
+                    {
+                        <button type="submit" class="btn btn-secondary" name="Provider" value="@provider.Name" title="Iniciar sesión con tu cuenta de @provider.DisplayName">
+                            @provider.DisplayName
+                        </button>
+                    }
+                </div>
+            </form>
+        }
+    </Card>
+</div>
 
 @code {
     public const string LinkLoginCallbackAction = "LinkLoginCallback";
@@ -85,6 +78,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        HeaderState.Set("Inicios de sesión externos", [("Mi cuenta", "/Account/Manage"), ("Inicios de sesión externos", null)]);
+
         // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
         // docs/PLAN_MEJORAS_AUTENTICACION.md #2. IUserStore también se resuelve del mismo
         // scope: por dentro usa el mismo AppDbContext Scoped que UserManager.
@@ -142,12 +137,12 @@
         var result = await scopedUserManager.RemoveLoginAsync(scopedUser, LoginProvider!, ProviderKey!);
         if (!result.Succeeded)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Error: The external login was not removed.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: No se pudo quitar el inicio de sesión externo.", HttpContext);
         }
         else
         {
             await scopedSignInManager.RefreshSignInAsync(scopedUser);
-            RedirectManager.RedirectToCurrentPageWithStatus("The external login was removed.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Se quitó el inicio de sesión externo.", HttpContext);
         }
     }
 
@@ -157,7 +152,7 @@
         var info = await signInManager.GetExternalLoginInfoAsync(userId);
         if (info is null)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Error: Could not load external login info.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: No se pudo cargar la información del inicio de sesión externo.", HttpContext);
             return;
         }
 
@@ -167,11 +162,11 @@
             // Clear the existing external cookie to ensure a clean login process
             await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
 
-            RedirectManager.RedirectToCurrentPageWithStatus("The external login was added.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Se agregó el inicio de sesión externo.", HttpContext);
         }
         else
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Error: The external login was not added. External logins can only be associated with one account.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: No se pudo agregar el inicio de sesión externo. Cada uno solo puede asociarse a una cuenta.", HttpContext);
         }
     }
 }

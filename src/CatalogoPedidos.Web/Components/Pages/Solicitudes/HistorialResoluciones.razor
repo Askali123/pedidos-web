@@ -118,7 +118,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        HeaderState.Set("Historial de resoluciones", [("Historial de resoluciones", null)]);
+        HeaderState.Set("Historial de resoluciones");
         gestores = await Solicitudes.ObtenerGestoresAsync();
         await Buscar();
     }

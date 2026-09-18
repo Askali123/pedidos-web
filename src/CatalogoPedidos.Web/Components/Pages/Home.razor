@@ -1,5 +1,6 @@
 @page "/"
 @attribute [AllowAnonymous]
+@using System.Security.Claims
 @using Microsoft.AspNetCore.Components.Authorization
 @inject IProductoService Productos
 @inject ISolicitudService Solicitudes
@@ -43,6 +44,77 @@
         <div class="flex gap-3">
             <Button Variant="ButtonVariant.Primary" Icon="cube" OnClick="@(() => Navigation.NavigateTo("/catalogo"))">Ir al catálogo</Button>
         </div>
+
+        @if (!cargando)
+        {
+            @if (esGestor)
+            {
+                <Card Title="Pendientes de aprobar">
+                    @if (pendientesBandeja is null)
+                    {
+                        <Loading />
+                    }
+                    else if (pendientesBandeja.Count == 0)
+                    {
+                        <EmptyState Icon="inbox" Title="Todo al día" Description="No hay solicitudes pendientes por resolver." />
+                    }
+                    else
+                    {
+                        <div class="divide-y divide-gray-100">
+                            @foreach (var p in pendientesBandeja)
+                            {
+                                <a href="/solicitudes/bandeja" class="flex items-center justify-between gap-3 py-2.5 -mx-1 px-1 rounded hover:bg-gray-50">
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-medium text-gray-900 truncate">Pedido #@p.PedidoId · @p.SolicitanteNombre</p>
+                                        <p class="text-xs text-gray-500 mt-0.5">@p.CantidadLineas línea(s) · @p.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</p>
+                                    </div>
+                                    @if (p.Urgente)
+                                    {
+                                        <Badge Variant="BadgeVariant.Danger">Urgente</Badge>
+                                    }
+                                </a>
+                            }
+                        </div>
+                        @if (totalPedidosBandeja > pendientesBandeja.Count)
+                        {
+                            <a href="/solicitudes/bandeja" class="text-sm text-primary-700 hover:underline mt-3 inline-block">Ver los @totalPedidosBandeja pedidos pendientes →</a>
+                        }
+                    }
+                </Card>
+            }
+            else
+            {
+                <Card Title="Mis solicitudes en curso">
+                    @if (misPedidosPendientes is null)
+                    {
+                        <Loading />
+                    }
+                    else if (misPedidosPendientes.Count == 0)
+                    {
+                        <EmptyState Icon="clipboard-list" Title="Sin solicitudes en curso" Description="No tenés pedidos esperando aprobación en este momento." />
+                    }
+                    else
+                    {
+                        <div class="divide-y divide-gray-100">
+                            @foreach (var p in misPedidosPendientes)
+                            {
+                                <a href="/solicitudes/mis-solicitudes" class="flex items-center justify-between gap-3 py-2.5 -mx-1 px-1 rounded hover:bg-gray-50">
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-medium text-gray-900 truncate">Pedido #@p.PedidoId</p>
+                                        <p class="text-xs text-gray-500 mt-0.5">@p.CantidadLineas línea(s) · @p.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</p>
+                                    </div>
+                                    <Badge Variant="BadgeVariant.Warning">Pendiente</Badge>
+                                </a>
+                            }
+                        </div>
+                        @if (totalMisPedidosPendientes > misPedidosPendientes.Count)
+                        {
+                            <a href="/solicitudes/mis-solicitudes" class="text-sm text-primary-700 hover:underline mt-3 inline-block">Ver los @totalMisPedidosPendientes pedidos en curso →</a>
+                        }
+                    }
+                </Card>
+            }
+        }
     </div>
 }
 else
@@ -58,7 +130,7 @@ else
                 <div class="h-8 w-8 rounded-md bg-primary-600 flex items-center justify-center font-bold text-white text-sm shrink-0">C</div>
                 <span class="font-semibold text-gray-900">CatalogoPedidos</span>
             </div>
-            <a href="Account/Login" class="text-sm font-medium text-gray-600 hover:text-primary-700">Iniciar sesión</a>
+            <a href="Account/Login" class="btn btn-outline btn-sm">Iniciar sesión</a>
         </header>
 
         <main class="relative z-10 flex-1">
@@ -162,23 +234,39 @@ else
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
 
+    private const int MaxItemsWidget = 5;
+
+    /// <summary>Mismo umbral que usa Bandeja.razor para marcar un pedido como urgente.</summary>
+    private static readonly TimeSpan UmbralPendienteUrgente = TimeSpan.FromHours(48);
+
+    private record PedidoBandejaResumen(int PedidoId, string SolicitanteNombre, int CantidadLineas, DateTime FechaCreacion, bool Urgente);
+    private record PedidoMioResumen(int PedidoId, int CantidadLineas, DateTime FechaCreacion);
+
     private bool autenticado;
     private bool cargando = true;
+    private bool esGestor;
     private int totalProductos;
     private int pedidosPendientes;
     private int totalProveedores;
 
+    private List<PedidoBandejaResumen>? pendientesBandeja;
+    private int totalPedidosBandeja;
+    private List<PedidoMioResumen>? misPedidosPendientes;
+    private int totalMisPedidosPendientes;
+
     protected override async Task OnInitializedAsync()
     {
-        autenticado = AuthStateTask is not null && (await AuthStateTask).User.Identity?.IsAuthenticated == true;
+        var authState = AuthStateTask is null ? null : await AuthStateTask;
+        autenticado = authState?.User.Identity?.IsAuthenticated == true;
 
-        if (!autenticado)
+        if (!autenticado || authState is null)
         {
             cargando = false;
             return;
         }
 
         HeaderState.Set("Inicio");
+        esGestor = authState.User.IsInRole(Roles.Gestor);
 
         var productos = await Productos.ObtenerCatalogoAsync();
         totalProductos = productos.Count;
@@ -188,6 +276,45 @@ else
 
         var proveedores = await ProveedorService.ObtenerTodosAsync();
         totalProveedores = proveedores.Count;
+
+        // Reusa la misma consulta de arriba (ObtenerBandejaAsync) para el widget del
+        // Gestor — no hace falta pedirla dos veces, solo agruparla por pedido, mismo
+        // criterio que Bandeja.razor.
+        if (esGestor)
+        {
+            var gruposBandeja = pendientes
+                .GroupBy(s => new { s.PedidoId, s.SolicitanteNombre, FechaCreacion = s.Pedido?.FechaCreacion ?? s.FechaSolicitud })
+                .OrderBy(g => g.Key.FechaCreacion)
+                .ToList();
+
+            totalPedidosBandeja = gruposBandeja.Count;
+            pendientesBandeja = gruposBandeja
+                .Take(MaxItemsWidget)
+                .Select(g => new PedidoBandejaResumen(
+                    g.Key.PedidoId,
+                    g.Key.SolicitanteNombre,
+                    g.Count(),
+                    g.Key.FechaCreacion,
+                    DateTime.UtcNow - g.Key.FechaCreacion > UmbralPendienteUrgente))
+                .ToList();
+        }
+        else
+        {
+            var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
+            var mias = await Solicitudes.ObtenerMisSolicitudesAsync(userId);
+
+            var gruposMios = mias
+                .Where(s => s.Estado == EstadoSolicitud.Pendiente)
+                .GroupBy(s => new { s.PedidoId, FechaCreacion = s.Pedido?.FechaCreacion ?? s.FechaSolicitud })
+                .OrderByDescending(g => g.Key.FechaCreacion)
+                .ToList();
+
+            totalMisPedidosPendientes = gruposMios.Count;
+            misPedidosPendientes = gruposMios
+                .Take(MaxItemsWidget)
+                .Select(g => new PedidoMioResumen(g.Key.PedidoId, g.Count(), g.Key.FechaCreacion))
+                .ToList();
+        }
 
         cargando = false;
     }

@@ -19,6 +19,10 @@
                         <p class="text-xs text-gray-500">Sesión iniciada como</p>
                         <p class="text-sm font-medium text-gray-900 truncate">@nombreMostrado</p>
                     </div>
+                    <a href="Account/Manage" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <Icon Name="user" Class="h-4 w-4" />
+                        Mi cuenta
+                    </a>
                     <form action="Account/Logout" method="post">
                         <AntiforgeryToken />
                         <input type="hidden" name="ReturnUrl" value="" />

@@ -78,20 +78,23 @@
                         <tr>
                             @if (proveedorId is not null)
                             {
-                                <td class="text-gray-500">#@p.Id</td>
-                                <td class="font-medium text-gray-900">@fila.CodigoProveedor</td>
+                                <td class="text-gray-500" data-label="Código interno">#@p.Id</td>
+                                <td class="font-medium text-gray-900" data-label="Código proveedor">@fila.CodigoProveedor</td>
                             }
-                            <td class="font-medium text-gray-900">@p.Nombre</td>
-                            <td><Badge Variant="BadgeVariant.Neutral">@p.Categoria</Badge></td>
-                            <td class="text-gray-500">@p.Descripcion</td>
-                            <td class="text-gray-500">@p.UnidadMedida</td>
-                            <td>@p.Precio.ToString("C")</td>
-                            <td>
-                                <div class="flex items-center gap-1.5">
-                                    <span class="@(p.Stock < 0 ? "text-danger-600 font-medium" : "")">@p.Stock</span>
+                            <td class="font-medium text-gray-900" data-label="Nombre">@p.Nombre</td>
+                            <td data-label="Categoría"><Badge Variant="BadgeVariant.Neutral">@p.Categoria</Badge></td>
+                            <td class="text-gray-500" data-label="Descripción">@p.Descripcion</td>
+                            <td class="text-gray-500" data-label="Unidad">@p.UnidadMedida</td>
+                            <td data-label="Precio">@(p.Precio > 0 ? p.Precio.ToString("C") : "Sin precio")</td>
+                            <td data-label="Stock">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span class="@(p.Stock < 0 ? "text-danger-600 font-medium" : "")"
+                                          title="@(p.Stock < 0 ? "Stock negativo: se aprobaron más solicitudes que el stock disponible" : null)">@p.Stock</span>
                                     @if (p.StockMinimo is not null && p.Stock <= p.StockMinimo)
                                     {
-                                        <Badge Variant="BadgeVariant.Danger">⚠ Bajo</Badge>
+                                        <span title="@($"Por debajo del mínimo configurado ({p.StockMinimo})")">
+                                            <Badge Variant="BadgeVariant.Danger">⚠ Bajo</Badge>
+                                        </span>
                                     }
                                     <AuthorizeView Roles="@Roles.Gestor" Context="stockContext">
                                         <Authorized>
@@ -103,7 +106,7 @@
                                 </div>
                             </td>
                             <td>
-                                <div class="flex items-center gap-2 justify-end">
+                                <div class="flex items-center gap-2 justify-end flex-wrap">
                                     @if (Carrito.Contiene(p.Id))
                                     {
                                         <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="check" OnClick="() => AgregarAlCarrito(p)">En el carrito</Button>
@@ -191,7 +194,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        HeaderState.Set("Catálogo", [("Catálogo", null)]);
+        HeaderState.Set("Catálogo");
         Carrito.Changed += Refrescar;
         categorias = await Productos.ObtenerCategoriasAsync();
         proveedores = await Proveedores.ObtenerTodosAsync();

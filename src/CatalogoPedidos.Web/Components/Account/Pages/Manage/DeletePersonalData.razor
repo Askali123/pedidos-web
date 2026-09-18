@@ -9,33 +9,33 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<DeletePersonalData> Logger
 @inject IServiceScopeFactory ScopeFactory
+@inject PageHeaderState HeaderState
 
-<PageTitle>Delete Personal Data</PageTitle>
+<PageTitle>Eliminar datos personales</PageTitle>
 
-<StatusMessage Message="@message" />
+<div class="max-w-xl">
+    <Card Title="Eliminar datos personales">
+        <StatusMessage Message="@message" />
 
-<h3>Delete Personal Data</h3>
+        <Alert Variant="AlertVariant.Warning">
+            <strong>Eliminar estos datos borra tu cuenta de forma permanente y no se puede deshacer.</strong>
+        </Alert>
 
-<div class="alert alert-warning" role="alert">
-    <p>
-        <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
-    </p>
-</div>
+        <EditForm Model="Input" FormName="delete-user" OnValidSubmit="OnValidSubmitAsync" method="post" class="mt-4">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger-700 text-sm mb-2" role="alert" />
 
-<div>
-    <EditForm Model="Input" FormName="delete-user" OnValidSubmit="OnValidSubmitAsync" method="post">
-        <DataAnnotationsValidator />
-        <ValidationSummary class="text-danger" role="alert" />
-        @if (requirePassword)
-        {
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="Please enter your password." />
-                <label for="Input.Password" class="form-label">Password</label>
-                <ValidationMessage For="() => Input.Password" class="text-danger" />
-            </div>
-        }
-        <button class="w-100 btn btn-lg btn-danger" type="submit">Delete data and close my account</button>
-    </EditForm>
+            @if (requirePassword)
+            {
+                <FormField Label="Contraseña" Required="true">
+                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-input" autocomplete="current-password" aria-required="true" placeholder="Ingresá tu contraseña" />
+                    <ValidationMessage For="() => Input.Password" class="text-danger-700 text-xs mt-1" />
+                </FormField>
+            }
+
+            <Button Type="submit" Variant="ButtonVariant.Danger" Icon="trash">Eliminar mis datos y cerrar mi cuenta</Button>
+        </EditForm>
+    </Card>
 </div>
 
 @code {
@@ -51,6 +51,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        HeaderState.Set("Eliminar datos personales", [("Mi cuenta", "/Account/Manage"), ("Datos personales", "/Account/Manage/PersonalData"), ("Eliminar", null)]);
+
         Input ??= new();
 
         // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
@@ -88,7 +90,7 @@
 
         if (requirePassword && !await scopedUserManager.CheckPasswordAsync(scopedUser, Input.Password))
         {
-            message = "Error: Incorrect password.";
+            message = "Error: Contraseña incorrecta.";
             return;
         }
 

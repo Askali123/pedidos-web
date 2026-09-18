@@ -12,59 +12,54 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<EnableAuthenticator> Logger
 @inject IServiceScopeFactory ScopeFactory
+@inject PageHeaderState HeaderState
 
-<PageTitle>Configure authenticator app</PageTitle>
+<PageTitle>Configurar app autenticadora</PageTitle>
 
+<div class="max-w-xl">
 @if (recoveryCodes is not null)
 {
     <ShowRecoveryCodes RecoveryCodes="recoveryCodes.ToArray()" StatusMessage="@message" />
 }
 else
 {
-    <StatusMessage Message="@message" />
-    <h3>Configure authenticator app</h3>
-    <div>
-        <p>To use an authenticator app go through the following steps:</p>
-        <ol class="list">
+    <Card Title="Configurar app autenticadora">
+        <StatusMessage Message="@message" />
+        <ol class="space-y-4 list-decimal list-inside text-sm text-gray-700">
             <li>
-                <p>
-                    Download a two-factor authenticator app like Microsoft Authenticator for
-                    <a href="https://go.microsoft.com/fwlink/?Linkid=825072">Android</a> and
-                    <a href="https://go.microsoft.com/fwlink/?Linkid=825073">iOS</a> or
-                    Google Authenticator for
-                    <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en">Android</a> and
-                    <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8">iOS</a>.
-                </p>
+                <span>
+                    Descargá una app autenticadora como Microsoft Authenticator para
+                    <a href="https://go.microsoft.com/fwlink/?Linkid=825072" class="text-primary-700 hover:underline">Android</a> y
+                    <a href="https://go.microsoft.com/fwlink/?Linkid=825073" class="text-primary-700 hover:underline">iOS</a>, o
+                    Google Authenticator para
+                    <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en" class="text-primary-700 hover:underline">Android</a> y
+                    <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8" class="text-primary-700 hover:underline">iOS</a>.
+                </span>
             </li>
             <li>
-                <p>Scan the QR Code or enter this key <kbd>@sharedKey</kbd> into your two factor authenticator app. Spaces and casing do not matter.</p>
-                <div class="alert alert-info">Learn how to <a href="https://go.microsoft.com/fwlink/?Linkid=852423">enable QR code generation</a>.</div>
-                <div></div>
+                <p class="mb-2">Escaneá el código QR o ingresá esta clave <kbd class="px-1.5 py-0.5 rounded bg-gray-100 text-xs">@sharedKey</kbd> en tu app autenticadora. Espacios y mayúsculas no importan.</p>
+                <Alert Variant="AlertVariant.Info">Aprendé a <a href="https://go.microsoft.com/fwlink/?Linkid=852423" class="underline">habilitar la generación del código QR</a>.</Alert>
                 <div data-url="@authenticatorUri"></div>
             </li>
             <li>
-                <p>
-                    Once you have scanned the QR code or input the key above, your two factor authentication app will provide you
-                    with a unique code. Enter the code in the confirmation box below.
+                <p class="mb-2">
+                    Una vez que hayas escaneado el código QR o ingresado la clave, tu app autenticadora te va a dar un
+                    código único. Ingresalo en el cuadro de confirmación de abajo.
                 </p>
-                <div class="row">
-                    <div class="col-xl-6">
-                        <EditForm Model="Input" FormName="send-code" OnValidSubmit="OnValidSubmitAsync" method="post">
-                            <DataAnnotationsValidator />
-                            <div class="form-floating mb-3">
-                                <InputText @bind-Value="Input.Code" id="Input.Code" class="form-control" autocomplete="off" placeholder="Enter the code" />
-                                <label for="Input.Code" class="control-label form-label">Verification Code</label>
-                                <ValidationMessage For="() => Input.Code" class="text-danger" />
-                            </div>
-                            <button type="submit" class="w-100 btn btn-lg btn-primary">Verify</button>
-                            <ValidationSummary class="text-danger" role="alert" />
-                        </EditForm>
-                    </div>
-                </div>
+                <EditForm Model="Input" FormName="send-code" OnValidSubmit="OnValidSubmitAsync" method="post">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger-700 text-sm mb-2" role="alert" />
+                    <FormField Label="Código de verificación" Required="true">
+                        <InputText @bind-Value="Input.Code" id="Input.Code" class="form-input" autocomplete="off" placeholder="000000" />
+                        <ValidationMessage For="() => Input.Code" class="text-danger-700 text-xs mt-1" />
+                    </FormField>
+                    <Button Type="submit" Variant="ButtonVariant.Primary" Icon="check">Verificar</Button>
+                </EditForm>
             </li>
         </ol>
-    </div>
+    </Card>
 }
+</div>
 
 @code {
     private const string AuthenticatorUriFormat = "otpauth://totp/{0}:{1}?secret={2}&issuer={0}&digits=6";
@@ -83,6 +78,8 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        HeaderState.Set("Configurar app autenticadora", [("Mi cuenta", "/Account/Manage"), ("Autenticación en dos pasos", "/Account/Manage/TwoFactorAuthentication"), ("Configurar app autenticadora", null)]);
+
         Input ??= new();
 
         // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
@@ -126,7 +123,7 @@ else
 
         if (!is2faTokenValid)
         {
-            message = "Error: Verification code is invalid.";
+            message = "Error: El código de verificación no es válido.";
             return;
         }
 
@@ -134,7 +131,7 @@ else
         var userId = await scopedUserManager.GetUserIdAsync(scopedUser);
         Logger.LogInformation("User with ID '{UserId}' has enabled 2FA with an authenticator app.", userId);
 
-        message = "Your authenticator app has been verified.";
+        message = "Tu app autenticadora quedó verificada.";
 
         if (await scopedUserManager.CountRecoveryCodesAsync(scopedUser) == 0)
         {
@@ -191,10 +188,10 @@ else
 
     private sealed class InputModel
     {
-        [Required]
-        [StringLength(7, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+        [Required(ErrorMessage = "El código de verificación es obligatorio.")]
+        [StringLength(7, ErrorMessage = "La {0} debe tener entre {2} y {1} caracteres.", MinimumLength = 6)]
         [DataType(DataType.Text)]
-        [Display(Name = "Verification Code")]
+        [Display(Name = "Código de verificación")]
         public string Code { get; set; } = "";
     }
 }

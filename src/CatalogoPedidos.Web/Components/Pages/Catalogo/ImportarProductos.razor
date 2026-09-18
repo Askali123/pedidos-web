@@ -37,7 +37,12 @@ Aseo   319117   Alcohol Antiseptico Fire       GALON    32000</pre>
                 @if (analisis is null)
                 {
                     <div>
-                        <InputFile OnChange="Analizar" accept=".xlsx" class="form-input" disabled="@(proveedorId == 0)" />
+                        <InputFile OnChange="Analizar" accept=".xlsx" disabled="@(proveedorId == 0)"
+                                   class="block w-full text-sm text-gray-500
+                                          file:mr-4 file:py-2 file:px-4 file:rounded-md file:border file:border-gray-300
+                                          file:bg-white file:text-sm file:font-medium file:text-gray-700 file:cursor-pointer
+                                          hover:file:bg-gray-50
+                                          disabled:opacity-50 disabled:pointer-events-none" />
                         @if (proveedorId == 0)
                         {
                             <p class="text-xs text-gray-500 mt-1">Selecciona primero el proveedor.</p>

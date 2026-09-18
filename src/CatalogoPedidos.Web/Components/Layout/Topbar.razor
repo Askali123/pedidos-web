@@ -7,7 +7,9 @@
     </button>
 
     <div class="min-w-0">
-        @if (HeaderState.Breadcrumb.Count > 0)
+        @* Con 1 solo ítem el breadcrumb repite el título de abajo sin aportar nada —
+           ver docs/PLAN_MEJORAS_UI_UX.md #6. Con 0 tampoco hay nada que mostrar. *@
+        @if (HeaderState.Breadcrumb.Count > 1)
         {
             <Breadcrumb Items="HeaderState.Breadcrumb" />
         }

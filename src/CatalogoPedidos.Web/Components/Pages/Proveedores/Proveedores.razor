@@ -5,95 +5,102 @@
 
 <PageTitle>Proveedores</PageTitle>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-    <div class="lg:col-span-2">
-        <Card Title="Proveedores registrados">
-            @if (proveedores is null)
-            {
-                <Loading />
-            }
-            else if (proveedores.Count == 0)
-            {
-                <EmptyState Icon="truck" Title="Sin proveedores" Description="Todavía no hay proveedores registrados." />
-            }
-            else
-            {
-                <div class="table-wrap">
-                    <table class="table-enterprise">
-                        <thead>
+<div class="space-y-6">
+    <Card Title="Proveedores registrados">
+        @if (proveedores is null)
+        {
+            <Loading />
+        }
+        else if (proveedores.Count == 0)
+        {
+            <EmptyState Icon="truck" Title="Sin proveedores" Description="Todavía no hay proveedores registrados." />
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table-enterprise">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>NIT</th>
+                            <th>Contacto</th>
+                            <th>Teléfono</th>
+                            <th>Email</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in proveedores)
+                        {
                             <tr>
-                                <th>Nombre</th>
-                                <th>NIT</th>
-                                <th>Contacto</th>
-                                <th>Teléfono</th>
-                                <th>Email</th>
-                                <th></th>
+                                <td class="font-medium text-gray-900" data-label="Nombre">@p.Nombre</td>
+                                <td data-label="NIT">@p.Nit</td>
+                                <td data-label="Contacto">@p.Contacto</td>
+                                <td data-label="Teléfono">@p.Telefono</td>
+                                <td data-label="Email">@p.Email</td>
+                                <td class="text-right">
+                                    <div class="flex items-center gap-2 justify-end flex-wrap">
+                                        <a class="btn btn-secondary btn-sm" href="/proveedores/@p.Id/productos">Ver productos</a>
+                                        <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="pencil" OnClick="() => AbrirEditar(p)">Editar</Button>
+                                        <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="trash" OnClick="() => PedirConfirmacionDesactivar(p)">Desactivar</Button>
+                                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var p in proveedores)
-                            {
-                                <tr>
-                                    <td class="font-medium text-gray-900">@p.Nombre</td>
-                                    <td>@p.Nit</td>
-                                    <td>@p.Contacto</td>
-                                    <td>@p.Telefono</td>
-                                    <td>@p.Email</td>
-                                    <td class="text-right">
-                                        <div class="flex items-center gap-2 justify-end">
-                                            <a class="btn btn-secondary btn-sm" href="/proveedores/@p.Id/productos">Ver productos</a>
-                                            <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="pencil" OnClick="() => AbrirEditar(p)">Editar</Button>
-                                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="trash" OnClick="() => PedirConfirmacionDesactivar(p)">Desactivar</Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </Card>
+
+    <div class="max-w-xl">
+        <Card Title="Nuevo proveedor">
+            <EditForm Model="modelo" OnValidSubmit="Guardar" FormName="nuevo-proveedor">
+                <DataAnnotationsValidator />
+
+                <FormField Label="Nombre" Required="true">
+                    <InputText @bind-Value="modelo.Nombre" class="form-input" />
+                </FormField>
+
+                <FormField Label="NIT">
+                    <InputText @bind-Value="modelo.Nit" class="form-input" />
+                    @{ var nitDuplicados = ProveedoresConMismoNit(modelo.Nit); }
+                    @if (nitDuplicados.Count > 0)
+                    {
+                        <p class="text-xs text-warning-700 mt-1">
+                            ⚠ @(nitDuplicados.Count == 1 ? "Ya existe un proveedor" : "Ya existen proveedores") con este NIT: @string.Join(", ", nitDuplicados.Select(p => p.Nombre)). Revisá que no sea un duplicado antes de guardar.
+                        </p>
+                    }
+                </FormField>
+
+                <FormField Label="Contacto">
+                    <InputText @bind-Value="modelo.Contacto" class="form-input" />
+                </FormField>
+
+                <FormField Label="Teléfono">
+                    <InputText @bind-Value="modelo.Telefono" class="form-input" />
+                </FormField>
+
+                <FormField Label="Email">
+                    <InputText @bind-Value="modelo.Email" class="form-input" />
+                    <ValidationMessage For="() => modelo.Email" class="text-danger-700 text-xs mt-1" />
+                </FormField>
+
+                @if (!string.IsNullOrEmpty(error))
+                {
+                    <Alert Variant="AlertVariant.Danger">@error</Alert>
+                }
+                @if (!string.IsNullOrEmpty(mensaje))
+                {
+                    <Alert Variant="AlertVariant.Success">@mensaje</Alert>
+                }
+
+                <div class="mt-2">
+                    <Button Type="submit" Variant="ButtonVariant.Primary" Icon="plus">Guardar proveedor</Button>
                 </div>
-            }
+            </EditForm>
         </Card>
     </div>
-
-    <Card Title="Nuevo proveedor">
-        <EditForm Model="modelo" OnValidSubmit="Guardar" FormName="nuevo-proveedor">
-            <DataAnnotationsValidator />
-
-            <FormField Label="Nombre" Required="true">
-                <InputText @bind-Value="modelo.Nombre" class="form-input" />
-            </FormField>
-
-            <FormField Label="NIT">
-                <InputText @bind-Value="modelo.Nit" class="form-input" />
-            </FormField>
-
-            <FormField Label="Contacto">
-                <InputText @bind-Value="modelo.Contacto" class="form-input" />
-            </FormField>
-
-            <FormField Label="Teléfono">
-                <InputText @bind-Value="modelo.Telefono" class="form-input" />
-            </FormField>
-
-            <FormField Label="Email">
-                <InputText @bind-Value="modelo.Email" class="form-input" />
-                <ValidationMessage For="() => modelo.Email" class="text-danger-700 text-xs mt-1" />
-            </FormField>
-
-            @if (!string.IsNullOrEmpty(error))
-            {
-                <Alert Variant="AlertVariant.Danger">@error</Alert>
-            }
-            @if (!string.IsNullOrEmpty(mensaje))
-            {
-                <Alert Variant="AlertVariant.Success">@mensaje</Alert>
-            }
-
-            <div class="mt-2">
-                <Button Type="submit" Variant="ButtonVariant.Primary" Icon="plus">Guardar proveedor</Button>
-            </div>
-        </EditForm>
-    </Card>
 </div>
 
 <Modal Visible="modalEditarVisible" VisibleChanged="v => modalEditarVisible = v" Title="Editar proveedor">
@@ -107,6 +114,13 @@
 
             <FormField Label="NIT">
                 <InputText @bind-Value="modeloEditar.Nit" class="form-input" />
+                @{ var nitDuplicadosEditar = ProveedoresConMismoNit(modeloEditar.Nit, proveedorEditandoId); }
+                @if (nitDuplicadosEditar.Count > 0)
+                {
+                    <p class="text-xs text-warning-700 mt-1">
+                        ⚠ @(nitDuplicadosEditar.Count == 1 ? "Ya existe un proveedor" : "Ya existen proveedores") con este NIT: @string.Join(", ", nitDuplicadosEditar.Select(p => p.Nombre)). Revisá que no sea un duplicado antes de guardar.
+                    </p>
+                }
             </FormField>
 
             <FormField Label="Contacto">
@@ -157,13 +171,28 @@
 
     protected override async Task OnInitializedAsync()
     {
-        HeaderState.Set("Proveedores", [("Proveedores", null)]);
+        HeaderState.Set("Proveedores");
         await Cargar();
     }
 
     private async Task Cargar()
     {
         proveedores = await ProveedorService.ObtenerTodosAsync();
+    }
+
+    /// <summary>
+    /// Aviso, no bloqueo: dos proveedores ya conviven hoy con el mismo NIT en datos
+    /// reales (probable duplicado, no necesariamente un error), así que esto solo
+    /// informa antes de guardar — no impide crear/editar con un NIT repetido.
+    /// </summary>
+    private List<Proveedor> ProveedoresConMismoNit(string? nit, int? excluirId = null)
+    {
+        if (string.IsNullOrWhiteSpace(nit) || proveedores is null)
+            return [];
+
+        return proveedores
+            .Where(p => p.Id != excluirId && string.Equals(p.Nit?.Trim(), nit.Trim(), StringComparison.OrdinalIgnoreCase))
+            .ToList();
     }
 
     private async Task Guardar()

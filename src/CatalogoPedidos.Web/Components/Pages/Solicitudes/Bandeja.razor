@@ -63,6 +63,12 @@
                             </div>
                         }
                         <EntregaBadge Confirmacion="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId)" />
+                        @if (confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId) is not null)
+                        {
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                La entrega corresponde a las líneas ya aprobadas de este pedido — las de abajo son otras líneas que todavía están pendientes de resolver.
+                            </p>
+                        }
                     </div>
 
                     <div class="flex items-center gap-2">
@@ -128,8 +134,8 @@
                             @foreach (var s in grupo)
                             {
                                 <tr>
-                                    <td class="font-medium text-gray-900">@s.Producto?.Nombre</td>
-                                    <td class="text-gray-500">
+                                    <td class="font-medium text-gray-900" data-label="Producto">@s.Producto?.Nombre</td>
+                                    <td class="text-gray-500" data-label="Proveedor · Código">
                                         @if (codigosPorProducto.TryGetValue(s.ProductoId, out var pp))
                                         {
                                             @($"{pp.Proveedor!.Nombre} · {pp.CodigoProveedor}")
@@ -143,9 +149,9 @@
                                             @:—
                                         }
                                     </td>
-                                    <td>@s.Cantidad</td>
+                                    <td data-label="Cantidad">@s.Cantidad</td>
                                     <td>
-                                        <div class="flex items-center gap-2 justify-end">
+                                        <div class="flex items-center gap-2 justify-end flex-wrap">
                                             @if (pedidosEnSeleccion.Contains(grupo.Key.PedidoId))
                                             {
                                                 var decision = decisiones.GetValueOrDefault(s.Id);
@@ -251,7 +257,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        HeaderState.Set("Bandeja de solicitudes", [("Bandeja de solicitudes", null)]);
+        HeaderState.Set("Bandeja de solicitudes");
         await Cargar();
     }
 

@@ -14,10 +14,11 @@
     @if (CarritoState.TotalItems == 0)
     {
         <div class="card">
-            <EmptyState Icon="cart" Title="El carrito está vacío" Description="Agrega productos desde el catálogo para armar tu solicitud." />
-            <div class="mt-4 text-center">
-                <a class="btn btn-primary" href="/catalogo">Ir al catálogo</a>
-            </div>
+            <EmptyState Icon="cart" Title="El carrito está vacío" Description="Agrega productos desde el catálogo para armar tu solicitud.">
+                <Action>
+                    <a class="btn btn-primary" href="/catalogo">Ir al catálogo</a>
+                </Action>
+            </EmptyState>
         </div>
     }
     else

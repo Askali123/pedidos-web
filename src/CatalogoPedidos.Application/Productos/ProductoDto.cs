@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace CatalogoPedidos.Application.Productos;
 
 public class ProductoDto
@@ -14,11 +16,21 @@ public class ProductoDto
 
 public class CrearProductoDto
 {
+    [Required(ErrorMessage = "El nombre es obligatorio.")]
+    [StringLength(200, MinimumLength = 1, ErrorMessage = "El nombre debe tener entre {2} y {1} caracteres.")]
     public string Nombre { get; set; } = string.Empty;
+
     public string Descripcion { get; set; } = string.Empty;
     public string Categoria { get; set; } = string.Empty;
     public string UnidadMedida { get; set; } = string.Empty;
+
+    [Range(0, double.MaxValue, ErrorMessage = "El precio no puede ser negativo.")]
     public decimal Precio { get; set; }
+
+    // Sin [Range] a propósito: el stock negativo es un estado real que ya usa la app
+    // (aprobaciones que superan lo disponible) — bloquearlo acá rompería poder editar
+    // el nombre/precio de un producto que ya quedó en negativo sin forzar antes a
+    // corregir el stock. Ver docs/PLAN_MEJORAS_UI_UX.md #1.
     public int Stock { get; set; }
 
     /// <summary>Umbral opcional para avisarle al gestor cuando el stock quede en o por debajo de este número.</summary>

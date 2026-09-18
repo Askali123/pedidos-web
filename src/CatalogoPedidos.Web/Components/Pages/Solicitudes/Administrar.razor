@@ -195,16 +195,16 @@
                             @foreach (var s in grupo)
                             {
                                 <tr>
-                                    <td class="text-gray-400">#@s.Id</td>
-                                    <td class="font-medium text-gray-900">@s.Producto?.Nombre</td>
+                                    <td class="text-gray-400" data-label="N.º">#@s.Id</td>
+                                    <td class="font-medium text-gray-900" data-label="Producto">@s.Producto?.Nombre</td>
                                     @if (proveedorId is not null)
                                     {
-                                        <td class="text-gray-500">#@s.ProductoId</td>
-                                        <td class="font-medium text-gray-900">@codigosProveedorPorProducto.GetValueOrDefault(s.ProductoId, "-")</td>
+                                        <td class="text-gray-500" data-label="Código interno">#@s.ProductoId</td>
+                                        <td class="font-medium text-gray-900" data-label="Código proveedor">@codigosProveedorPorProducto.GetValueOrDefault(s.ProductoId, "-")</td>
                                     }
                                     else
                                     {
-                                        <td class="text-gray-500">
+                                        <td class="text-gray-500" data-label="Proveedor · Código">
                                             @if (codigosPreferidosPorProducto.TryGetValue(s.ProductoId, out var pp))
                                             {
                                                 @($"{pp.Proveedor!.Nombre} · {pp.CodigoProveedor}")
@@ -219,9 +219,9 @@
                                             }
                                         </td>
                                     }
-                                    <td>@s.Cantidad</td>
-                                    <td><Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge></td>
-                                    <td>@(s.GestorNombre ?? "-")</td>
+                                    <td data-label="Cantidad">@s.Cantidad</td>
+                                    <td data-label="Estado"><Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge></td>
+                                    <td data-label="Gestor">@(s.GestorNombre ?? "-")</td>
                                     <td class="text-right"><a class="btn btn-secondary btn-sm" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a></td>
                                 </tr>
                             }
@@ -325,7 +325,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        HeaderState.Set("Administrar pedidos", [("Administrar pedidos", null)]);
+        HeaderState.Set("Administrar pedidos");
         solicitantes = await Solicitudes.ObtenerSolicitantesAsync();
         catalogo = await Productos.ObtenerCatalogoAsync();
         proveedores = await Proveedores.ObtenerTodosAsync();
