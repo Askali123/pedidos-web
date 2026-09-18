@@ -130,7 +130,12 @@
 
         if (result.Succeeded)
         {
-            var user = await UserManager.FindByEmailAsync(Input.Email);
+            // No usar Input.Email acá: en un login por passkey con credencial descubrible
+            // (autofill, sin escribir nada) llega vacío y este chequeo se saltaba en
+            // silencio — ver docs/PLAN_MEJORAS_AUTENTICACION.md #7. HttpContext.User ya
+            // refleja al usuario recién logueado (SignInManager lo actualiza como parte
+            // del sign-in), así que sirve igual para login por contraseña o por passkey.
+            var user = await UserManager.GetUserAsync(HttpContext.User);
             if (user is not null && !await UserManager.IsInRoleAsync(user, Input.RolSeleccionado))
             {
                 await SignInManager.SignOutAsync();

@@ -95,6 +95,12 @@ mismo: solo cambian `Smtp:Host`/`Smtp:Port` y cómo genera ese proveedor la cont
 | Gestor  | gestor@catalogo.local  | Gestor123!   |
 | Usuario | usuario@catalogo.local | Usuario123!  |
 
+Estas cuentas (y los productos de ejemplo del catálogo) solo se crean cuando la app
+corre en el ambiente Development (`Seed.EjecutarAsync` en `Program.cs` lo verifica antes
+de sembrar nada — los roles sí se crean siempre, son infraestructura necesaria). Si este
+proyecto alguna vez se despliega en un ambiente real, no van a aparecer solas, pero de
+todos modos conviene no reutilizar estas contraseñas ahí bajo ningún concepto.
+
 ## Comandos útiles de EF Core
 
 ```bash

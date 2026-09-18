@@ -8,16 +8,29 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Register confirmation</PageTitle>
+<PageTitle>Revisa tu correo</PageTitle>
 
-<h1>Register confirmation</h1>
-
-<StatusMessage Message="@statusMessage" />
-
-<p role="alert">Please check your email to confirm your account.</p>
+<Card Title="Revisa tu correo">
+    @if (errorMessage is not null)
+    {
+        <Alert Variant="AlertVariant.Danger">@errorMessage</Alert>
+    }
+    else
+    {
+        <Alert Variant="AlertVariant.Success">
+            Te enviamos un correo a <strong>@Email</strong> con un enlace para confirmar tu
+            cuenta. Puede tardar unos minutos en llegar — revisá también la carpeta de spam.
+            Si no te llega, podés reenviarlo desde el enlace de abajo.
+        </Alert>
+    }
+    <div class="mt-4 text-sm text-center space-x-3">
+        <a href="Account/ResendEmailConfirmation" class="text-primary-700 hover:underline">Reenviar el correo</a>
+        <a href="Account/Login" class="text-primary-700 hover:underline">Volver a iniciar sesión</a>
+    </div>
+</Card>
 
 @code {
-    private string? statusMessage;
+    private string? errorMessage;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -37,7 +50,7 @@
         if (user is null)
         {
             HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
-            statusMessage = "Error finding user for unspecified email";
+            errorMessage = "No encontramos ninguna cuenta con ese email.";
         }
     }
 }

@@ -65,12 +65,13 @@ builder.Services.AddScoped<IEmailSender<ApplicationUser>, IdentityEmailSender>()
 
 var app = builder.Build();
 
-// Aplica migraciones pendientes y siembra roles/usuario gestor de ejemplo al iniciar.
+// Aplica migraciones pendientes y siembra roles (siempre) + cuentas/productos de
+// ejemplo (solo en desarrollo — ver docs/PLAN_MEJORAS_AUTENTICACION.md #12).
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
-    await Seed.EjecutarAsync(scope.ServiceProvider);
+    await Seed.EjecutarAsync(scope.ServiceProvider, app.Environment.IsDevelopment());
 }
 
 app.UseRequestLocalization(opcionesLocalizacion);

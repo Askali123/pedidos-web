@@ -73,7 +73,16 @@
     [SupplyParameterFromQuery]
     private string? ReturnUrl { get; set; }
 
-    private string? Message => identityErrors is null ? null : string.Join(", ", identityErrors.Select(error => error.Description));
+    // "DuplicateUserName"/"DuplicateEmail" confirmarían que ese email ya tiene cuenta
+    // (enumeración de cuentas) si se mostrara tal cual — se reemplaza por un mensaje
+    // genérico que no lo confirma. El resto de errores (contraseña débil, etc.) no
+    // filtran nada, así que se muestran específicos para que el usuario pueda
+    // corregirlos — ver docs/PLAN_MEJORAS_AUTENTICACION.md #10.
+    private const string MensajeEmailDuplicado = "No pudimos completar el registro con estos datos. Si ya tenés una cuenta, iniciá sesión o recuperá tu contraseña.";
+
+    private string? Message => identityErrors is null ? null : string.Join(", ", identityErrors
+        .Select(error => error.Code is "DuplicateUserName" or "DuplicateEmail" ? MensajeEmailDuplicado : error.Description)
+        .Distinct());
 
     protected override void OnInitialized()
     {

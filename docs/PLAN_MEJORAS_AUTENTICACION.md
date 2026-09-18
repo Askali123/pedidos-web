@@ -241,57 +241,253 @@ es la prioridad acordada.
 
 ## P2 — UX y consistencia
 
-- [ ] **6. Revisar el texto de `RegisterConfirmation.razor` tras conectar el email real**
-  Hoy le dice al usuario que revise su correo aunque nunca llegue nada (tarea 1 lo
-  destraba); una vez el envío sea real, confirmar que el mensaje siga siendo preciso
-  (qué esperar, cuánto puede tardar, qué hacer si no llega).
+- [x] **6. Revisar el texto de `RegisterConfirmation.razor` tras conectar el email real** — Hecho.
+  Al revisarlo apareció un hallazgo previo a cualquier tema de texto: con
+  `RequireConfirmedAccount = false` (decisión ya acordada, ver tarea 1), tanto
+  `Register.razor` como `ExternalLogin.razor` solo redirigen a esta pantalla dentro de
+  un `if (UserManager.Options.SignIn.RequireConfirmedAccount)` — condición que hoy
+  nunca se cumple. En la práctica **esta pantalla es inalcanzable por el flujo normal
+  de la app**: quien se registra queda logueado directo, sin pasar por acá. Sigue
+  siendo accesible solo si alguien escribe la URL a mano
+  (`/Account/RegisterConfirmation?email=...`), algo que hoy no tiene ningún link real
+  en la app.
 
-- [ ] **7. Selector de rol en login vs. passkeys**
-  El chequeo de "elegiste Gestor pero tu cuenta es Solicitante" (`Login.razor`) busca
+  Aun así se corrigió el texto, por dos razones: (1) sigue siendo una ruta pública
+  real y con URL adivinable, y (2) si en algún momento se activa
+  `RequireConfirmedAccount` (revirtiendo la decisión de la tarea 1), esta pantalla
+  vuelve a ser parte del flujo real de registro. Estaba en inglés, sin traducir, y con
+  markup plano (`<h1>`/`<p>`) en vez de los componentes `Card`/`Alert` que ya usan las
+  pantallas hermanas (`ForgotPasswordConfirmation.razor`). Se tradujo y restyleó para
+  quedar consistente, con un mensaje que es preciso sin importar el valor de
+  `RequireConfirmedAccount` (se evitó afirmar "no hace falta confirmar para entrar",
+  que sería falso justo en el único caso en que esta pantalla se muestra por el flujo
+  normal): ahora dice qué se envió, cuánto puede tardar, que revise spam, y agrega un
+  link para reenviarlo (`Account/ResendEmailConfirmation`) y otro para volver al
+  login. El caso de error (email sin cuenta asociada) se tradujo también y se
+  reescribió usando `Alert Variant="AlertVariant.Danger"` en vez del `StatusMessage`
+  con clases `alert-danger` del scaffolding original, sin tocar la lógica (sigue
+  devolviendo 404).
+
+  Verificado en el navegador navegando directo a la URL con query string (ya que no
+  hay ningún link real que lleve ahí): con un email existente (`gestor@catalogo.local`)
+  se ve la tarjeta "Revisa tu correo" traducida y estilada correctamente; con un email
+  sin cuenta (`noexiste@catalogo.local`) se ve la página "Not Found" de la app (404
+  correcto, mismo comportamiento que antes de este cambio, no es una regresión).
+  Archivo(s): `RegisterConfirmation.razor`
+
+- [x] **7. Selector de rol en login vs. passkeys** — Hecho.
+  El chequeo de "elegiste Gestor pero tu cuenta es Solicitante" (`Login.razor`) buscaba
   al usuario por `Input.Email` después de un sign-in exitoso — pero en un login por
-  passkey/credencial descubrible `Input.Email` puede venir vacío (es la naturaleza de
-  passkeys), así que ese chequeo se salta silenciosamente. No es un bypass de
-  autorización real (`[Authorize(Roles=...)]` en cada página sigue mandando), pero
-  rompe la consistencia de la UX que el selector de rol prometía. Decidir: aceptar el
-  gap documentado, o resolver el usuario por el id de la credencial en vez del email
-  para ese caso.
+  passkey con credencial descubrible (autofill, sin escribir nada en el campo Email;
+  confirmado leyendo `PasskeySubmit.razor.js`: `tryAutofillPasskey()` dispara el login
+  apenas el navegador soporta *conditional mediation*, antes de que el usuario toque
+  el campo Email, y manda `username=""` a `/Account/PasskeyRequestOptions`) ese
+  `Input.Email` llega vacío, `FindByEmailAsync("")` no encuentra a nadie, y el chequeo
+  se saltaba en silencio. No era un bypass de autorización real (`[Authorize(Roles=...)]`
+  en cada página seguía mandando), pero rompía la consistencia de la UX que el
+  selector de rol prometía.
 
-- [ ] **8. Aislar en scope los usos "menores" de `UserManager` sin scope**
+  Se resolvió (no se dejó como gap documentado): en vez de re-buscar al usuario por
+  `Input.Email`, ahora se resuelve con `UserManager.GetUserAsync(HttpContext.User)`.
+  Investigado por reflexión contra el ensamblado instalado
+  (`Microsoft.AspNetCore.Identity.dll` 10.0.12, mismo método que se usó para la tarea
+  13 — no hay decompilador disponible) que `SignInManager<TUser>` no expone un
+  `PasskeySignInResult` con el usuario ya resuelto (`PasskeySignInAsync` devuelve un
+  `SignInResult` plano, igual que `PasswordSignInAsync`); ambos métodos, sea cual sea
+  el mecanismo de autenticación, terminan actualizando `HttpContext.User` como parte
+  del sign-in — así que `HttpContext.User` refleja al usuario recién logueado sin
+  depender de qué campo del formulario haya llegado lleno o vacío. Con este cambio,
+  el mismo chequeo sirve para contraseña y para passkey por igual, sin ramas
+  especiales por método de login.
+
+  Verificado en el navegador (solo se pudo probar el camino de contraseña: una
+  ceremonia real de passkey requiere un autenticador WebAuthn nativo que las
+  herramientas de automatización no pueden simular sin abrir un diálogo del sistema
+  operativo, y hoy no hay ninguna passkey registrada en la base de datos de
+  desarrollo — confirmado con `SELECT COUNT(*) FROM AspNetUserPasskeys` = 0): logueé
+  `gestor@catalogo.local` (cuenta Gestor) con "Solicitante" seleccionado y la pantalla
+  mostró "Esta cuenta no tiene permisos de Solicitante." — igual que antes del
+  cambio, confirmando que `HttpContext.User` ya refleja el sign-in dentro del mismo
+  request (si no lo reflejara, `GetUserAsync` habría devuelto `null` y el chequeo se
+  habría saltado también para contraseña, revelando una regresión). Repetí el login
+  con "Gestor" seleccionado (coincide con el rol real) y entró normalmente, con el
+  menú de Gestor visible. El camino de passkey no se pudo ejercitar de punta a punta,
+  pero la corrección ya no depende de ningún dato específico del método de login —
+  usa la misma fuente (`HttpContext.User`) que Identity ya actualiza para cualquier
+  sign-in exitoso.
+  Archivo(s): `Login.razor`
+
+- [x] **8. Aislar en scope los usos "menores" de `UserManager` sin scope** — Hecho.
   `Administrar.razor`/`Bandeja.razor` (`DatosGestor`) y `Carrito.razor` (`Enviar()`)
-  llaman a `UserManager.GetUserAsync` sin scope aislado, pero desde manejadores de
-  evento (no `OnInitializedAsync`), así que la ventana de carrera con
-  `UserMenu.razor` es mucho más chica que en la tarea 2. Aplicar el mismo patrón por
-  consistencia y defensa en profundidad, no por urgencia.
+  llamaban a `UserManager.GetUserAsync` con el `UserManager` inyectado directo (sin
+  scope aislado), desde manejadores de evento (no `OnInitializedAsync`), así que la
+  ventana de carrera con `UserMenu.razor` era mucho más chica que en la tarea 2. Se
+  aplicó el mismo patrón por consistencia y defensa en profundidad, no por urgencia —
+  ninguno de los tres había mostrado la excepción de concurrencia en la práctica.
 
-- [ ] **9. Traducir y estilizar `AccessDenied.razor`**
-  Hoy es texto plano en inglés ("Access denied. You do not have access to this
+  `Administrar.razor` y `Bandeja.razor` comparten el mismo helper `DatosGestor`, así
+  que se le agregó `@inject IServiceScopeFactory ScopeFactory` a ambos archivos y el
+  scope se abre DENTRO del helper (`await using var scope = ScopeFactory
+  .CreateAsyncScope();`), no en cada uno de sus 3 call sites — como el `UserManager`
+  inyectado directo quedó sin ningún otro uso en ninguno de los dos archivos, se le
+  sacó el `@inject` a ambos. En `Carrito.razor`, `Enviar()` ya tenía `ScopeFactory`
+  inyectado (lo usa `OnInitializedAsync` desde la tarea 2 anterior a este plan), así
+  que solo hubo que envolver la única línea suelta (`UserManager.GetUserAsync(user)`)
+  en su propio `await using (var scope = ScopeFactory.CreateAsyncScope())`, y sacar
+  el `@inject UserManager<ApplicationUser> UserManager` que quedó sin uso.
+
+  Verificado en el navegador de punta a punta, ejercitando los tres call sites reales
+  (no solo compilación): logueado como `usuario@catalogo.local`, agregué un producto
+  al catálogo y lo envié desde el carrito (`Carrito.razor.Enviar()`) — se creó el
+  Pedido #63 en estado Pendiente. Logueado como `gestor@catalogo.local`, lo aprobé
+  desde la Bandeja (`Bandeja.razor.DatosGestor` vía el botón Aprobar) — "Solicitud
+  #130 aprobada." Después lo envié a "Distribuciones Andinas" desde Administrar
+  pedidos (`Administrar.razor.DatosGestor` vía `ConfirmarEnvio`, con el correo real
+  ya conectado desde la tarea 1) — "Pedido #63 enviado a Distribuciones Andinas (PDF
+  adjunto, 1 producto(s))", con "Gestor de Catálogo" mostrado correctamente como
+  quien lo envió (confirma que `DatosGestor` resolvió bien al usuario a través del
+  scope aislado). Sin errores nuevos en el log del servidor durante toda la prueba.
+  Archivo(s): `Administrar.razor`, `Bandeja.razor`, `Carrito.razor`
+
+- [x] **9. Traducir y estilizar `AccessDenied.razor`** — Hecho.
+  Era texto plano en inglés ("Access denied. You do not have access to this
   resource.") con una clase Tailwind que no sigue la convención del proyecto
-  (`text-danger` en vez de `text-danger-700`). Alinear con el resto de la app:
-  español, componentes existentes (`EmptyState`/`Alert` si aplica).
+  (`text-danger` en vez de `text-danger-700`, y sin ninguno de los componentes que
+  usa el resto de la app). Se reescribió con `Card`/`Alert` (mismo patrón que
+  `Lockout.razor`), en español: "Acceso denegado" / "No tenés permiso para acceder a
+  este recurso."
+
+  A diferencia de `Lockout.razor`/`InvalidUser.razor` (que ofrecen "Volver a iniciar
+  sesión"), acá el link es "Volver al inicio" (`/`): esta página es el
+  `AccessDeniedPath` por defecto de Identity, al que llega un usuario que YA tiene
+  sesión iniciada pero le falta el rol que exige la página (`[Authorize(Roles=...)]`)
+  — ofrecerle "iniciar sesión" no tendría sentido. Tampoco se le agregó
+  `@layout AuthLayout` (a diferencia de esas dos páginas, que sí lo tienen): como el
+  visitante está autenticado, conviene que mantenga el layout normal de la app
+  (sidebar y header) en vez del layout centrado de pre-login — es el mismo criterio
+  que ya usan por default el resto de páginas bajo `Components/Pages/*` (ninguna,
+  salvo `NotFound.razor`, fija un `@layout` explícito).
+
+  Verificado en el navegador: logueado como `usuario@catalogo.local` (rol
+  Solicitante), navegué directo a `/solicitudes/bandeja` (`[Authorize(Roles =
+  Roles.Gestor)]`) y la redirección automática de Identity llevó a
+  `/Account/AccessDenied?ReturnUrl=%2Fsolicitudes%2Fbandeja` — se vio la tarjeta
+  "Acceso denegado" traducida y estilada, con el sidebar/header de "Usuario de
+  Prueba" todavía visible (confirma que se mantuvo el layout normal). El link
+  "Volver al inicio" navegó correctamente a `/`. Sin errores nuevos en el log del
+  servidor.
+  Archivo(s): `AccessDenied.razor`
 
 ## P3 — Documentar como riesgo aceptado / bajo impacto
 
-- [ ] **10. Suavizar los mensajes de error de registro**
-  `Register.razor` muestra la descripción cruda de `IdentityError` (ej. "Username
-  already taken"), lo que permite enumerar cuentas existentes probando emails.
-  Impacto bajo para este proyecto — decidir si vale la pena un mensaje genérico o
-  simplemente dejarlo documentado como riesgo aceptado.
+- [x] **10. Suavizar los mensajes de error de registro** — Hecho.
+  `Register.razor` mostraba la descripción cruda de `IdentityError` (ej. "Username
+  'gestor@catalogo.local' is already taken"), lo que permitía enumerar cuentas
+  existentes probando emails en el formulario de registro. Impacto bajo para este
+  proyecto (app interna), pero se decidió mitigarlo en vez de solo documentarlo.
 
-- [ ] **11. Documentar la política de expiración de cookies/sesión**
-  No hay `ConfigureApplicationCookie` en ningún lado — la app corre con los valores
-  por defecto de Identity (14 días de expiración deslizante si "Recordarme" está
-  marcado). No es necesariamente incorrecto, pero conviene dejarlo escrito como
-  decisión deliberada en vez de un default accidental. De paso, documentar que
-  `IdentityRevalidatingAuthenticationStateProvider` ya revalida el security stamp
-  cada 30 min en circuitos conectados — es un control real ya existente que mitiga
-  sesiones viejas tras un cambio de contraseña o de rol, vale la pena que quede
-  anotado para que no se reinvente.
+  Se eligió el mensaje genérico acotado (no uno genérico para cualquier error de
+  registro): si el `IdentityError.Code` es `"DuplicateUserName"` o `"DuplicateEmail"`
+  (el email en esta app es también el username, así que un registro duplicado casi
+  siempre dispara ambos códigos a la vez — de ahí el `.Distinct()`, para no repetir
+  el mismo mensaje dos veces), se reemplaza por un mensaje genérico que no confirma
+  la duplicación: "No pudimos completar el registro con estos datos. Si ya tenés una
+  cuenta, iniciá sesión o recuperá tu contraseña." El resto de los `IdentityError`
+  (contraseña débil, etc.) se siguen mostrando tal cual — no filtran nada sobre
+  cuentas existentes, y ocultarlos sería peor UX (el usuario no sabría qué corregir).
 
-- [ ] **12. Nota sobre las contraseñas de las cuentas semilla**
-  `Gestor123!`/`Usuario123!` (`Seed.cs`) están bien para practicar, pero si este
-  proyecto alguna vez apunta a un despliegue real hay que recordarlo explícitamente
-  en el README o similar — no es una tarea de código, es una nota para no
-  olvidarla.
+  Verificado en el navegador: intenté registrar una cuenta nueva con el email de la
+  cuenta semilla `gestor@catalogo.local` (ya existente) y la pantalla mostró
+  únicamente el mensaje genérico — no reveló que ese email ya tiene cuenta más allá
+  de la ambigüedad que el propio mensaje reconoce a propósito. No se pudo forzar en
+  vivo un `IdentityError` distinto al de duplicado (la validación de contraseña
+  mínima ya la bloquea el `DataAnnotationsValidator` del lado cliente antes de
+  llegar al servidor, y no hay otras reglas de contraseña configuradas —
+  `RequireNonAlphanumeric = false`), pero el cambio deja esa rama intacta (mismo
+  `error.Description` que antes), así que no hay riesgo de regresión ahí. Sin errores
+  nuevos en el log del servidor.
+  Archivo(s): `Register.razor`
+
+- [x] **11. Documentar la política de expiración de cookies/sesión** — Hecho.
+  Tarea de documentación, sin cambios de código. Confirmado que no hay
+  `ConfigureApplicationCookie` en ningún lado del proyecto (`grep` sin resultados) —
+  la cookie de `IdentityConstants.ApplicationScheme` corre con los valores por
+  defecto de `CookieAuthenticationOptions`, verificados por código (instanciando la
+  clase directamente, ya que `AddIdentityCookies()` no los pisa): `ExpireTimeSpan` =
+  14 días, `SlidingExpiration = true`, `Cookie.HttpOnly = true`,
+  `Cookie.SecurePolicy = SameAsRequest`, `Cookie.SameSite = Lax`. Se deja anotado
+  como decisión deliberada (quedan como están) en vez de default accidental: son
+  razonables para esta app y no hay ningún requisito que pida algo distinto.
+
+  **Cómo interactúa esto con "Recordarme" en `Login.razor`**: el checkbox controla
+  `isPersistent` en `SignInManager.PasswordSignInAsync(...)`. Marcado, la cookie sale
+  con expiración persistente (los 14 días deslizantes de arriba). Sin marcar, la
+  cookie sale sin fecha de expiración explícita — es una cookie de sesión de
+  navegador, se borra al cerrar el navegador entero (no la pestaña) —
+  independientemente del `ExpireTimeSpan` configurado, que solo aplica a cookies
+  persistentes. Es el comportamiento estándar de cookies de ASP.NET Core, no algo
+  específico de este proyecto.
+
+  **Control ya existente, para que no se reinvente**:
+  `IdentityRevalidatingAuthenticationStateProvider` (`RevalidationInterval` =
+  `TimeSpan.FromMinutes(30)`) revalida cada 30 min, en cualquier circuito de Blazor
+  Server conectado, que el `SecurityStamp` del claim coincida con el de la base —
+  si no coincide, el circuito pierde la sesión sin esperar a que la cookie expire.
+  Mitiga sesiones activas después de un cambio de contraseña (`ChangePasswordAsync`/
+  `ResetPasswordAsync` actualizan el `SecurityStamp` como parte de su
+  implementación estándar en Identity).
+
+  **Corrección al hallazgo inicial de este plan**: el análisis original (más arriba
+  en este mismo punto, antes de esta verificación) asumía que este mecanismo también
+  cubría un cambio de rol — no es así. Verificado directo contra la base de datos de
+  desarrollo con un script descartable (mismo patrón que las tareas 4 y 13): tomé el
+  `SecurityStamp` de `usuario@catalogo.local`, le agregué el rol Gestor con
+  `UserManager.AddToRoleAsync` y volví a leerlo — sin cambios
+  (`JLWVZ5MSJJISIIZJKDZWE6XWF5Y2KDH2` antes y después); se lo quité con
+  `RemoveFromRoleAsync` y tampoco cambió. `AddToRoleAsync`/`RemoveFromRoleAsync` no
+  tocan el `SecurityStamp` en Identity. Esto quiere decir que la revalidación de 30
+  min **no** detecta un cambio de rol — el mensaje de "cerrá sesión y volvé a entrar"
+  que ya muestra `GestionRoles.razor` tras un auto-cambio de rol (tarea 4) no es solo
+  por la limitación de reescribir la cookie desde un click handler interactivo: aunque
+  esa limitación no existiera, la sesión activa igual quedaría con el rol viejo
+  indefinidamente (no en 30 min) hasta un logout/login real. Vale la pena tenerlo
+  anotado acá para no asumir a futuro que el control de 30 min ya cubre esto.
+  Archivo(s): ninguno (solo este documento) — referencia:
+  `IdentityRevalidatingAuthenticationStateProvider.cs`, `Login.razor`
+
+- [x] **12. Nota sobre las contraseñas de las cuentas semilla** — Hecho.
+  La tarea original solo pedía una nota en el README, pero al revisar `Program.cs`
+  apareció algo más serio que una nota: `Seed.EjecutarAsync(scope.ServiceProvider)`
+  se llamaba sin ningún `if (app.Environment.IsDevelopment())` — corría en
+  cualquier ambiente. Si esta app se desplegara alguna vez tal cual, además de
+  aplicar las migraciones pendientes, habría creado automáticamente
+  `gestor@catalogo.local` / `Gestor123!` (rol Gestor) y `usuario@catalogo.local` /
+  `Usuario123!`, y sembrado 5 productos ficticios en el catálogo real — no un
+  descuido de "contraseña débil para recordar cambiar", sino cuentas reales con
+  credenciales públicas (están en este mismo repo) creándose solas. Se lo planteé al
+  usuario en vez de decidir por mi cuenta si ampliaba el alcance de una tarea
+  marcada "no es tarea de código", y confirmó agregar el gate ahora.
+
+  `Seed.EjecutarAsync` ahora recibe un `bool esDesarrollo` — la creación de roles
+  (`Roles.Todos`) se sigue ejecutando siempre (es infraestructura que la
+  autorización necesita en cualquier ambiente, no datos de prueba), pero con
+  `if (!esDesarrollo) return;` justo después, antes de tocar las cuentas semilla o
+  los productos de ejemplo. `Program.cs` ahora llama
+  `Seed.EjecutarAsync(scope.ServiceProvider, app.Environment.IsDevelopment())`.
+  Además se agregó la nota original en el README, junto a la tabla de "Cuentas de
+  prueba", explicando que ahora dependen de `IsDevelopment()` y que las contraseñas
+  no deben reutilizarse en un ambiente real de todos modos.
+
+  Verificado corriendo la app en ambos ambientes: en `Development` (el default de
+  `dotnet run`) arrancó igual que siempre. Forzando `ASPNETCORE_ENVIRONMENT=Production`
+  (con `--no-launch-profile` para que no lo pisara `launchSettings.json`, y la
+  cadena de conexión pasada por variable de entorno ya que los `user-secrets` solo
+  se cargan en `Development`) arrancó limpio contra la misma base de datos de
+  desarrollo, sin ningún log de "sembrado"/"de ejemplo creado" (los roles ya
+  existían de antes, así que tampoco loguearon nada — comportamiento esperado, es
+  idempotente) y sin excepciones; Home y Login respondieron 200 normalmente,
+  confirmando que el gate no rompe el arranque en ese ambiente.
+  Archivo(s): `Seed.cs`, `Program.cs`, `README.md`
 
 ## Agregada después — severidad real P0
 

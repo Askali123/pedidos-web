@@ -6,7 +6,7 @@
 @inject IProveedorService Proveedores
 @inject IPedidoNotificacionProveedorService NotificacionesProveedor
 @inject IConfirmacionEntregaService ConfirmacionesEntrega
-@inject UserManager<ApplicationUser> UserManager
+@inject IServiceScopeFactory ScopeFactory
 @inject PageHeaderState HeaderState
 
 <PageTitle>Administrar pedidos</PageTitle>
@@ -421,8 +421,15 @@
 
     private async Task<(string GestorId, string GestorNombre, string? GestorEmail)> DatosGestor(Microsoft.AspNetCore.Components.Authorization.AuthenticationState authState)
     {
+        // Scope aparte: se llama desde manejadores de evento que pueden coincidir con
+        // UserMenu.razor llamando a UserManager sobre el mismo AppDbContext Scoped de
+        // Identity — mismo patrón que el resto de "Administrar cuenta"
+        // (ver docs/PLAN_MEJORAS_AUTENTICACION.md #2 y #8).
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
         var gestorId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
-        var appUser = await UserManager.GetUserAsync(authState.User);
+        var appUser = await scopedUserManager.GetUserAsync(authState.User);
         var gestorNombre = appUser.NombreParaMostrar(authState.User.Identity?.Name ?? "Gestor");
         return (gestorId, gestorNombre, appUser?.Email);
     }
