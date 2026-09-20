@@ -123,16 +123,24 @@ public class PdfExportService : IPdfExportService
                         }
                     });
 
-                    // Solo aparece cuando ya se confirmó la entrega — un pedido recién
-                    // aprobado, o uno todavía sin nada aprobado, no tiene ConfirmacionEntrega
-                    // (ver docs/PLAN_TRAZABILIDAD_ENTREGAS.md #16).
-                    if (pedido.ConfirmacionEntrega is { } confirmacion)
+                    // Una sección "Entrega" por cada confirmación — un pedido con
+                    // productos de varios proveedores puede tener varias, una por
+                    // proveedor (más la eventual "sin proveedor asociado"), en vez de una
+                    // sola para todo el pedido (ver
+                    // docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md #3). Un pedido recién
+                    // aprobado, o uno todavía sin nada aprobado, no tiene ninguna.
+                    foreach (var confirmacion in pedido.ConfirmacionesEntrega.OrderBy(c => c.FechaEntrega))
                     {
                         col.Item().LineHorizontal(1);
 
-                        col.Item().Text("Entrega").Bold().FontSize(14);
+                        var titulo = confirmacion.Proveedor is not null
+                            ? $"Entrega — {confirmacion.Proveedor.Nombre}"
+                            : "Entrega — sin proveedor asociado";
+                        col.Item().Text(titulo).Bold().FontSize(14);
                         col.Item().Text($"Fecha: {confirmacion.FechaEntrega:dd/MM/yyyy HH:mm}");
                         col.Item().Text($"Confirmada por: {confirmacion.ConfirmadoPorNombre}");
+                        if (!string.IsNullOrWhiteSpace(confirmacion.RecibidoPorNombre))
+                            col.Item().Text($"Recibido por: {confirmacion.RecibidoPorNombre}");
                         if (!string.IsNullOrWhiteSpace(confirmacion.DireccionEntregada))
                             col.Item().Text($"Dirección entregada: {confirmacion.DireccionEntregada}");
                         col.Item().Text(confirmacion.CoincideConDireccionIndicada

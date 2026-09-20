@@ -62,8 +62,9 @@
                                 }
                             </div>
                         }
-                        <EntregaBadge Confirmacion="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId)" />
-                        @if (confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId) is not null)
+                        <EntregaBadge Confirmaciones="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId) ?? []"
+                                      Grupos="gruposEntregaPorPedido.GetValueOrDefault(grupo.Key.PedidoId) ?? []" />
+                        @if (confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId)?.Count > 0)
                         {
                             <p class="text-xs text-gray-500 mt-0.5">
                                 La entrega corresponde a las líneas ya aprobadas de este pedido — las de abajo son otras líneas que todavía están pendientes de resolver.
@@ -87,9 +88,15 @@
                         }
                         <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">PDF del pedido</a>
 
-                        @if (tieneAprobadasPorPedido.GetValueOrDefault(grupo.Key.PedidoId) && confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId) is null)
+                        @if (gruposEntregaPorPedido.TryGetValue(grupo.Key.PedidoId, out var gruposEntrega))
                         {
-                            <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" Icon="truck" OnClick="() => AbrirConfirmarEntrega(grupo.Key.PedidoId, grupo.Key.DireccionEntrega)">Confirmar entrega</Button>
+                            @foreach (var g in gruposEntrega.Where(g => !g.Confirmado))
+                            {
+                                <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" Icon="truck"
+                                        OnClick="() => AbrirConfirmarEntrega(grupo.Key.PedidoId, g, grupo.Key.DireccionEntrega)">
+                                    Confirmar entrega@(g.ProveedorNombre is not null ? $" — {g.ProveedorNombre}" : "")
+                                </Button>
+                            }
                         }
 
                         <Dropdown AlignRight="true" CloseOnClick="true">
@@ -99,14 +106,17 @@
                                 </span>
                             </Trigger>
                             <ChildContent>
-                                <div class="w-60 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                                <div class="w-72 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
                                     @if (proveedoresPorPedido.TryGetValue(grupo.Key.PedidoId, out var opciones) && opciones.Count > 0)
                                     {
                                         @foreach (var op in opciones)
                                         {
-                                            <button type="button" class="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" @onclick="() => PedirConfirmacionEnvio(grupo.Key.PedidoId, op)">
-                                                <span>@op.ProveedorNombre</span>
-                                                <span class="text-xs text-gray-400">@op.CantidadLineas prod.</span>
+                                            <button type="button" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" @onclick="() => PedirConfirmacionEnvio(grupo.Key.PedidoId, op)">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <span class="font-medium">@op.ProveedorNombre</span>
+                                                    <span class="text-xs text-gray-400 shrink-0">@op.CantidadLineas prod.</span>
+                                                </div>
+                                                <p class="text-xs text-gray-400 mt-0.5 truncate">@string.Join(", ", op.Productos.Select(p => p.Nombre))</p>
                                             </button>
                                         }
                                     }
@@ -189,6 +199,15 @@
                Message="@($"¿Enviar el pedido #{pedidoPendienteEnvio} a \"{proveedorPendienteEnvio?.ProveedorNombre}\" ({proveedorPendienteEnvio?.CantidadLineas} producto(s))? Se le manda un correo real con el detalle en PDF — no se puede deshacer.")"
                ConfirmText="Enviar" OnConfirm="ConfirmarEnvio">
     <ExtraContent>
+        @if (proveedorPendienteEnvio?.Productos.Count > 0)
+        {
+            <ul class="list-disc list-inside text-sm text-gray-600 mb-3 space-y-0.5">
+                @foreach (var producto in proveedorPendienteEnvio.Productos)
+                {
+                    <li>@producto.Nombre <span class="text-gray-400">· cantidad: @producto.Cantidad</span></li>
+                }
+            </ul>
+        }
         <label class="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" class="form-checkbox" @bind="adjuntarExcel" />
             También adjuntar el detalle en Excel
@@ -221,7 +240,7 @@
     </Footer>
 </Modal>
 
-<Modal Visible="modalEntregaVisible" VisibleChanged="v => modalEntregaVisible = v" Title="Confirmar entrega">
+<Modal Visible="modalEntregaVisible" VisibleChanged="v => modalEntregaVisible = v" Title="@tituloModalEntrega">
     <ChildContent>
         <FormField Label="Dirección entregada" Hint="A dónde se llevaron los insumos en la práctica — prellenada con la que pidió el solicitante, pero editable si terminó siendo otra.">
             <input class="form-input" @bind="direccionEntregadaPendiente" placeholder="Ej. Bodega principal, Cra 10 # 20-30" />
@@ -230,6 +249,9 @@
             <input type="checkbox" class="form-checkbox" @bind="coincideDireccionPendiente" />
             ¿Coincide con la dirección indicada por el solicitante?
         </label>
+        <FormField Label="Quién lo recibió (opcional)" Hint="La persona que recibió los insumos en la práctica — no hace falta si fuiste vos mismo.">
+            <input class="form-input" @bind="recibidoPorPendiente" placeholder="Ej. Juan Pérez, portería" />
+        </FormField>
         <FormField Label="Observaciones (opcional)" Hint="Útil sobre todo si no coincidió la dirección, para explicar qué pasó.">
             <textarea class="form-textarea" rows="3" @bind="observacionesEntregaPendiente"></textarea>
         </FormField>
@@ -251,7 +273,8 @@
     private Dictionary<int, List<ProveedorDelPedidoDto>> proveedoresPorPedido = new();
     private Dictionary<int, List<NotificacionProveedor>> enviosPorPedido = new();
     private Dictionary<int, bool> tieneAprobadasPorPedido = new();
-    private Dictionary<int, ConfirmacionEntrega?> confirmacionesPorPedido = new();
+    private Dictionary<int, List<ConfirmacionEntrega>> confirmacionesPorPedido = new();
+    private Dictionary<int, List<GrupoEntregaDto>> gruposEntregaPorPedido = new();
     private string? mensaje;
     private AlertVariant mensajeVariante = AlertVariant.Success;
 
@@ -276,6 +299,7 @@
         enviosPorPedido.Clear();
         tieneAprobadasPorPedido.Clear();
         confirmacionesPorPedido.Clear();
+        gruposEntregaPorPedido.Clear();
         foreach (var pedidoId in grupos.Select(g => g.Key.PedidoId))
         {
             proveedoresPorPedido[pedidoId] = await NotificacionesProveedor.ObtenerProveedoresDisponiblesAsync(pedidoId);
@@ -287,6 +311,7 @@
             var pedidoCompleto = await Solicitudes.ObtenerPedidoAsync(pedidoId);
             tieneAprobadasPorPedido[pedidoId] = pedidoCompleto?.Items.Any(i => i.Estado == EstadoSolicitud.Aprobada) ?? false;
             confirmacionesPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerPorPedidoAsync(pedidoId);
+            gruposEntregaPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerGruposDeEntregaAsync(pedidoId);
         }
     }
 
@@ -458,20 +483,34 @@
         mensajeVariante = resultado.Enviado ? AlertVariant.Success : AlertVariant.Warning;
 
         if (resultado.Enviado)
+        {
             enviosPorPedido[pedidoPendienteEnvio] = await NotificacionesProveedor.ObtenerEnviosAsync(pedidoPendienteEnvio);
+            // Un envío nuevo puede hacer aparecer un grupo de entrega nuevo (el proveedor
+            // recién notificado) — refrescar para que el botón "Confirmar entrega" de ese
+            // proveedor aparezca sin esperar a la próxima carga completa.
+            gruposEntregaPorPedido[pedidoPendienteEnvio] = await ConfirmacionesEntrega.ObtenerGruposDeEntregaAsync(pedidoPendienteEnvio);
+        }
     }
 
     private bool modalEntregaVisible;
     private int pedidoIdEntregaPendiente;
+    private int? proveedorIdEntregaPendiente;
+    private string tituloModalEntrega = "Confirmar entrega";
     private string? direccionEntregadaPendiente;
     private bool coincideDireccionPendiente;
+    private string? recibidoPorPendiente;
     private string? observacionesEntregaPendiente;
 
-    private void AbrirConfirmarEntrega(int pedidoId, string? direccionSugerida)
+    private void AbrirConfirmarEntrega(int pedidoId, GrupoEntregaDto grupoEntrega, string? direccionSugerida)
     {
         pedidoIdEntregaPendiente = pedidoId;
+        proveedorIdEntregaPendiente = grupoEntrega.ProveedorId;
+        tituloModalEntrega = grupoEntrega.ProveedorNombre is not null
+            ? $"Confirmar entrega — {grupoEntrega.ProveedorNombre}"
+            : "Confirmar entrega — sin proveedor asociado";
         direccionEntregadaPendiente = direccionSugerida;
         coincideDireccionPendiente = true;
+        recibidoPorPendiente = null;
         observacionesEntregaPendiente = null;
         modalEntregaVisible = true;
     }
@@ -483,10 +522,11 @@
         {
             DireccionEntregada = direccionEntregadaPendiente,
             CoincideConDireccionIndicada = coincideDireccionPendiente,
+            RecibidoPorNombre = recibidoPorPendiente,
             Observaciones = observacionesEntregaPendiente
         };
 
-        await ConfirmacionesEntrega.ConfirmarAsync(pedidoIdEntregaPendiente, gestorId, gestorNombre, dto);
+        await ConfirmacionesEntrega.ConfirmarAsync(pedidoIdEntregaPendiente, proveedorIdEntregaPendiente, gestorId, gestorNombre, dto);
         mensaje = $"Entrega del pedido #{pedidoIdEntregaPendiente} confirmada.";
         mensajeVariante = AlertVariant.Success;
 

@@ -15,10 +15,13 @@ public class ConfirmacionEntregaRepository(IDbContextFactory<AppDbContext> dbFac
         return confirmacion;
     }
 
-    public async Task<ConfirmacionEntrega?> ObtenerPorPedidoAsync(int pedidoId, CancellationToken ct = default)
+    public async Task<List<ConfirmacionEntrega>> ObtenerPorPedidoAsync(int pedidoId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         return await db.ConfirmacionesEntrega
-            .FirstOrDefaultAsync(c => c.PedidoId == pedidoId, ct);
+            .Include(c => c.Proveedor)
+            .Where(c => c.PedidoId == pedidoId)
+            .OrderBy(c => c.FechaEntrega)
+            .ToListAsync(ct);
     }
 }

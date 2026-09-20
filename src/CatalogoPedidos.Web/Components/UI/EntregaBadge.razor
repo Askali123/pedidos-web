@@ -1,26 +1,61 @@
-@* Resume el estado de entrega de un pedido — no muestra nada si todavía no se confirmó.
-   Si la dirección entregada coincidió con la indicada, un badge verde con fecha y quién
-   la confirmó alcanza. Si NO coincidió, se usa un badge de advertencia que llama la
-   atención y, debajo, las observaciones del gestor si las dejó — ver
-   docs/PLAN_TRAZABILIDAD_ENTREGAS.md #15. *@
-@if (Confirmacion is not null)
+@* Resume el estado de entrega de un pedido — no muestra nada si todavía no hay ninguna
+   confirmación. Con un solo grupo de entrega (el caso más común: nada o un único
+   proveedor/"sin proveedor"), un badge simple alcanza, igual que antes. Con más de uno
+   (el pedido tuvo productos de varios proveedores distintos), se muestra el progreso
+   agregado ("2/3 entregados") y el detalle de cada grupo — no puede resumirse en un solo
+   ✓/nada porque puede haber unos ya entregados y otros todavía no (ver
+   docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md #7). *@
+@if (Confirmaciones.Count > 0)
 {
     <div class="mt-1">
-        @if (Confirmacion.CoincideConDireccionIndicada)
+        @if (Grupos.Count <= 1)
         {
-            <Badge Variant="BadgeVariant.Success">✓ Entregado el @Confirmacion.FechaEntrega.ToLocalTime().ToString("dd/MM/yyyy HH:mm") por @Confirmacion.ConfirmadoPorNombre</Badge>
+            var confirmacion = Confirmaciones[0];
+            @if (confirmacion.CoincideConDireccionIndicada)
+            {
+                <Badge Variant="BadgeVariant.Success">✓ Entregado el @confirmacion.FechaEntrega.ToLocalTime().ToString("dd/MM/yyyy HH:mm") por @confirmacion.ConfirmadoPorNombre</Badge>
+            }
+            else
+            {
+                <Badge Variant="BadgeVariant.Warning">⚠ Entregado el @confirmacion.FechaEntrega.ToLocalTime().ToString("dd/MM/yyyy HH:mm") — dirección distinta a la indicada</Badge>
+                @if (!string.IsNullOrWhiteSpace(confirmacion.Observaciones))
+                {
+                    <p class="text-xs text-gray-500 mt-0.5">@confirmacion.Observaciones</p>
+                }
+            }
         }
         else
         {
-            <Badge Variant="BadgeVariant.Warning">⚠ Entregado el @Confirmacion.FechaEntrega.ToLocalTime().ToString("dd/MM/yyyy HH:mm") — dirección distinta a la indicada</Badge>
-            @if (!string.IsNullOrWhiteSpace(Confirmacion.Observaciones))
-            {
-                <p class="text-xs text-gray-500 mt-0.5">@Confirmacion.Observaciones</p>
-            }
+            var confirmados = Grupos.Count(g => g.Confirmado);
+            <Badge Variant="@(confirmados == Grupos.Count ? BadgeVariant.Success : BadgeVariant.Info)">
+                @(confirmados == Grupos.Count ? "✓" : "⏳") @confirmados/@Grupos.Count entregado@(confirmados == 1 ? "" : "s")
+            </Badge>
+            <ul class="mt-1 space-y-0.5">
+                @foreach (var g in Grupos)
+                {
+                    var nombre = g.ProveedorNombre ?? "Sin proveedor asociado";
+                    var confirmacionDelGrupo = Confirmaciones.FirstOrDefault(c => c.ProveedorId == g.ProveedorId);
+                    <li class="text-xs flex items-center gap-1 @(g.Confirmado ? "text-success-700" : "text-gray-500")">
+                        <Icon Name="@(g.Confirmado ? "check-circle" : "clock")" Class="h-3.5 w-3.5 shrink-0" />
+                        @nombre
+                        @if (g.Confirmado && confirmacionDelGrupo is not null)
+                        {
+                            <span>— entregado el @confirmacionDelGrupo.FechaEntrega.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                        }
+                        else
+                        {
+                            <span>— pendiente</span>
+                        }
+                    </li>
+                }
+            </ul>
         }
     </div>
 }
 
 @code {
-    [Parameter] public ConfirmacionEntrega? Confirmacion { get; set; }
+    [Parameter] public List<ConfirmacionEntrega> Confirmaciones { get; set; } = [];
+
+    /// <summary>Todos los grupos de entrega del pedido (confirmados y pendientes) — ver <see cref="IConfirmacionEntregaService.ObtenerGruposDeEntregaAsync"/>.</summary>
+    [Parameter] public List<GrupoEntregaDto> Grupos { get; set; } = [];
 }
