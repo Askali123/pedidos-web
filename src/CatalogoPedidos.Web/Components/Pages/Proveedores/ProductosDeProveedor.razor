@@ -12,7 +12,8 @@
 else
 {
     <div class="max-w-3xl space-y-4">
-        <Card Title="@($"Productos de \"{proveedor.Nombre}\"")">
+        <Card Title="@($"Productos de \"{proveedor.Nombre}\"")"
+              Subtitle="Desactivar una asociación solo afecta pedidos NUEVOS: los ya emitidos conservan sus datos (código y cantidades congelados).">
             @if (asociaciones is null)
             {
                 <Loading />
@@ -31,12 +32,14 @@ else
                                 <th>Código del proveedor</th>
                                 <th>Precio del proveedor</th>
                                 <th>Preferido</th>
+                                <th>Estado</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var a in asociaciones)
                             {
-                                <tr>
+                                <tr class="@(!a.Activo ? "opacity-60" : "")">
                                     <td class="font-medium text-heading">@a.Producto?.Nombre <span class="text-muted text-xs">(#@a.ProductoId)</span></td>
                                     <td><code class="text-xs bg-card-elevated px-1.5 py-0.5 rounded">@a.CodigoProveedor</code></td>
                                     <td>@(a.PrecioProveedor is not null ? a.PrecioProveedor.Value.ToString("C") : "-")</td>
@@ -44,6 +47,26 @@ else
                                         @if (a.EsPreferido)
                                         {
                                             <Badge Variant="BadgeVariant.Success">★ Preferido</Badge>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (a.Activo)
+                                        {
+                                            <Badge Variant="BadgeVariant.Success">Activo</Badge>
+                                        }
+                                        else
+                                        {
+                                            <Badge Variant="BadgeVariant.Neutral">Inactivo</Badge>
+                                        }
+                                    </td>
+                                    <td class="text-right">
+                                        @if (a.Activo)
+                                        {
+                                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x-circle" OnClick="() => PedirConfirmacionDesactivar(a)">Desactivar</Button>
+                                        }
+                                        else
+                                        {
+                                            <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => Reactivar(a)">Activar</Button>
                                         }
                                     </td>
                                 </tr>
@@ -58,11 +81,19 @@ else
     </div>
 }
 
+<ConfirmDialog @bind-Visible="confirmandoDesactivar" Title="Desactivar producto" Danger="true"
+               Message="@($"¿Desactivar \"{productoADesactivarNombre}\" para {proveedor?.Nombre}? Dejará de incluirse en pedidos nuevos a este proveedor.")"
+               ConfirmText="Desactivar" OnConfirm="ConfirmarDesactivar" />
+
 @code {
     [Parameter] public int ProveedorId { get; set; }
 
     private Proveedor? proveedor;
     private List<ProductoProveedor>? asociaciones;
+
+    private bool confirmandoDesactivar;
+    private int asociacionADesactivarId;
+    private string? productoADesactivarNombre;
 
     protected override async Task OnInitializedAsync()
     {
@@ -70,5 +101,29 @@ else
         asociaciones = await ProveedorService.ObtenerProductosDeProveedorAsync(ProveedorId);
 
         HeaderState.Set("Productos del proveedor", [("Proveedores", "/proveedores"), (proveedor?.Nombre ?? "Proveedor", null)]);
+    }
+
+    private void PedirConfirmacionDesactivar(ProductoProveedor a)
+    {
+        asociacionADesactivarId = a.Id;
+        productoADesactivarNombre = a.Producto?.Nombre;
+        confirmandoDesactivar = true;
+    }
+
+    private async Task ConfirmarDesactivar()
+    {
+        await ProveedorService.DesactivarAsociacionAsync(asociacionADesactivarId);
+        await Cargar();
+    }
+
+    private async Task Reactivar(ProductoProveedor a)
+    {
+        await ProveedorService.ReactivarAsociacionAsync(a.Id);
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        asociaciones = await ProveedorService.ObtenerProductosDeProveedorAsync(ProveedorId);
     }
 }

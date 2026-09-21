@@ -196,17 +196,29 @@
 </div>
 
 <ConfirmDialog @bind-Visible="confirmandoEnvio" Title="Enviar a proveedor"
-               Message="@($"¿Enviar el pedido #{pedidoPendienteEnvio} a \"{proveedorPendienteEnvio?.ProveedorNombre}\" ({proveedorPendienteEnvio?.CantidadLineas} producto(s))? Se le manda un correo real con el detalle en PDF — no se puede deshacer.")"
+               Message="@($"¿Enviar el pedido #{pedidoPendienteEnvio} a \"{proveedorPendienteEnvio?.ProveedorNombre}\"? Se le manda un correo real con el detalle (PDF) de los productos marcados — no se puede deshacer.")"
                ConfirmText="Enviar" OnConfirm="ConfirmarEnvio">
     <ExtraContent>
         @if (proveedorPendienteEnvio?.Productos.Count > 0)
         {
-            <ul class="list-disc list-inside text-sm text-muted mb-3 space-y-0.5">
+            <p class="text-xs text-muted mb-2">Desmarcá un producto para excluirlo de este proveedor (se guarda y no vuelve a ofrecerse en reenvíos).</p>
+            <ul class="space-y-1.5 mb-3">
                 @foreach (var producto in proveedorPendienteEnvio.Productos)
                 {
-                    <li>@producto.Nombre <span class="text-muted">· cantidad: @producto.Cantidad</span></li>
+                    <li class="flex items-center gap-2 text-sm text-body">
+                        <input type="checkbox" class="form-checkbox"
+                               @bind="productosIncluidosEnvio[producto.ProductoId]" />
+                        <span>@producto.Nombre</span>
+                        <span class="text-muted text-xs">· cant. @producto.Cantidad
+                            @if (!string.IsNullOrEmpty(producto.CodigoProveedor))
+                            {
+                                <text> · <code class="bg-card-elevated px-1 py-0.5 rounded text-[10px]">@producto.CodigoProveedor</code></text>
+                            }
+                        </span>
+                    </li>
                 }
             </ul>
+            <p class="text-xs text-body mb-2">@productosIncluidosEnvio.Count(x => x.Value) de @proveedorPendienteEnvio.Productos.Count producto(s) seleccionados.</p>
         }
         <label class="flex items-center gap-2 text-sm text-body">
             <input type="checkbox" class="form-checkbox" @bind="adjuntarExcel" />
@@ -460,12 +472,14 @@
     private int pedidoPendienteEnvio;
     private ProveedorDelPedidoDto? proveedorPendienteEnvio;
     private bool adjuntarExcel;
+    private Dictionary<int, bool> productosIncluidosEnvio = new();
 
     private void PedirConfirmacionEnvio(int pedidoId, ProveedorDelPedidoDto proveedor)
     {
         pedidoPendienteEnvio = pedidoId;
         proveedorPendienteEnvio = proveedor;
         adjuntarExcel = false;
+        productosIncluidosEnvio = proveedor.Productos.ToDictionary(p => p.ProductoId, _ => true);
         confirmandoEnvio = true;
     }
 
@@ -474,8 +488,19 @@
         if (proveedorPendienteEnvio is null)
             return;
 
+        var seleccionados = proveedorPendienteEnvio.Productos
+            .Where(p => productosIncluidosEnvio.GetValueOrDefault(p.ProductoId))
+            .Select(p => p.ProductoId)
+            .ToList();
+        if (seleccionados.Count == 0)
+        {
+            mensaje = "No se envió: desmarcaste todos los productos. Excluir es para dejar fuera los que no van con este proveedor, no para no enviar nada.";
+            mensajeVariante = AlertVariant.Warning;
+            return;
+        }
+
         var (gestorId, gestorNombre, gestorEmail) = await DatosGestor(await AuthStateTask!);
-        var resultado = await NotificacionesProveedor.EnviarAProveedorAsync(pedidoPendienteEnvio, proveedorPendienteEnvio.ProveedorId, gestorId, gestorNombre, gestorEmail, adjuntarExcel);
+        var resultado = await NotificacionesProveedor.EnviarAProveedorAsync(pedidoPendienteEnvio, proveedorPendienteEnvio.ProveedorId, gestorId, gestorNombre, gestorEmail, adjuntarExcel, seleccionados);
 
         mensaje = resultado.Enviado
             ? $"Pedido #{pedidoPendienteEnvio} enviado a {resultado.ProveedorNombre} ({(adjuntarExcel ? "PDF y Excel adjuntos" : "PDF adjunto")}, {resultado.CantidadLineas} producto(s))."

@@ -14,7 +14,7 @@ else
 {
     <div class="space-y-6 max-w-3xl">
         <Card Title="@($"Proveedores de \"{producto.Nombre}\"")"
-              Subtitle="@($"Cada proveedor identifica este producto con SU PROPIO código — por eso se guarda por separado del Id interno (#{producto.Id}).")">
+              Subtitle="@($"Cada proveedor identifica este producto con SU PROPIO código — por eso se guarda por separado del Id interno (#{producto.Id}). Quitar un proveedor lo desactiva (no lo borra): los pedidos ya emitidos conservan sus datos y solo dejan de ofrecerse los nuevos.")">
 
             @if (asociaciones is null)
             {
@@ -34,13 +34,14 @@ else
                                 <th>Código del proveedor</th>
                                 <th>Precio del proveedor</th>
                                 <th>Preferido</th>
+                                <th>Estado</th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var a in asociaciones)
                             {
-                                <tr>
+                                <tr class="@(!a.Activo ? "opacity-60" : "")">
                                     <td class="font-medium text-heading">@a.Proveedor?.Nombre</td>
                                     <td><code class="text-xs bg-card-elevated px-1.5 py-0.5 rounded">@a.CodigoProveedor</code></td>
                                     <td>@(a.PrecioProveedor is not null ? a.PrecioProveedor.Value.ToString("C") : "-")</td>
@@ -50,8 +51,27 @@ else
                                             <Badge Variant="BadgeVariant.Success">★ Preferido</Badge>
                                         }
                                     </td>
+                                    <td>
+                                        @if (a.Activo)
+                                        {
+                                            <Badge Variant="BadgeVariant.Success">Activo</Badge>
+                                        }
+                                        else
+                                        {
+                                            <Badge Variant="BadgeVariant.Neutral">Inactivo</Badge>
+                                        }
+                                    </td>
                                     <td class="text-right">
-                                        <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="trash" OnClick="() => PedirConfirmacionQuitar(a.Id, a.Proveedor?.Nombre)">Quitar</Button>
+                                        <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Small" Icon="pencil" OnClick="() => EmpezarEdicion(a)">Editar</Button>
+
+                                        @if (a.Activo)
+                                        {
+                                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x-circle" OnClick="() => PedirConfirmacionDesactivar(a)">Desactivar</Button>
+                                        }
+                                        else
+                                        {
+                                            <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => Reactivar(a)">Activar</Button>
+                                        }
                                     </td>
                                 </tr>
                             }
@@ -61,16 +81,20 @@ else
             }
         </Card>
 
-        <Card Title="Asociar un proveedor">
-            <EditForm Model="modelo" OnValidSubmit="Asociar" FormName="asociar-proveedor">
+        <Card Title="@(editando ? "Editar asociación" : "Asociar un proveedor")">
+            <EditForm Model="modelo" OnValidSubmit="GuardarAsociacion" FormName="asociar-proveedor">
                 <FormField Label="Proveedor" Required="true">
-                    <select class="form-select" @bind="modelo.ProveedorId">
+                    <select class="form-select" @bind="modelo.ProveedorId" disabled="@(editando)">
                         <option value="0">Selecciona uno...</option>
                         @foreach (var p in proveedoresDisponibles)
                         {
                             <option value="@p.Id">@p.Nombre</option>
                         }
                     </select>
+                    @if (editando)
+                    {
+                        <p class="mt-1 text-xs text-muted">El proveedor no se puede cambiar al editar — si necesitas otro, desactiva la asociación y crea una nueva.</p>
+                    }
                 </FormField>
 
                 <FormField Label="Código con el que ESE proveedor identifica este producto" Required="true" Hint="Es el SKU/referencia propio del proveedor, no el Id interno del catálogo.">
@@ -95,8 +119,12 @@ else
                     <Alert Variant="AlertVariant.Success">@mensaje</Alert>
                 }
 
-                <div class="mt-4">
-                    <Button Type="submit" Variant="ButtonVariant.Primary" Icon="plus">Asociar proveedor</Button>
+                <div class="mt-4 flex items-center gap-2">
+                    <Button Type="submit" Variant="ButtonVariant.Primary" Icon="@(editando ? "check" : "plus")">@(editando ? "Guardar cambios" : "Asociar proveedor")</Button>
+                    @if (editando)
+                    {
+                        <Button Variant="ButtonVariant.Ghost" OnClick="CancelarEdicion">Cancelar</Button>
+                    }
                 </div>
             </EditForm>
         </Card>
@@ -109,9 +137,9 @@ else
     </div>
 }
 
-<ConfirmDialog @bind-Visible="confirmandoQuitar" Title="Quitar proveedor" Danger="true"
-               Message="@($"¿Quitar a \"{proveedorAQuitarNombre}\" de este producto?")"
-               ConfirmText="Quitar" OnConfirm="ConfirmarQuitar" />
+<ConfirmDialog @bind-Visible="confirmandoDesactivar" Title="Desactivar proveedor" Danger="true"
+               Message="@($"¿Desactivar a \"{proveedorADesactivarNombre}\" de este producto? Dejará de recibir pedidos nuevos; los ya emitidos no se alteran.")"
+               ConfirmText="Desactivar" OnConfirm="ConfirmarDesactivar" />
 
 @code {
     [Parameter] public int ProductoId { get; set; }
@@ -123,9 +151,12 @@ else
     private string? error;
     private string? mensaje;
 
-    private bool confirmandoQuitar;
-    private int asociacionAQuitarId;
-    private string? proveedorAQuitarNombre;
+    private bool editando;
+    private int asociacionEnEdicionId;
+
+    private bool confirmandoDesactivar;
+    private int asociacionADesactivarId;
+    private string? proveedorADesactivarNombre;
 
     protected override async Task OnInitializedAsync()
     {
@@ -142,7 +173,7 @@ else
         asociaciones = await ProveedorService.ObtenerProveedoresDeProductoAsync(ProductoId);
     }
 
-    private async Task Asociar()
+    private async Task GuardarAsociacion()
     {
         error = null;
         mensaje = null;
@@ -155,9 +186,18 @@ else
 
         try
         {
-            await ProveedorService.AsociarProveedorAsync(modelo);
-            mensaje = "Proveedor asociado correctamente.";
-            modelo = new() { ProductoId = ProductoId };
+            if (editando)
+            {
+                await ProveedorService.ActualizarAsociacionAsync(asociacionEnEdicionId, modelo);
+                mensaje = "Asociación actualizada correctamente.";
+            }
+            else
+            {
+                await ProveedorService.AsociarProveedorAsync(modelo);
+                mensaje = "Proveedor asociado correctamente.";
+            }
+
+            CancelarEdicion();
             await Cargar();
         }
         catch (InvalidOperationException ex)
@@ -166,16 +206,45 @@ else
         }
     }
 
-    private void PedirConfirmacionQuitar(int asociacionId, string? proveedorNombre)
+    private void EmpezarEdicion(ProductoProveedor a)
     {
-        asociacionAQuitarId = asociacionId;
-        proveedorAQuitarNombre = proveedorNombre;
-        confirmandoQuitar = true;
+        editando = true;
+        asociacionEnEdicionId = a.Id;
+        modelo = new AsociarProveedorDto
+        {
+            ProductoId = a.ProductoId,
+            ProveedorId = a.ProveedorId,
+            CodigoProveedor = a.CodigoProveedor,
+            PrecioProveedor = a.PrecioProveedor,
+            EsPreferido = a.EsPreferido
+        };
+        error = null;
+        mensaje = null;
     }
 
-    private async Task ConfirmarQuitar()
+    private void CancelarEdicion()
     {
-        await ProveedorService.QuitarAsociacionAsync(asociacionAQuitarId);
+        editando = false;
+        asociacionEnEdicionId = 0;
+        modelo = new AsociarProveedorDto { ProductoId = ProductoId };
+    }
+
+    private void PedirConfirmacionDesactivar(ProductoProveedor a)
+    {
+        asociacionADesactivarId = a.Id;
+        proveedorADesactivarNombre = a.Proveedor?.Nombre;
+        confirmandoDesactivar = true;
+    }
+
+    private async Task ConfirmarDesactivar()
+    {
+        await ProveedorService.DesactivarAsociacionAsync(asociacionADesactivarId);
+        await Cargar();
+    }
+
+    private async Task Reactivar(ProductoProveedor a)
+    {
+        await ProveedorService.ReactivarAsociacionAsync(a.Id);
         await Cargar();
     }
 }
