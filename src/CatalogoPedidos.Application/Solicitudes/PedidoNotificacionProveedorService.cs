@@ -52,6 +52,7 @@ public class PedidoNotificacionProveedorService(
                     .Where(i => g.Any(a => a.ProductoId == i.ProductoId))
                     .Where(i => proveedoresConEnvio.Contains(g.Key) || !productoIdsYaEnviados.Contains(i.ProductoId))
                     .ToList();
+                var codigoPorProducto = g.ToDictionary(a => a.ProductoId, a => a.CodigoProveedor);
                 return new ProveedorDelPedidoDto
                 {
                     ProveedorId = g.Key,
@@ -62,7 +63,8 @@ public class PedidoNotificacionProveedorService(
                         {
                             ProductoId = i.ProductoId,
                             Nombre = i.Producto?.Nombre ?? $"Producto #{i.ProductoId}",
-                            Cantidad = i.Cantidad
+                            Cantidad = i.Cantidad,
+                            CodigoProveedor = codigoPorProducto[i.ProductoId]
                         })
                         .ToList()
                 };

@@ -20,4 +20,10 @@ public class ProductoDelPedidoDto
     public int ProductoId { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public int Cantidad { get; set; }
+
+    /// <summary>
+    /// Código con el que ESE proveedor identifica este producto — para que el selector
+    /// "Enviar a proveedor" muestre, además del nombre, la referencia que el proveedor conoce.
+    /// </summary>
+    public string CodigoProveedor { get; set; } = string.Empty;
 }
