@@ -37,18 +37,58 @@ public class PedidoNotificacionProveedorService(
 
         var productoIds = aprobadas.Select(i => i.ProductoId).Distinct();
         var todasLasAsociaciones = await asociaciones.ObtenerPorProductosAsync(productoIds, ct);
+        var (proveedoresConEnvio, productoIdsYaEnviados) = await ObtenerCoberturaPreviaAsync(pedidoId, todasLasAsociaciones, ct);
 
         return todasLasAsociaciones
             .GroupBy(a => a.ProveedorId)
-            .Select(g => new ProveedorDelPedidoDto
+            .Select(g =>
             {
-                ProveedorId = g.Key,
-                ProveedorNombre = g.First().Proveedor!.Nombre,
-                CantidadLineas = aprobadas.Count(i => g.Any(a => a.ProductoId == i.ProductoId))
+                // Una línea que ya se le mandó a OTRO proveedor deja de ofrecerse acá —
+                // evita duplicar el pedido real por accidente (ver
+                // docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md #2). Reenviarle al mismo
+                // proveedor que ya la recibió sigue permitido (protegido aparte por el
+                // cooldown de EnviarAProveedorAsync), por eso no se filtra en ese caso.
+                var lineas = aprobadas
+                    .Where(i => g.Any(a => a.ProductoId == i.ProductoId))
+                    .Where(i => proveedoresConEnvio.Contains(g.Key) || !productoIdsYaEnviados.Contains(i.ProductoId))
+                    .ToList();
+                return new ProveedorDelPedidoDto
+                {
+                    ProveedorId = g.Key,
+                    ProveedorNombre = g.First().Proveedor!.Nombre,
+                    CantidadLineas = lineas.Count,
+                    Productos = lineas
+                        .Select(i => new ProductoDelPedidoDto
+                        {
+                            ProductoId = i.ProductoId,
+                            Nombre = i.Producto?.Nombre ?? $"Producto #{i.ProductoId}",
+                            Cantidad = i.Cantidad
+                        })
+                        .ToList()
+                };
             })
             .Where(p => p.CantidadLineas > 0)
             .OrderBy(p => p.ProveedorNombre)
             .ToList();
+    }
+
+    /// <summary>
+    /// A qué proveedores ya se les envió algo de este pedido, y qué productos quedaron
+    /// cubiertos por esos envíos (sin importar a cuál proveedor específico) — para no
+    /// volver a ofrecer/permitir esas líneas a un proveedor DISTINTO del que ya las
+    /// recibió. Ver docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md #2.
+    /// </summary>
+    private async Task<(HashSet<int> ProveedoresConEnvio, HashSet<int> ProductoIdsYaEnviados)> ObtenerCoberturaPreviaAsync(
+        int pedidoId, List<ProductoProveedor> todasLasAsociaciones, CancellationToken ct)
+    {
+        var enviosDelPedido = await envios.ObtenerPorPedidoAsync(pedidoId, ct);
+        var proveedoresConEnvio = enviosDelPedido.Select(e => e.ProveedorId).ToHashSet();
+        var productoIdsYaEnviados = todasLasAsociaciones
+            .Where(a => proveedoresConEnvio.Contains(a.ProveedorId))
+            .Select(a => a.ProductoId)
+            .ToHashSet();
+
+        return (proveedoresConEnvio, productoIdsYaEnviados);
     }
 
     public async Task<EnvioProveedorResultadoDto> EnviarAProveedorAsync(int pedidoId, int proveedorId, string gestorId, string gestorNombre, string? gestorEmail = null, bool incluirExcel = false, CancellationToken ct = default)
@@ -69,7 +109,29 @@ public class PedidoNotificacionProveedorService(
 
         var proveedor = deEsteProveedor[0].Proveedor!;
         var codigoPorProducto = deEsteProveedor.ToDictionary(a => a.ProductoId, a => a.CodigoProveedor);
-        var lineas = aprobadas.Where(i => codigoPorProducto.ContainsKey(i.ProductoId)).ToList();
+
+        var (proveedoresConEnvio, productoIdsYaEnviados) = await ObtenerCoberturaPreviaAsync(pedidoId, todasLasAsociaciones, ct);
+
+        // Mismo criterio que ObtenerProveedoresDisponiblesAsync: no se le manda a un
+        // proveedor DISTINTO una línea que ya se le envió a otro (ver
+        // docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md #2). Última línea de defensa — la UI
+        // ya no debería ofrecer este caso, pero el servicio es quien lo garantiza.
+        var lineas = aprobadas
+            .Where(i => codigoPorProducto.ContainsKey(i.ProductoId))
+            .Where(i => proveedoresConEnvio.Contains(proveedorId) || !productoIdsYaEnviados.Contains(i.ProductoId))
+            .ToList();
+
+        if (lineas.Count == 0)
+        {
+            return new EnvioProveedorResultadoDto
+            {
+                ProveedorId = proveedor.Id,
+                ProveedorNombre = proveedor.Nombre,
+                CantidadLineas = 0,
+                Enviado = false,
+                Motivo = $"Las líneas de este pedido asociadas a {proveedor.Nombre} ya se enviaron a otro proveedor."
+            };
+        }
 
         if (string.IsNullOrWhiteSpace(proveedor.Email))
         {

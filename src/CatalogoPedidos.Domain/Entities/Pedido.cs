@@ -45,6 +45,10 @@ public class Pedido
     /// <summary>Historial de a qué proveedores se les notificó este pedido por correo.</summary>
     public ICollection<NotificacionProveedor> NotificacionesProveedor { get; set; } = new List<NotificacionProveedor>();
 
-    /// <summary>Confirmación de que los insumos aprobados de este pedido ya se entregaron (ver P3 del plan).</summary>
-    public ConfirmacionEntrega? ConfirmacionEntrega { get; set; }
+    /// <summary>
+    /// Confirmaciones de entrega de este pedido — una por proveedor al que se le mandó
+    /// algo (más la eventual "sin proveedor asociado"), no una sola para todo el pedido
+    /// (ver docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md, tarea 3).
+    /// </summary>
+    public ICollection<ConfirmacionEntrega> ConfirmacionesEntrega { get; set; } = new List<ConfirmacionEntrega>();
 }

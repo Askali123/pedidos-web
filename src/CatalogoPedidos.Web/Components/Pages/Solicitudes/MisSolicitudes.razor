@@ -49,7 +49,8 @@ else
                         {
                             <p class="text-xs text-muted mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
                         }
-                        <EntregaBadge Confirmacion="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId)" />
+                        <EntregaBadge Confirmaciones="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId) ?? []"
+                                      Grupos="gruposEntregaPorPedido.GetValueOrDefault(grupo.Key.PedidoId) ?? []" />
                     </div>
 
                     @if (grupo.Count() > 1)
@@ -101,7 +102,8 @@ else
     private record PedidoResumen(int PedidoId, string? Comentario, string? DireccionEntrega, DateTime FechaCreacion);
 
     private List<IGrouping<PedidoResumen, SolicitudProducto>>? grupos;
-    private Dictionary<int, ConfirmacionEntrega?> confirmacionesPorPedido = new();
+    private Dictionary<int, List<ConfirmacionEntrega>> confirmacionesPorPedido = new();
+    private Dictionary<int, List<GrupoEntregaDto>> gruposEntregaPorPedido = new();
 
     /// <summary>
     /// Resumen a nivel de pedido para el caso "parcialmente resuelto" — un pedido de
@@ -148,7 +150,11 @@ else
             .ToList();
 
         confirmacionesPorPedido.Clear();
+        gruposEntregaPorPedido.Clear();
         foreach (var pedidoId in grupos.Select(g => g.Key.PedidoId))
+        {
             confirmacionesPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerPorPedidoAsync(pedidoId);
+            gruposEntregaPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerGruposDeEntregaAsync(pedidoId);
+        }
     }
 }

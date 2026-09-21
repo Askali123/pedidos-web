@@ -103,12 +103,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
             entity.Property(c => c.ConfirmadoPorNombre).HasMaxLength(200).IsRequired();
 
             entity.HasOne(c => c.Pedido)
-                  .WithOne(p => p.ConfirmacionEntrega)
-                  .HasForeignKey<ConfirmacionEntrega>(c => c.PedidoId)
+                  .WithMany(p => p.ConfirmacionesEntrega)
+                  .HasForeignKey(c => c.PedidoId)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            // Un pedido tiene como máximo una confirmación de entrega.
-            entity.HasIndex(c => c.PedidoId).IsUnique();
+            entity.HasOne(c => c.Proveedor)
+                  .WithMany()
+                  .HasForeignKey(c => c.ProveedorId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            // No es único: un proveedor no debería confirmarse dos veces en el mismo
+            // pedido, pero eso se valida en el servicio (ConfirmacionEntregaService), no
+            // acá — un índice único con ProveedorId nullable no protegería el caso
+            // "sin proveedor" en SQL Server (cada NULL cuenta como distinto). El índice
+            // solo ayuda a las consultas por pedido.
+            entity.HasIndex(c => c.PedidoId);
         });
     }
 }

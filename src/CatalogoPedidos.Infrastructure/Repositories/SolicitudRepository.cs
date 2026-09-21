@@ -21,7 +21,7 @@ public class SolicitudRepository(IDbContextFactory<AppDbContext> dbFactory) : IS
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         return await db.Pedidos
             .Include(p => p.Items).ThenInclude(i => i.Producto)
-            .Include(p => p.ConfirmacionEntrega)
+            .Include(p => p.ConfirmacionesEntrega).ThenInclude(c => c.Proveedor)
             .FirstOrDefaultAsync(p => p.Id == pedidoId, ct);
     }
 
@@ -147,10 +147,16 @@ public class SolicitudRepository(IDbContextFactory<AppDbContext> dbFactory) : IS
     public async Task<List<Pedido>> ObtenerAprobadosSinEntregaAsync(CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
+        // No filtra por "sin ninguna confirmación": con confirmación por proveedor, un
+        // pedido puede tener una confirmación parcial (ej. un proveedor ya entregó, otro
+        // no) y seguir teniendo algo genuinamente pendiente. Quién de estos candidatos
+        // todavía tiene algún grupo de entrega sin confirmar se resuelve en
+        // ConfirmacionEntregaService.EnviarRecordatoriosEntregaPendienteAsync, que sí
+        // conoce los grupos (requiere ProductoProveedor/NotificacionProveedor, fuera del
+        // agregado Pedido) — ver docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md #8.
         return await db.Pedidos
             .Include(p => p.Items).ThenInclude(i => i.Producto)
             .Where(p => !p.RecordatorioEntregaEnviado
-                     && p.ConfirmacionEntrega == null
                      && p.Items.Any(i => i.Estado == EstadoSolicitud.Aprobada))
             .ToListAsync(ct);
     }
