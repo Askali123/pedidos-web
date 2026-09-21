@@ -24,13 +24,13 @@
     else
     {
         <Card Title="Productos a solicitar">
-            <div class="divide-y divide-gray-100">
+            <div class="divide-y divide-white/[.05]">
                 @foreach (var item in CarritoState.Items)
                 {
                     <div class="flex items-center gap-3 py-3">
                         <div class="flex-1 min-w-0">
-                            <p class="font-medium text-gray-900 truncate">@item.Producto.Nombre</p>
-                            <p class="text-xs text-gray-500">@item.Producto.Categoria @(string.IsNullOrEmpty(item.Producto.UnidadMedida) ? "" : $"· {item.Producto.UnidadMedida}")</p>
+                            <p class="font-medium text-heading truncate">@item.Producto.Nombre</p>
+                            <p class="text-xs text-muted">@item.Producto.Categoria @(string.IsNullOrEmpty(item.Producto.UnidadMedida) ? "" : $"· {item.Producto.UnidadMedida}")</p>
                         </div>
                         <input type="number" min="1" class="form-input w-20" value="@item.Cantidad"
                                @onchange="e => CambiarCantidad(item.Producto.Id, e.Value)" />

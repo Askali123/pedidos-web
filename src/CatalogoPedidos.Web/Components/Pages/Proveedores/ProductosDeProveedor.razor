@@ -37,8 +37,8 @@ else
                             @foreach (var a in asociaciones)
                             {
                                 <tr>
-                                    <td class="font-medium text-gray-900">@a.Producto?.Nombre <span class="text-gray-400 text-xs">(#@a.ProductoId)</span></td>
-                                    <td><code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">@a.CodigoProveedor</code></td>
+                                    <td class="font-medium text-heading">@a.Producto?.Nombre <span class="text-muted text-xs">(#@a.ProductoId)</span></td>
+                                    <td><code class="text-xs bg-card-elevated px-1.5 py-0.5 rounded">@a.CodigoProveedor</code></td>
                                     <td>@(a.PrecioProveedor is not null ? a.PrecioProveedor.Value.ToString("C") : "-")</td>
                                     <td>
                                         @if (a.EsPreferido)
@@ -54,7 +54,7 @@ else
             }
         </Card>
 
-        <a href="/proveedores" class="text-sm text-primary-700 hover:underline">← Volver a proveedores</a>
+        <a href="/proveedores" class="text-sm text-primary-300 hover:underline">← Volver a proveedores</a>
     </div>
 }
 

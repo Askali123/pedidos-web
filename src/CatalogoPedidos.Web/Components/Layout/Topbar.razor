@@ -1,8 +1,8 @@
 @implements IDisposable
 @inject PageHeaderState HeaderState
 
-<header class="h-14 shrink-0 flex items-center gap-3 px-4 border-b border-gray-200 bg-white">
-    <button type="button" class="lg:hidden h-9 w-9 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100" @onclick="() => OnToggleSidebar.InvokeAsync()" aria-label="Abrir menú">
+<header class="h-14 shrink-0 flex items-center gap-3 px-4 border-b border-border-subtle bg-base">
+    <button type="button" class="lg:hidden h-9 w-9 flex items-center justify-center rounded-sm text-muted hover:bg-card-elevated hover:text-heading" @onclick="() => OnToggleSidebar.InvokeAsync()" aria-label="Abrir menú">
         <Icon Name="menu" Class="h-5 w-5" />
     </button>
 
@@ -13,7 +13,7 @@
         {
             <Breadcrumb Items="HeaderState.Breadcrumb" />
         }
-        <h1 class="text-lg font-semibold text-gray-900 truncate leading-tight">@HeaderState.Title</h1>
+        <h1 class="text-lg font-semibold text-heading truncate leading-tight">@HeaderState.Title</h1>
     </div>
 
     <div class="flex-1"></div>

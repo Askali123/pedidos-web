@@ -73,7 +73,7 @@
                 <a class="btn btn-success" href="@UrlReporte("excel")" target="_blank"><Icon Name="download" Class="h-4 w-4" />Excel</a>
             </div>
 
-            <label class="flex items-center gap-2 text-sm text-gray-700">
+            <label class="flex items-center gap-2 text-sm text-body">
                 <input type="checkbox" class="form-checkbox" @bind="soloPendientesEntrega" @bind:after="() => paginaNumero = 1" />
                 Solo pendientes de confirmar entrega
             </label>
@@ -99,15 +99,15 @@
             <Alert Variant="mensajeEnvioVariante" Dismissible="true" OnDismiss="() => mensajeEnvio = null">@mensajeEnvio</Alert>
         }
 
-        <p class="text-sm text-gray-500">@gruposPedidoVisibles.Sum(g => g.Count()) solicitud(es) en @gruposPedidoVisibles.Count pedido(s)</p>
+        <p class="text-sm text-muted">@gruposPedidoVisibles.Sum(g => g.Count()) solicitud(es) en @gruposPedidoVisibles.Count pedido(s)</p>
 
         @foreach (var grupo in paginaActual)
         {
             <Card>
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
-                        <p class="font-medium text-gray-900">Pedido #@grupo.Key.PedidoId · @grupo.Key.SolicitanteNombre</p>
-                        <p class="text-xs text-gray-500 mt-0.5">
+                        <p class="font-medium text-heading">Pedido #@grupo.Key.PedidoId · @grupo.Key.SolicitanteNombre</p>
+                        <p class="text-xs text-muted mt-0.5">
                             @grupo.Key.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                             @if (!string.IsNullOrWhiteSpace(grupo.Key.Comentario))
                             {
@@ -116,7 +116,7 @@
                         </p>
                         @if (!string.IsNullOrWhiteSpace(grupo.Key.DireccionEntrega))
                         {
-                            <p class="text-xs text-gray-500 mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
+                            <p class="text-xs text-muted mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
                         }
                         @if (enviosPorPedido.TryGetValue(grupo.Key.PedidoId, out var envios) && envios.Count > 0)
                         {
@@ -149,20 +149,20 @@
                                 </span>
                             </Trigger>
                             <ChildContent>
-                                <div class="w-60 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                                <div class="w-60 bg-card border border-border-subtle rounded-lg shadow-elevated py-1">
                                     @if (proveedoresPorPedido.TryGetValue(grupo.Key.PedidoId, out var opciones) && opciones.Count > 0)
                                     {
                                         @foreach (var op in opciones)
                                         {
-                                            <button type="button" class="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" @onclick="() => PedirConfirmacionEnvio(grupo.Key.PedidoId, op)">
+                                            <button type="button" class="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-body hover:bg-card-elevated" @onclick="() => PedirConfirmacionEnvio(grupo.Key.PedidoId, op)">
                                                 <span>@op.ProveedorNombre</span>
-                                                <span class="text-xs text-gray-400">@op.CantidadLineas prod.</span>
+                                                <span class="text-xs text-muted">@op.CantidadLineas prod.</span>
                                             </button>
                                         }
                                     }
                                     else
                                     {
-                                        <p class="px-3 py-2 text-sm text-gray-400">Este pedido no tiene líneas aprobadas con proveedor asociado.</p>
+                                        <p class="px-3 py-2 text-sm text-muted">Este pedido no tiene líneas aprobadas con proveedor asociado.</p>
                                     }
                                 </div>
                             </ChildContent>
@@ -195,16 +195,16 @@
                             @foreach (var s in grupo)
                             {
                                 <tr>
-                                    <td class="text-gray-400" data-label="N.º">#@s.Id</td>
-                                    <td class="font-medium text-gray-900" data-label="Producto">@s.Producto?.Nombre</td>
+                                    <td class="text-muted" data-label="N.º">#@s.Id</td>
+                                    <td class="font-medium text-heading" data-label="Producto">@s.Producto?.Nombre</td>
                                     @if (proveedorId is not null)
                                     {
-                                        <td class="text-gray-500" data-label="Código interno">#@s.ProductoId</td>
-                                        <td class="font-medium text-gray-900" data-label="Código proveedor">@codigosProveedorPorProducto.GetValueOrDefault(s.ProductoId, "-")</td>
+                                        <td class="text-muted" data-label="Código interno">#@s.ProductoId</td>
+                                        <td class="font-medium text-heading" data-label="Código proveedor">@codigosProveedorPorProducto.GetValueOrDefault(s.ProductoId, "-")</td>
                                     }
                                     else
                                     {
-                                        <td class="text-gray-500" data-label="Proveedor · Código">
+                                        <td class="text-muted" data-label="Proveedor · Código">
                                             @if (codigosPreferidosPorProducto.TryGetValue(s.ProductoId, out var pp))
                                             {
                                                 @($"{pp.Proveedor!.Nombre} · {pp.CodigoProveedor}")
@@ -241,7 +241,7 @@
                Message="@($"¿Enviar el pedido #{pedidoPendienteEnvio} a \"{proveedorPendienteEnvio?.ProveedorNombre}\" ({proveedorPendienteEnvio?.CantidadLineas} producto(s))? Se le manda un correo real con el detalle en PDF — no se puede deshacer.")"
                ConfirmText="Enviar" OnConfirm="ConfirmarEnvio">
     <ExtraContent>
-        <label class="flex items-center gap-2 text-sm text-gray-700">
+        <label class="flex items-center gap-2 text-sm text-body">
             <input type="checkbox" class="form-checkbox" @bind="adjuntarExcel" />
             También adjuntar el detalle en Excel
         </label>
@@ -253,7 +253,7 @@
         <FormField Label="Dirección entregada" Hint="A dónde se llevaron los insumos en la práctica — prellenada con la que pidió el solicitante, pero editable si terminó siendo otra.">
             <input class="form-input" @bind="direccionEntregadaPendiente" placeholder="Ej. Bodega principal, Cra 10 # 20-30" />
         </FormField>
-        <label class="flex items-center gap-2 text-sm text-gray-700 mt-2 mb-4">
+        <label class="flex items-center gap-2 text-sm text-body mt-2 mb-4">
             <input type="checkbox" class="form-checkbox" @bind="coincideDireccionPendiente" />
             ¿Coincide con la dirección indicada por el solicitante?
         </label>

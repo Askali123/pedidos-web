@@ -54,7 +54,7 @@
     }
     else
     {
-        <p class="text-sm text-gray-500">@resultados.Count resolución(es)</p>
+        <p class="text-sm text-muted">@resultados.Count resolución(es)</p>
 
         <div class="card table-wrap">
             <table class="table-enterprise">
@@ -74,15 +74,15 @@
                     @foreach (var s in paginaActual)
                     {
                         <tr>
-                            <td class="text-gray-500">@s.FechaResolucion?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                            <td class="font-medium text-gray-900">#@s.PedidoId</td>
+                            <td class="text-muted">@s.FechaResolucion?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td class="font-medium text-heading">#@s.PedidoId</td>
                             <td>@s.Producto?.Nombre</td>
                             <td>@s.Cantidad</td>
                             <td>
                                 <Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge>
                                 @if (!string.IsNullOrWhiteSpace(s.ComentarioGestor))
                                 {
-                                    <p class="text-xs text-gray-500 mt-0.5">@s.ComentarioGestor</p>
+                                    <p class="text-xs text-muted mt-0.5">@s.ComentarioGestor</p>
                                 }
                             </td>
                             <td>@s.SolicitanteNombre</td>

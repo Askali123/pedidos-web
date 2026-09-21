@@ -1,0 +1,36 @@
+@* Tarjeta de métrica para dashboards — icono + valor + etiqueta.
+   Uso: <StatCard Icon="cube" Label="Productos en catálogo" Value="@totalProductos.ToString()" Accent="StatCardAccent.Primary" /> *@
+<div class="card card-body flex items-center gap-4">
+    <div class="h-11 w-11 rounded-lg flex items-center justify-center shrink-0 @IconBgClass">
+        <Icon Name="@Icon" Class="@($"h-5 w-5 {IconColorClass}")" />
+    </div>
+    <div class="min-w-0">
+        <p class="text-2xl font-semibold text-heading leading-tight truncate">@Value</p>
+        <p class="text-xs font-medium text-muted uppercase tracking-wide mt-0.5 truncate">@Label</p>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Icon { get; set; } = "cube";
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public StatCardAccent Accent { get; set; } = StatCardAccent.Primary;
+
+    private string IconBgClass => Accent switch
+    {
+        StatCardAccent.Purple => "bg-accent-purple/15",
+        StatCardAccent.Success => "bg-success-500/15",
+        StatCardAccent.Warning => "bg-warning-500/15",
+        StatCardAccent.Info => "bg-info-500/15",
+        _ => "bg-primary-500/15"
+    };
+
+    private string IconColorClass => Accent switch
+    {
+        StatCardAccent.Purple => "text-accent-purple",
+        StatCardAccent.Success => "text-success-400",
+        StatCardAccent.Warning => "text-warning-400",
+        StatCardAccent.Info => "text-info-400",
+        _ => "text-primary-400"
+    };
+}

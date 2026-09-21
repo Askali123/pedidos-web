@@ -46,7 +46,7 @@
     }
     else
     {
-        <p class="text-sm text-gray-500">@resultados.Count envío(s)</p>
+        <p class="text-sm text-muted">@resultados.Count envío(s)</p>
 
         <div class="card table-wrap">
             <table class="table-enterprise">
@@ -65,10 +65,10 @@
                     @foreach (var envio in paginaActual)
                     {
                         <tr>
-                            <td class="text-gray-500">@envio.FechaEnvio.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                            <td class="font-medium text-gray-900">#@envio.PedidoId</td>
+                            <td class="text-muted">@envio.FechaEnvio.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td class="font-medium text-heading">#@envio.PedidoId</td>
                             <td>@envio.Proveedor?.Nombre</td>
-                            <td class="text-gray-500">@envio.Email</td>
+                            <td class="text-muted">@envio.Email</td>
                             <td>@envio.CantidadLineas</td>
                             <td>@(envio.GestorNombre ?? "-")</td>
                             <td class="text-right"><a class="btn btn-secondary btn-sm" href="/api/pedidos/@envio.PedidoId/pdf" target="_blank">PDF del pedido</a></td>

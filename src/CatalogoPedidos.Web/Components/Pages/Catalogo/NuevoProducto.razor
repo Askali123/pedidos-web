@@ -18,11 +18,11 @@
         {
         <EditForm Model="modelo" OnValidSubmit="Guardar" FormName="nuevo-producto">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger-700 text-sm mb-2" role="alert" />
+            <ValidationSummary class="text-danger-400 text-sm mb-2" role="alert" />
 
             <FormField Label="Nombre" Required="true">
                 <InputText @bind-Value="modelo.Nombre" class="form-input" />
-                <ValidationMessage For="() => modelo.Nombre" class="text-danger-700 text-xs mt-1" />
+                <ValidationMessage For="() => modelo.Nombre" class="text-danger-400 text-xs mt-1" />
             </FormField>
 
             <div class="grid grid-cols-2 gap-4">
@@ -42,7 +42,7 @@
             <div class="grid grid-cols-2 gap-4">
                 <FormField Label="Precio">
                     <InputNumber @bind-Value="modelo.Precio" class="form-input" />
-                    <ValidationMessage For="() => modelo.Precio" class="text-danger-700 text-xs mt-1" />
+                    <ValidationMessage For="() => modelo.Precio" class="text-danger-400 text-xs mt-1" />
                 </FormField>
 
                 <FormField Label="Stock">
@@ -56,7 +56,7 @@
 
             @if (!EsEdicion)
             {
-                <div class="grid grid-cols-2 gap-4 mt-2 pt-4 border-t border-gray-100">
+                <div class="grid grid-cols-2 gap-4 mt-2 pt-4 border-t border-border-subtle">
                     <FormField Label="Proveedor (opcional)">
                         <select class="form-select" @bind="proveedorId">
                             <option value="0">Sin proveedor por ahora</option>
@@ -74,9 +74,9 @@
             }
             else
             {
-                <p class="text-xs text-gray-500 mt-2 pt-4 border-t border-gray-100">
+                <p class="text-xs text-muted mt-2 pt-4 border-t border-border-subtle">
                     Los proveedores asociados a este producto se administran aparte, desde
-                    <a class="text-primary-600 hover:underline" href="@($"/catalogo/{Id}/proveedores")">Catálogo → Proveedores</a>.
+                    <a class="text-primary-400 hover:underline" href="@($"/catalogo/{Id}/proveedores")">Catálogo → Proveedores</a>.
                 </p>
             }
 

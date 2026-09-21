@@ -5,7 +5,7 @@
 
 <AuthorizeView>
     <Authorized>
-        <button type="button" class="relative h-9 w-9 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        <button type="button" class="relative h-9 w-9 flex items-center justify-center rounded-sm text-muted hover:bg-card-elevated hover:text-heading"
                 title="Carrito de solicitud" aria-label="Carrito de solicitud" @onclick="Ir">
             <Icon Name="cart" Class="h-5 w-5" />
             @if (CarritoState.TotalItems > 0)

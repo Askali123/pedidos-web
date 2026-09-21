@@ -14,7 +14,7 @@
     <div class="space-y-6">
         <div>
             <h1>CatalogoPedidos</h1>
-            <p class="text-sm text-gray-500 mt-1">
+            <p class="text-sm text-muted mt-1">
                 Proyecto de práctica: captura de productos, catálogo, solicitudes a un gestor y exportación a PDF/Excel.
             </p>
         </div>
@@ -26,18 +26,9 @@
         else
         {
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div class="card card-body">
-                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Productos en catálogo</p>
-                    <p class="text-2xl font-semibold text-gray-900 mt-1">@totalProductos</p>
-                </div>
-                <div class="card card-body">
-                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Pedidos pendientes</p>
-                    <p class="text-2xl font-semibold text-gray-900 mt-1">@pedidosPendientes</p>
-                </div>
-                <div class="card card-body">
-                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Proveedores registrados</p>
-                    <p class="text-2xl font-semibold text-gray-900 mt-1">@totalProveedores</p>
-                </div>
+                <StatCard Icon="cube" Label="Productos en catálogo" Value="@totalProductos.ToString()" Accent="StatCardAccent.Primary" />
+                <StatCard Icon="clipboard-list" Label="Pedidos pendientes" Value="@pedidosPendientes.ToString()" Accent="StatCardAccent.Warning" />
+                <StatCard Icon="truck" Label="Proveedores registrados" Value="@totalProveedores.ToString()" Accent="StatCardAccent.Purple" />
             </div>
         }
 
@@ -60,13 +51,13 @@
                     }
                     else
                     {
-                        <div class="divide-y divide-gray-100">
+                        <div class="divide-y divide-white/[.05]">
                             @foreach (var p in pendientesBandeja)
                             {
-                                <a href="/solicitudes/bandeja" class="flex items-center justify-between gap-3 py-2.5 -mx-1 px-1 rounded hover:bg-gray-50">
+                                <a href="/solicitudes/bandeja" class="flex items-center justify-between gap-3 py-2.5 -mx-1 px-1 rounded hover:bg-card-elevated">
                                     <div class="min-w-0">
-                                        <p class="text-sm font-medium text-gray-900 truncate">Pedido #@p.PedidoId · @p.SolicitanteNombre</p>
-                                        <p class="text-xs text-gray-500 mt-0.5">@p.CantidadLineas línea(s) · @p.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</p>
+                                        <p class="text-sm font-medium text-heading truncate">Pedido #@p.PedidoId · @p.SolicitanteNombre</p>
+                                        <p class="text-xs text-muted mt-0.5">@p.CantidadLineas línea(s) · @p.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</p>
                                     </div>
                                     @if (p.Urgente)
                                     {
@@ -77,7 +68,7 @@
                         </div>
                         @if (totalPedidosBandeja > pendientesBandeja.Count)
                         {
-                            <a href="/solicitudes/bandeja" class="text-sm text-primary-700 hover:underline mt-3 inline-block">Ver los @totalPedidosBandeja pedidos pendientes →</a>
+                            <a href="/solicitudes/bandeja" class="text-sm text-primary-300 hover:underline mt-3 inline-block">Ver los @totalPedidosBandeja pedidos pendientes →</a>
                         }
                     }
                 </Card>
@@ -95,13 +86,13 @@
                     }
                     else
                     {
-                        <div class="divide-y divide-gray-100">
+                        <div class="divide-y divide-white/[.05]">
                             @foreach (var p in misPedidosPendientes)
                             {
-                                <a href="/solicitudes/mis-solicitudes" class="flex items-center justify-between gap-3 py-2.5 -mx-1 px-1 rounded hover:bg-gray-50">
+                                <a href="/solicitudes/mis-solicitudes" class="flex items-center justify-between gap-3 py-2.5 -mx-1 px-1 rounded hover:bg-card-elevated">
                                     <div class="min-w-0">
-                                        <p class="text-sm font-medium text-gray-900 truncate">Pedido #@p.PedidoId</p>
-                                        <p class="text-xs text-gray-500 mt-0.5">@p.CantidadLineas línea(s) · @p.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</p>
+                                        <p class="text-sm font-medium text-heading truncate">Pedido #@p.PedidoId</p>
+                                        <p class="text-xs text-muted mt-0.5">@p.CantidadLineas línea(s) · @p.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</p>
                                     </div>
                                     <Badge Variant="BadgeVariant.Warning">Pendiente</Badge>
                                 </a>
@@ -109,7 +100,7 @@
                         </div>
                         @if (totalMisPedidosPendientes > misPedidosPendientes.Count)
                         {
-                            <a href="/solicitudes/mis-solicitudes" class="text-sm text-primary-700 hover:underline mt-3 inline-block">Ver los @totalMisPedidosPendientes pedidos en curso →</a>
+                            <a href="/solicitudes/mis-solicitudes" class="text-sm text-primary-300 hover:underline mt-3 inline-block">Ver los @totalMisPedidosPendientes pedidos en curso →</a>
                         }
                     }
                 </Card>
@@ -119,30 +110,30 @@
 }
 else
 {
-    <div class="min-h-screen flex flex-col bg-gray-50 relative overflow-hidden">
+    <div class="min-h-screen flex flex-col bg-base relative overflow-hidden">
         <div class="absolute inset-0 pointer-events-none" aria-hidden="true">
-            <div class="absolute -top-32 -left-24 h-80 w-80 rounded-full bg-primary-200/40 blur-3xl"></div>
-            <div class="absolute top-24 -right-32 h-96 w-96 rounded-full bg-primary-300/30 blur-3xl"></div>
+            <div class="absolute -top-32 -left-24 h-80 w-80 rounded-full bg-primary-500/20 blur-3xl"></div>
+            <div class="absolute top-24 -right-32 h-96 w-96 rounded-full bg-accent-purple/15 blur-3xl"></div>
         </div>
 
-        <header class="relative z-10 px-6 sm:px-10 py-5 flex items-center justify-between border-b border-gray-200/70">
+        <header class="relative z-10 px-6 sm:px-10 py-5 flex items-center justify-between border-b border-border-subtle">
             <div class="flex items-center gap-2">
                 <div class="h-8 w-8 rounded-md bg-primary-600 flex items-center justify-center font-bold text-white text-sm shrink-0">C</div>
-                <span class="font-semibold text-gray-900">CatalogoPedidos</span>
+                <span class="font-semibold text-heading">CatalogoPedidos</span>
             </div>
             <a href="Account/Login" class="btn btn-outline btn-sm">Iniciar sesión</a>
         </header>
 
         <main class="relative z-10 flex-1">
             <section class="flex flex-col items-center text-center px-6 py-20 sm:py-28">
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-primary-50 text-primary-700 text-xs font-medium px-3 py-1 mb-6 ring-1 ring-primary-100">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-primary-500/15 text-primary-300 text-xs font-medium px-3 py-1 mb-6 ring-1 ring-primary-500/25">
                     <Icon Name="cube" Class="h-3.5 w-3.5" /> Catálogo y pedidos internos
                 </span>
 
-                <h1 class="text-4xl sm:text-5xl font-bold text-gray-900 max-w-3xl text-balance leading-[1.1]">
-                    Del carrito de tu equipo al pedido al <span class="text-primary-600">proveedor</span>, en un solo lugar
+                <h1 class="text-4xl sm:text-5xl font-bold text-heading max-w-3xl text-balance leading-[1.1]">
+                    Del carrito de tu equipo al pedido al <span class="text-primary-400">proveedor</span>, en un solo lugar
                 </h1>
-                <p class="text-gray-500 text-base sm:text-lg mt-5 max-w-xl text-balance">
+                <p class="text-muted text-base sm:text-lg mt-5 max-w-xl text-balance">
                     Centraliza tu catálogo de productos, deja que cualquiera arme su pedido, y aprueba,
                     controla el stock y avisa a tus proveedores — todo desde un mismo panel.
                 </p>
@@ -157,57 +148,57 @@ else
 
             <section class="px-6 pb-20">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-5xl mx-auto text-left">
-                    <div class="card card-body hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-                        <div class="h-10 w-10 rounded-lg bg-primary-50 flex items-center justify-center">
-                            <Icon Name="cube" Class="h-5 w-5 text-primary-600" />
+                    <div class="card card-body hover:shadow-elevated hover:-translate-y-0.5 transition-all duration-200">
+                        <div class="h-10 w-10 rounded-lg bg-primary-500/15 flex items-center justify-center">
+                            <Icon Name="cube" Class="h-5 w-5 text-primary-400" />
                         </div>
-                        <p class="font-medium text-gray-900 mt-3">Catálogo centralizado</p>
-                        <p class="text-sm text-gray-500 mt-1">Productos con stock, precio y el código de cada proveedor, en un solo lugar.</p>
+                        <p class="font-medium text-heading mt-3">Catálogo centralizado</p>
+                        <p class="text-sm text-muted mt-1">Productos con stock, precio y el código de cada proveedor, en un solo lugar.</p>
                     </div>
-                    <div class="card card-body hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-                        <div class="h-10 w-10 rounded-lg bg-success-50 flex items-center justify-center">
-                            <Icon Name="clipboard-list" Class="h-5 w-5 text-success-600" />
+                    <div class="card card-body hover:shadow-elevated hover:-translate-y-0.5 transition-all duration-200">
+                        <div class="h-10 w-10 rounded-lg bg-success-500/15 flex items-center justify-center">
+                            <Icon Name="clipboard-list" Class="h-5 w-5 text-success-400" />
                         </div>
-                        <p class="font-medium text-gray-900 mt-3">Pedidos con aprobación</p>
-                        <p class="text-sm text-gray-500 mt-1">Cualquiera arma su carrito; un gestor aprueba o rechaza cada línea.</p>
+                        <p class="font-medium text-heading mt-3">Pedidos con aprobación</p>
+                        <p class="text-sm text-muted mt-1">Cualquiera arma su carrito; un gestor aprueba o rechaza cada línea.</p>
                     </div>
-                    <div class="card card-body hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-                        <div class="h-10 w-10 rounded-lg bg-warning-50 flex items-center justify-center">
-                            <Icon Name="bell" Class="h-5 w-5 text-warning-600" />
+                    <div class="card card-body hover:shadow-elevated hover:-translate-y-0.5 transition-all duration-200">
+                        <div class="h-10 w-10 rounded-lg bg-warning-500/15 flex items-center justify-center">
+                            <Icon Name="bell" Class="h-5 w-5 text-warning-400" />
                         </div>
-                        <p class="font-medium text-gray-900 mt-3">Avisos en tiempo real</p>
-                        <p class="text-sm text-gray-500 mt-1">Nuevos pedidos, resoluciones y alertas de stock bajo, al instante.</p>
+                        <p class="font-medium text-heading mt-3">Avisos en tiempo real</p>
+                        <p class="text-sm text-muted mt-1">Nuevos pedidos, resoluciones y alertas de stock bajo, al instante.</p>
                     </div>
-                    <div class="card card-body hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-                        <div class="h-10 w-10 rounded-lg bg-info-50 flex items-center justify-center">
-                            <Icon Name="download" Class="h-5 w-5 text-info-600" />
+                    <div class="card card-body hover:shadow-elevated hover:-translate-y-0.5 transition-all duration-200">
+                        <div class="h-10 w-10 rounded-lg bg-info-500/15 flex items-center justify-center">
+                            <Icon Name="download" Class="h-5 w-5 text-info-400" />
                         </div>
-                        <p class="font-medium text-gray-900 mt-3">Reportes listos para enviar</p>
-                        <p class="text-sm text-gray-500 mt-1">Exporta a PDF/Excel, o notifica directo al proveedor, por pedido.</p>
+                        <p class="font-medium text-heading mt-3">Reportes listos para enviar</p>
+                        <p class="text-sm text-muted mt-1">Exporta a PDF/Excel, o notifica directo al proveedor, por pedido.</p>
                     </div>
                 </div>
             </section>
 
             <section class="px-6 pb-20">
                 <div class="max-w-4xl mx-auto">
-                    <h2 class="text-center text-2xl font-semibold text-gray-900">Cómo funciona</h2>
+                    <h2 class="text-center text-2xl font-semibold text-heading">Cómo funciona</h2>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-6 mt-10 relative">
-                        <div class="hidden sm:block absolute top-6 left-[16.5%] right-[16.5%] h-px bg-gray-200"></div>
+                        <div class="hidden sm:block absolute top-6 left-[16.5%] right-[16.5%] h-px bg-border-subtle"></div>
 
                         <div class="relative flex flex-col items-center text-center">
                             <span class="h-12 w-12 rounded-full bg-primary-600 text-white flex items-center justify-center font-semibold shadow-sm shrink-0">1</span>
-                            <p class="font-medium text-gray-900 mt-4">Explorá el catálogo</p>
-                            <p class="text-sm text-gray-500 mt-1 max-w-56">Buscá por nombre, categoría o proveedor y armá tu carrito.</p>
+                            <p class="font-medium text-heading mt-4">Explorá el catálogo</p>
+                            <p class="text-sm text-muted mt-1 max-w-56">Buscá por nombre, categoría o proveedor y armá tu carrito.</p>
                         </div>
                         <div class="relative flex flex-col items-center text-center">
                             <span class="h-12 w-12 rounded-full bg-primary-600 text-white flex items-center justify-center font-semibold shadow-sm shrink-0">2</span>
-                            <p class="font-medium text-gray-900 mt-4">Enviá tu pedido</p>
-                            <p class="text-sm text-gray-500 mt-1 max-w-56">Un solo envío con varios productos y un comentario, si hace falta.</p>
+                            <p class="font-medium text-heading mt-4">Enviá tu pedido</p>
+                            <p class="text-sm text-muted mt-1 max-w-56">Un solo envío con varios productos y un comentario, si hace falta.</p>
                         </div>
                         <div class="relative flex flex-col items-center text-center">
                             <span class="h-12 w-12 rounded-full bg-primary-600 text-white flex items-center justify-center font-semibold shadow-sm shrink-0">3</span>
-                            <p class="font-medium text-gray-900 mt-4">El gestor resuelve</p>
-                            <p class="text-sm text-gray-500 mt-1 max-w-56">Aprueba o rechaza cada línea; vos te enterás al instante.</p>
+                            <p class="font-medium text-heading mt-4">El gestor resuelve</p>
+                            <p class="text-sm text-muted mt-1 max-w-56">Aprueba o rechaza cada línea; vos te enterás al instante.</p>
                         </div>
                     </div>
                 </div>
@@ -224,7 +215,7 @@ else
             </section>
         </main>
 
-        <footer class="relative z-10 px-6 py-6 text-center text-xs text-gray-400 border-t border-gray-200/70">
+        <footer class="relative z-10 px-6 py-6 text-center text-xs text-muted border-t border-border-subtle">
             CatalogoPedidos — proyecto de práctica
         </footer>
     </div>

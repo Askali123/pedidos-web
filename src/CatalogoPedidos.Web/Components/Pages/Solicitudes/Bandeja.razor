@@ -32,14 +32,14 @@
             <Card>
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
-                        <p class="font-medium text-gray-900">
+                        <p class="font-medium text-heading">
                             Pedido #@grupo.Key.PedidoId · @grupo.Key.SolicitanteNombre
                             @if (urgente)
                             {
                                 <Badge Variant="BadgeVariant.Danger">⚠ Urgente</Badge>
                             }
                         </p>
-                        <p class="text-xs text-gray-500 mt-0.5">
+                        <p class="text-xs text-muted mt-0.5">
                             @grupo.Key.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                             @if (!string.IsNullOrWhiteSpace(grupo.Key.Comentario))
                             {
@@ -48,7 +48,7 @@
                         </p>
                         @if (!string.IsNullOrWhiteSpace(grupo.Key.DireccionEntrega))
                         {
-                            <p class="text-xs text-gray-500 mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
+                            <p class="text-xs text-muted mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
                         }
                         @if (enviosPorPedido.TryGetValue(grupo.Key.PedidoId, out var envios) && envios.Count > 0)
                         {
@@ -65,7 +65,7 @@
                         <EntregaBadge Confirmacion="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId)" />
                         @if (confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId) is not null)
                         {
-                            <p class="text-xs text-gray-500 mt-0.5">
+                            <p class="text-xs text-muted mt-0.5">
                                 La entrega corresponde a las líneas ya aprobadas de este pedido — las de abajo son otras líneas que todavía están pendientes de resolver.
                             </p>
                         }
@@ -99,20 +99,20 @@
                                 </span>
                             </Trigger>
                             <ChildContent>
-                                <div class="w-60 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                                <div class="w-60 bg-card border border-border-subtle rounded-lg shadow-elevated py-1">
                                     @if (proveedoresPorPedido.TryGetValue(grupo.Key.PedidoId, out var opciones) && opciones.Count > 0)
                                     {
                                         @foreach (var op in opciones)
                                         {
-                                            <button type="button" class="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" @onclick="() => PedirConfirmacionEnvio(grupo.Key.PedidoId, op)">
+                                            <button type="button" class="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-body hover:bg-card-elevated" @onclick="() => PedirConfirmacionEnvio(grupo.Key.PedidoId, op)">
                                                 <span>@op.ProveedorNombre</span>
-                                                <span class="text-xs text-gray-400">@op.CantidadLineas prod.</span>
+                                                <span class="text-xs text-muted">@op.CantidadLineas prod.</span>
                                             </button>
                                         }
                                     }
                                     else
                                     {
-                                        <p class="px-3 py-2 text-sm text-gray-400">Aprueba al menos una línea con proveedor asociado para poder enviarla.</p>
+                                        <p class="px-3 py-2 text-sm text-muted">Aprueba al menos una línea con proveedor asociado para poder enviarla.</p>
                                     }
                                 </div>
                             </ChildContent>
@@ -134,8 +134,8 @@
                             @foreach (var s in grupo)
                             {
                                 <tr>
-                                    <td class="font-medium text-gray-900" data-label="Producto">@s.Producto?.Nombre</td>
-                                    <td class="text-gray-500" data-label="Proveedor · Código">
+                                    <td class="font-medium text-heading" data-label="Producto">@s.Producto?.Nombre</td>
+                                    <td class="text-muted" data-label="Proveedor · Código">
                                         @if (codigosPorProducto.TryGetValue(s.ProductoId, out var pp))
                                         {
                                             @($"{pp.Proveedor!.Nombre} · {pp.CodigoProveedor}")
@@ -175,8 +175,8 @@
                 @if (pedidosEnSeleccion.Contains(grupo.Key.PedidoId))
                 {
                     var cantidadMarcadas = grupo.Count(s => decisiones.ContainsKey(s.Id));
-                    <div class="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
-                        <span class="text-sm text-gray-500">@cantidadMarcadas marcada(s)</span>
+                    <div class="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-border-subtle">
+                        <span class="text-sm text-muted">@cantidadMarcadas marcada(s)</span>
                         <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" Disabled="cantidadMarcadas == 0" OnClick="() => AbrirConfirmarVarias(grupo.Key.PedidoId)">Confirmar selección</Button>
                     </div>
                 }
@@ -189,7 +189,7 @@
                Message="@($"¿Enviar el pedido #{pedidoPendienteEnvio} a \"{proveedorPendienteEnvio?.ProveedorNombre}\" ({proveedorPendienteEnvio?.CantidadLineas} producto(s))? Se le manda un correo real con el detalle en PDF — no se puede deshacer.")"
                ConfirmText="Enviar" OnConfirm="ConfirmarEnvio">
     <ExtraContent>
-        <label class="flex items-center gap-2 text-sm text-gray-700">
+        <label class="flex items-center gap-2 text-sm text-body">
             <input type="checkbox" class="form-checkbox" @bind="adjuntarExcel" />
             También adjuntar el detalle en Excel
         </label>
@@ -200,7 +200,7 @@
     <ChildContent>
         @if (pedidoIdVariasPendiente is not null)
         {
-            <p class="text-sm text-gray-600 mb-3">
+            <p class="text-sm text-body mb-3">
                 @cantidadAprobarPendiente aprobación(es) y @cantidadRechazarPendiente rechazo(s). El solicitante recibe una sola notificación con el resumen.
             </p>
         }
@@ -226,7 +226,7 @@
         <FormField Label="Dirección entregada" Hint="A dónde se llevaron los insumos en la práctica — prellenada con la que pidió el solicitante, pero editable si terminó siendo otra.">
             <input class="form-input" @bind="direccionEntregadaPendiente" placeholder="Ej. Bodega principal, Cra 10 # 20-30" />
         </FormField>
-        <label class="flex items-center gap-2 text-sm text-gray-700 mt-2 mb-4">
+        <label class="flex items-center gap-2 text-sm text-body mt-2 mb-4">
             <input type="checkbox" class="form-checkbox" @bind="coincideDireccionPendiente" />
             ¿Coincide con la dirección indicada por el solicitante?
         </label>

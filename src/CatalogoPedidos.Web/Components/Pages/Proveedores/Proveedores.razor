@@ -33,7 +33,7 @@
                         @foreach (var p in proveedores)
                         {
                             <tr>
-                                <td class="font-medium text-gray-900" data-label="Nombre">@p.Nombre</td>
+                                <td class="font-medium text-heading" data-label="Nombre">@p.Nombre</td>
                                 <td data-label="NIT">@p.Nit</td>
                                 <td data-label="Contacto">@p.Contacto</td>
                                 <td data-label="Teléfono">@p.Telefono</td>
@@ -83,7 +83,7 @@
 
                 <FormField Label="Email">
                     <InputText @bind-Value="modelo.Email" class="form-input" />
-                    <ValidationMessage For="() => modelo.Email" class="text-danger-700 text-xs mt-1" />
+                    <ValidationMessage For="() => modelo.Email" class="text-danger-400 text-xs mt-1" />
                 </FormField>
 
                 @if (!string.IsNullOrEmpty(error))
@@ -133,7 +133,7 @@
 
             <FormField Label="Email">
                 <InputText @bind-Value="modeloEditar.Email" class="form-input" />
-                <ValidationMessage For="() => modeloEditar.Email" class="text-danger-700 text-xs mt-1" />
+                <ValidationMessage For="() => modeloEditar.Email" class="text-danger-400 text-xs mt-1" />
             </FormField>
 
             @if (!string.IsNullOrEmpty(errorEditar))

@@ -25,13 +25,13 @@
         </form>
         <EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger-700 text-sm mb-2" role="alert" />
+            <ValidationSummary class="text-danger-400 text-sm mb-2" role="alert" />
 
             @if (isEmailConfirmed)
             {
                 <FormField Label="Email actual">
                     <div class="flex items-center gap-2">
-                        <input type="text" value="@email" id="email" class="form-input bg-gray-50" disabled />
+                        <input type="text" value="@email" id="email" class="form-input bg-card-elevated" disabled />
                         <span class="text-success-600 shrink-0" title="Email confirmado"><Icon Name="check-circle" Class="h-5 w-5" /></span>
                     </div>
                 </FormField>
@@ -39,14 +39,14 @@
             else
             {
                 <FormField Label="Email actual">
-                    <input type="text" value="@email" id="email" class="form-input bg-gray-50" disabled />
-                    <button type="submit" class="text-sm text-primary-700 hover:underline mt-1" form="send-verification-form">Reenviar correo de verificación</button>
+                    <input type="text" value="@email" id="email" class="form-input bg-card-elevated" disabled />
+                    <button type="submit" class="text-sm text-primary-300 hover:underline mt-1" form="send-verification-form">Reenviar correo de verificación</button>
                 </FormField>
             }
 
             <FormField Label="Nuevo email" Required="true">
                 <InputText @bind-Value="Input.NewEmail" id="Input.NewEmail" class="form-input" autocomplete="email" aria-required="true" placeholder="nombre@ejemplo.com" />
-                <ValidationMessage For="() => Input.NewEmail" class="text-danger-700 text-xs mt-1" />
+                <ValidationMessage For="() => Input.NewEmail" class="text-danger-400 text-xs mt-1" />
             </FormField>
 
             <Button Type="submit" Variant="ButtonVariant.Primary" Icon="check">Cambiar email</Button>

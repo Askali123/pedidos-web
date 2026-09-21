@@ -15,7 +15,7 @@
             <Badge Variant="BadgeVariant.Warning">⚠ Entregado el @Confirmacion.FechaEntrega.ToLocalTime().ToString("dd/MM/yyyy HH:mm") — dirección distinta a la indicada</Badge>
             @if (!string.IsNullOrWhiteSpace(Confirmacion.Observaciones))
             {
-                <p class="text-xs text-gray-500 mt-0.5">@Confirmacion.Observaciones</p>
+                <p class="text-xs text-muted mt-0.5">@Confirmacion.Observaciones</p>
             }
         }
     </div>

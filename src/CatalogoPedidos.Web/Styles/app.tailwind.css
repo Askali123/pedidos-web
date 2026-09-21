@@ -1,51 +1,84 @@
 @import "tailwindcss";
 
 /*
-  Design tokens — sistema visual único para toda la app.
-  "primary" es un alias semántico sobre la escala azul de Tailwind:
-  así cualquier componente usa bg-primary-600, no un azul distinto por página.
+  Design tokens — sistema visual único para toda la app (tema "dark premium
+  enterprise"). Todo el color/tipografía/radio/sombra de la interfaz se
+  define acá; los componentes y páginas consumen las utilidades generadas
+  (bg-base, text-heading, bg-primary-600, shadow-card, etc.), nunca colores
+  sueltos de la escala gray/white de Tailwind.
 */
 @theme {
-  --color-primary-50: var(--color-blue-50);
-  --color-primary-100: var(--color-blue-100);
-  --color-primary-200: var(--color-blue-200);
-  --color-primary-300: var(--color-blue-300);
-  --color-primary-400: var(--color-blue-400);
-  --color-primary-500: var(--color-blue-500);
-  --color-primary-600: var(--color-blue-600);
-  --color-primary-700: var(--color-blue-700);
-  --color-primary-800: var(--color-blue-800);
-  --color-primary-900: var(--color-blue-900);
+  /* ---------- Superficies ---------- */
+  --color-base: #0B1220;           /* body */
+  --color-surface: #0F1830;        /* sidebar, header */
+  --color-card: #141F3D;           /* cards, inputs, table */
+  --color-card-elevated: #192646;  /* modales, dropdowns, hover */
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
 
-  /* Aliases semánticos de estado — mismo truco: reusan la paleta de Tailwind */
-  --color-success-50: var(--color-green-50);
+  /* ---------- Texto ---------- */
+  --color-heading: #F4F7FF;
+  --color-body: #C7CEE6;
+  --color-muted: #8993B5;
+
+  /* ---------- Acento primario (azul eléctrico → cyan) ---------- */
+  --color-primary-50: #EAF8FF;
+  --color-primary-100: #CFEFFF;
+  --color-primary-200: #9FDFFF;
+  --color-primary-300: #63CBFF;
+  --color-primary-400: #2CB4FF;
+  --color-primary-500: #168BFF;
+  --color-primary-600: #0D6FDB;
+  --color-primary-700: #0A57AD;
+  --color-primary-800: #0B4483;
+  --color-primary-900: #0C3566;
+
+  /* Acentos secundarios — uso puntual, nunca como color de relleno masivo */
+  --color-cyan: #00D9FF;
+  --color-accent-purple: #7C5CFF;
+  --color-accent-magenta: #E83B9A;
+
+  /* Aliases semánticos de estado — recalibrados para fondo oscuro (se
+     consumen como tinte translúcido: bg-success-500/15, no como fondo sólido) */
+  --color-success-200: var(--color-green-200);
+  --color-success-300: var(--color-green-300);
   --color-success-400: var(--color-green-400);
   --color-success-500: var(--color-green-500);
   --color-success-600: var(--color-green-600);
   --color-success-700: var(--color-green-700);
 
-  --color-warning-50: var(--color-amber-50);
+  --color-warning-200: var(--color-amber-200);
+  --color-warning-300: var(--color-amber-300);
   --color-warning-400: var(--color-amber-400);
   --color-warning-500: var(--color-amber-500);
   --color-warning-600: var(--color-amber-600);
   --color-warning-700: var(--color-amber-700);
 
-  --color-danger-50: var(--color-red-50);
+  --color-danger-200: var(--color-red-200);
+  --color-danger-300: var(--color-red-300);
   --color-danger-400: var(--color-red-400);
   --color-danger-500: var(--color-red-500);
   --color-danger-600: var(--color-red-600);
   --color-danger-700: var(--color-red-700);
 
-  --color-info-50: var(--color-blue-50);
+  --color-info-200: var(--color-blue-200);
+  --color-info-300: var(--color-blue-300);
+  --color-info-400: var(--color-blue-400);
   --color-info-500: var(--color-blue-500);
   --color-info-600: var(--color-blue-600);
   --color-info-700: var(--color-blue-700);
 
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
+  /* ---------- Radios ---------- */
+  --radius-sm: 0.5rem;    /* botones, inputs */
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;  /* cards */
+  --radius-xl: 1.25rem;   /* contenedores grandes */
+
+  /* ---------- Sombras (calibradas para superficie oscura) ---------- */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .5), 0 12px 28px -8px rgba(0, 0, 0, .45);
+  --shadow-elevated: 0 4px 6px rgba(0, 0, 0, .4), 0 24px 48px -12px rgba(0, 0, 0, .55);
 }
 
 @layer base {
@@ -54,19 +87,19 @@
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 text-sm antialiased;
+    @apply bg-base text-body text-sm antialiased;
   }
 
   h1 {
-    @apply text-2xl font-semibold tracking-tight text-gray-900;
+    @apply text-2xl font-semibold tracking-tight text-heading;
   }
 
   h2 {
-    @apply text-lg font-semibold text-gray-900;
+    @apply text-lg font-semibold text-heading;
   }
 
   h3 {
-    @apply text-base font-medium text-gray-900;
+    @apply text-base font-medium text-heading;
   }
 
   /* Foco visible siempre — accesibilidad, nunca lo desactivamos */
@@ -76,12 +109,12 @@
   select:focus-visible,
   textarea:focus-visible,
   [tabindex]:focus-visible {
-    @apply outline-none ring-2 ring-primary-500 ring-offset-1;
+    @apply outline-none ring-2 ring-primary-400 ring-offset-2 ring-offset-base;
   }
 
   /* Ganchos que requiere el propio framework Blazor — no se pueden quitar */
   .validation-message {
-    @apply text-sm text-danger-700 mt-1 block;
+    @apply text-sm text-danger-400 mt-1 block;
   }
 
   .blazor-error-boundary {
@@ -97,7 +130,7 @@
 @layer components {
   /* ---------- Botones ---------- */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium
+    @apply inline-flex items-center justify-center gap-2 rounded-sm text-sm font-medium
            h-9 px-4 transition-colors disabled:opacity-50 disabled:pointer-events-none
            whitespace-nowrap;
   }
@@ -105,12 +138,12 @@
   .btn-lg { @apply h-10 px-5 text-base; }
 
   /* Se combinan con .btn en el markup: class="btn btn-primary" */
-  .btn-primary { @apply bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800; }
-  .btn-secondary { @apply bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 active:bg-gray-100; }
-  .btn-success { @apply bg-green-600 text-white hover:bg-green-700 active:bg-green-800; }
-  .btn-danger { @apply bg-red-600 text-white hover:bg-red-700 active:bg-red-800; }
-  .btn-outline { @apply bg-transparent text-primary-700 border border-primary-300 hover:bg-primary-50; }
-  .btn-ghost { @apply bg-transparent text-gray-600 hover:bg-gray-100; }
+  .btn-primary { @apply bg-primary-600 text-white hover:bg-primary-500 active:bg-primary-700; }
+  .btn-secondary { @apply bg-card text-body border border-border-subtle hover:bg-card-elevated hover:text-heading active:bg-card-elevated; }
+  .btn-success { @apply bg-success-600 text-white hover:bg-success-500 active:bg-success-700; }
+  .btn-danger { @apply bg-danger-600 text-white hover:bg-danger-500 active:bg-danger-700; }
+  .btn-outline { @apply bg-transparent text-primary-300 border border-primary-500/40 hover:bg-primary-500/10; }
+  .btn-ghost { @apply bg-transparent text-muted hover:bg-card-elevated hover:text-heading; }
 
   /* Grupo de radios estilizado como botones segmentados (p. ej. "Ingresar como"
      en Login). Funciona sin JavaScript: el <label> nativo activa el radio oculto
@@ -120,57 +153,59 @@
      sobreescribe la apariencia cuando el radio asociado está marcado. */
   .role-toggle-input { @apply sr-only; }
   .role-toggle-input:checked + .role-toggle-label {
-    @apply bg-primary-600 text-white border-transparent hover:bg-primary-700 active:bg-primary-800;
+    @apply bg-primary-600 text-white border-transparent hover:bg-primary-500 active:bg-primary-700;
   }
-  .role-toggle-input:focus-visible + .role-toggle-label { @apply ring-2 ring-primary-400 ring-offset-1; }
+  .role-toggle-input:focus-visible + .role-toggle-label { @apply ring-2 ring-primary-400 ring-offset-2 ring-offset-base; }
 
   /* ---------- Tarjetas ---------- */
   .card {
-    @apply bg-white border border-gray-200 rounded-lg shadow-sm;
+    @apply bg-card border border-border-subtle rounded-lg shadow-card;
   }
   .card-header {
-    @apply flex items-center justify-between px-5 py-4 border-b border-gray-200;
+    @apply flex items-center justify-between px-5 py-4 border-b border-border-subtle;
   }
   .card-body {
     @apply p-5;
   }
 
   /* ---------- Badges ---------- */
+  /* Tinte translúcido + anillo sutil en vez de fondo sólido pastel: sobre
+     navy oscuro un bg-{color}-100 clásico pierde todo contraste. */
   .badge {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
-  .badge-neutral { @apply bg-gray-100 text-gray-700; }
-  .badge-success { @apply bg-green-100 text-green-800; }
-  .badge-warning { @apply bg-amber-100 text-amber-800; }
-  .badge-danger { @apply bg-red-100 text-red-800; }
-  .badge-info { @apply bg-blue-100 text-blue-800; }
+  .badge-neutral { @apply bg-white/8 text-body ring-1 ring-white/10; }
+  .badge-success { @apply bg-success-500/15 text-success-300 ring-1 ring-success-500/25; }
+  .badge-warning { @apply bg-warning-500/15 text-warning-300 ring-1 ring-warning-500/25; }
+  .badge-danger { @apply bg-danger-500/15 text-danger-300 ring-1 ring-danger-500/25; }
+  .badge-info { @apply bg-info-500/15 text-info-300 ring-1 ring-info-500/25; }
 
   /* ---------- Alertas ---------- */
   .alert {
     @apply flex items-start gap-3 rounded-md border px-4 py-3 text-sm;
   }
-  .alert-success { @apply bg-green-50 border-green-200 text-green-800; }
-  .alert-warning { @apply bg-amber-50 border-amber-200 text-amber-800; }
-  .alert-danger { @apply bg-red-50 border-red-200 text-red-800; }
-  .alert-info { @apply bg-blue-50 border-blue-200 text-blue-800; }
+  .alert-success { @apply bg-success-500/10 border-success-500/25 text-success-200; }
+  .alert-warning { @apply bg-warning-500/10 border-warning-500/25 text-warning-200; }
+  .alert-danger { @apply bg-danger-500/10 border-danger-500/25 text-danger-200; }
+  .alert-info { @apply bg-info-500/10 border-info-500/25 text-info-200; }
 
   /* ---------- Formularios ---------- */
   .form-label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-sm font-medium text-body mb-1;
   }
   .form-hint {
-    @apply text-xs text-gray-500 mt-1;
+    @apply text-xs text-muted mt-1;
   }
   .form-input, .form-select, .form-textarea {
-    @apply block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900
-           placeholder:text-gray-400
-           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
+    @apply block w-full rounded-sm border border-border-subtle bg-card px-3 py-2 text-sm text-heading
+           placeholder:text-muted
+           focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-primary-400/60;
   }
   .form-input.invalid, .form-select.invalid, .form-textarea.invalid {
     @apply border-danger-400 focus:ring-danger-500 focus:border-danger-500;
   }
   .form-checkbox {
-    @apply h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500;
+    @apply h-4 w-4 rounded-sm border-border-strong bg-card text-primary-500 focus:ring-primary-400;
   }
 
   /* ---------- Tablas ---------- */
@@ -179,23 +214,23 @@
      vive en una columna angosta de un grid en desktop (ver Proveedores.razor) y
      no solo en mobile. Ver docs/PLAN_MEJORAS_UI_UX.md #2. */
   .table-wrap {
-    @apply overflow-x-auto rounded-lg border border-gray-200 bg-white;
+    @apply overflow-x-auto rounded-lg border border-border-subtle bg-card;
     container-type: inline-size;
   }
   .table-enterprise {
     @apply w-full text-sm;
   }
   .table-enterprise thead {
-    @apply bg-gray-50 border-b border-gray-200;
+    @apply bg-white/[.03] border-b border-border-subtle;
   }
   .table-enterprise th {
-    @apply text-left font-medium text-gray-500 uppercase tracking-wide text-xs px-4 py-3;
+    @apply text-left font-medium text-muted uppercase tracking-wide text-xs px-4 py-3;
   }
   .table-enterprise td {
-    @apply px-4 py-3 text-gray-700 align-middle;
+    @apply px-4 py-3 text-body align-middle;
   }
   .table-enterprise tbody tr {
-    @apply border-b border-gray-100 last:border-0 hover:bg-gray-50;
+    @apply border-b border-white/[.05] last:border-0 hover:bg-white/[.03];
   }
 
   /* Por debajo de este ancho de CONTENEDOR, la tabla se re-apila como una lista de
@@ -213,7 +248,7 @@
       @apply block w-full;
     }
     .table-enterprise tbody tr {
-      @apply border border-gray-200 rounded-lg mb-3 p-3;
+      @apply border border-border-subtle rounded-lg mb-3 p-3;
     }
     .table-enterprise td {
       @apply px-0 py-1.5 border-0;
@@ -223,7 +258,7 @@
     }
     .table-enterprise td[data-label]::before {
       content: attr(data-label);
-      @apply text-xs font-medium text-gray-500 uppercase tracking-wide shrink-0 pt-0.5 text-left;
+      @apply text-xs font-medium text-muted uppercase tracking-wide shrink-0 pt-0.5 text-left;
     }
     .table-enterprise td:empty {
       @apply hidden;
@@ -232,32 +267,34 @@
 
   /* ---------- Navegación lateral ---------- */
   .sidebar-link {
-    @apply flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-300
-           hover:bg-white/10 hover:text-white transition-colors;
+    @apply flex items-center gap-3 rounded-sm px-3 py-2 text-sm font-medium text-muted
+           hover:bg-card-elevated hover:text-heading transition-colors;
   }
-  /* Se combina con .sidebar-link en el markup */
+  /* Se combina con .sidebar-link en el markup. El acento activo es una barra
+     lateral cyan (inset box-shadow, no border, para no correr el contenido 2px)
+     + fondo levemente elevado — más elegante que un relleno sólido. */
   .sidebar-link-active {
-    @apply bg-primary-600! text-white! hover:bg-primary-600!;
+    @apply bg-card-elevated! text-heading! hover:bg-card-elevated!;
+    box-shadow: inset 2px 0 0 0 var(--color-primary-400);
   }
 
-  /* Misma idea que .sidebar-link, pero para navegación secundaria sobre fondo claro
-     (ej. el menú de "Mi cuenta" en Account/Manage/*) — no tiene sentido reusar el
-     sidebar oscuro para una sub-navegación dentro del contenido de la página. */
+  /* Misma idea que .sidebar-link, pero para navegación secundaria (ej. el menú
+     de "Mi cuenta" en Account/Manage/*). */
   .nav-link-light {
-    @apply flex items-center rounded-md px-3 py-2 text-sm font-medium text-gray-600
-           hover:bg-gray-100 hover:text-gray-900 transition-colors;
+    @apply flex items-center rounded-sm px-3 py-2 text-sm font-medium text-muted
+           hover:bg-card-elevated hover:text-heading transition-colors;
   }
   /* Se combina con .nav-link-light en el markup */
   .nav-link-light-active {
-    @apply bg-primary-50! text-primary-700!;
+    @apply bg-primary-500/15! text-primary-300!;
   }
 
   /* ---------- Switch (toggle) ---------- */
   .switch-track {
-    @apply relative inline-flex h-5 w-9 items-center rounded-full bg-gray-300 transition-colors;
+    @apply relative inline-flex h-5 w-9 items-center rounded-full bg-white/15 transition-colors;
   }
   .switch-track.on {
-    @apply bg-primary-600;
+    @apply bg-primary-500;
   }
   .switch-thumb {
     @apply inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform translate-x-1;

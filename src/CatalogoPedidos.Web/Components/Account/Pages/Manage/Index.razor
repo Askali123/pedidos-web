@@ -17,20 +17,20 @@
         <StatusMessage />
         <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger-700 text-sm mb-2" role="alert" />
+            <ValidationSummary class="text-danger-400 text-sm mb-2" role="alert" />
 
             <FormField Label="Usuario">
-                <input type="text" value="@username" id="username" class="form-input bg-gray-50" disabled />
+                <input type="text" value="@username" id="username" class="form-input bg-card-elevated" disabled />
             </FormField>
 
             <FormField Label="Teléfono">
                 <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-input" placeholder="Ingresá tu teléfono" />
-                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger-700 text-xs mt-1" />
+                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger-400 text-xs mt-1" />
             </FormField>
 
             <FormField Label="Dirección de entrega" Hint="Se usa para autocompletar dónde entregar tus pedidos.">
                 <InputText @bind-Value="Input.DireccionPredeterminada" id="Input.DireccionPredeterminada" class="form-input" placeholder="Ej. Bodega principal, Cra 10 # 20-30" />
-                <ValidationMessage For="() => Input.DireccionPredeterminada" class="text-danger-700 text-xs mt-1" />
+                <ValidationMessage For="() => Input.DireccionPredeterminada" class="text-danger-400 text-xs mt-1" />
             </FormField>
 
             <Button Type="submit" Variant="ButtonVariant.Primary" Icon="check">Guardar</Button>

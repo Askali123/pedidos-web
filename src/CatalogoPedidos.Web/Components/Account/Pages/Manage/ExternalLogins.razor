@@ -20,11 +20,11 @@
         @if (currentLogins?.Count > 0)
         {
             <h4 class="mb-2">Cuentas vinculadas</h4>
-            <div class="divide-y divide-gray-100 border border-gray-200 rounded-lg mb-4">
+            <div class="divide-y divide-white/[.05] border border-border-subtle rounded-lg mb-4">
                 @foreach (var login in currentLogins)
                 {
                     <div class="flex items-center justify-between gap-3 px-3 py-2.5">
-                        <span class="text-sm text-gray-900">@login.ProviderDisplayName</span>
+                        <span class="text-sm text-heading">@login.ProviderDisplayName</span>
                         @if (showRemoveButton)
                         {
                             <form @formname="@($"remove-login-{login.LoginProvider}")" @onsubmit="OnSubmitAsync" method="post">

@@ -23,13 +23,13 @@
 
         <EditForm Model="Input" FormName="delete-user" OnValidSubmit="OnValidSubmitAsync" method="post" class="mt-4">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger-700 text-sm mb-2" role="alert" />
+            <ValidationSummary class="text-danger-400 text-sm mb-2" role="alert" />
 
             @if (requirePassword)
             {
                 <FormField Label="Contraseña" Required="true">
                     <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-input" autocomplete="current-password" aria-required="true" placeholder="Ingresá tu contraseña" />
-                    <ValidationMessage For="() => Input.Password" class="text-danger-700 text-xs mt-1" />
+                    <ValidationMessage For="() => Input.Password" class="text-danger-400 text-xs mt-1" />
                 </FormField>
             }
 

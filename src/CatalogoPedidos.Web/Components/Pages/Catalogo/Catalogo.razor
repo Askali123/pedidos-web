@@ -12,7 +12,7 @@
     <Card>
         <div class="flex flex-wrap items-center gap-3">
             <div class="relative flex-1 min-w-[220px]">
-                <Icon Name="search" Class="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Icon Name="search" Class="h-4 w-4 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input type="text" class="form-input pl-9" placeholder="Buscar por nombre o descripción..."
                        @bind="texto" @bind:event="oninput" @onkeyup="Filtrar" />
             </div>
@@ -78,17 +78,17 @@
                         <tr>
                             @if (proveedorId is not null)
                             {
-                                <td class="text-gray-500" data-label="Código interno">#@p.Id</td>
-                                <td class="font-medium text-gray-900" data-label="Código proveedor">@fila.CodigoProveedor</td>
+                                <td class="text-muted" data-label="Código interno">#@p.Id</td>
+                                <td class="font-medium text-heading" data-label="Código proveedor">@fila.CodigoProveedor</td>
                             }
-                            <td class="font-medium text-gray-900" data-label="Nombre">@p.Nombre</td>
+                            <td class="font-medium text-heading" data-label="Nombre">@p.Nombre</td>
                             <td data-label="Categoría"><Badge Variant="BadgeVariant.Neutral">@p.Categoria</Badge></td>
-                            <td class="text-gray-500" data-label="Descripción">@p.Descripcion</td>
-                            <td class="text-gray-500" data-label="Unidad">@p.UnidadMedida</td>
+                            <td class="text-muted" data-label="Descripción">@p.Descripcion</td>
+                            <td class="text-muted" data-label="Unidad">@p.UnidadMedida</td>
                             <td data-label="Precio">@(p.Precio > 0 ? p.Precio.ToString("C") : "Sin precio")</td>
                             <td data-label="Stock">
                                 <div class="flex items-center gap-1.5 flex-wrap">
-                                    <span class="@(p.Stock < 0 ? "text-danger-600 font-medium" : "")"
+                                    <span class="@(p.Stock < 0 ? "text-danger-400 font-medium" : "")"
                                           title="@(p.Stock < 0 ? "Stock negativo: se aprobaron más solicitudes que el stock disponible" : null)">@p.Stock</span>
                                     @if (p.StockMinimo is not null && p.Stock <= p.StockMinimo)
                                     {
@@ -98,7 +98,7 @@
                                     }
                                     <AuthorizeView Roles="@Roles.Gestor" Context="stockContext">
                                         <Authorized>
-                                            <button type="button" class="text-gray-400 hover:text-gray-600" title="Configurar alerta de stock" @onclick="() => AbrirConfigStock(p)">
+                                            <button type="button" class="text-muted hover:text-body" title="Configurar alerta de stock" @onclick="() => AbrirConfigStock(p)">
                                                 <Icon Name="pencil" Class="h-3.5 w-3.5" />
                                             </button>
                                         </Authorized>
@@ -137,7 +137,7 @@
     <ChildContent>
         @if (productoEditando is not null)
         {
-            <p class="text-sm text-gray-600 mb-3">@productoEditando.Nombre</p>
+            <p class="text-sm text-body mb-3">@productoEditando.Nombre</p>
             <FormField Label="Stock mínimo (opcional)" Hint="Si el stock queda en o por debajo de este número al aprobar una solicitud, se te avisa. Déjalo vacío para no recibir alertas de este producto.">
                 <InputNumber @bind-Value="stockMinimoEditado" class="form-input" placeholder="p.ej. 5" />
             </FormField>

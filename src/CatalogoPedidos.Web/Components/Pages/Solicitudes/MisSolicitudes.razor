@@ -30,7 +30,7 @@ else
             <Card>
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
-                        <p class="font-medium text-gray-900">
+                        <p class="font-medium text-heading">
                             Pedido #@grupo.Key.PedidoId
                             @{ var resumen = ResumenEstado(grupo); }
                             @if (resumen is not null)
@@ -38,7 +38,7 @@ else
                                 <Badge Variant="resumen.Value.Variant">@resumen.Value.Texto</Badge>
                             }
                         </p>
-                        <p class="text-xs text-gray-500 mt-0.5">
+                        <p class="text-xs text-muted mt-0.5">
                             @grupo.Key.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                             @if (!string.IsNullOrWhiteSpace(grupo.Key.Comentario))
                             {
@@ -47,7 +47,7 @@ else
                         </p>
                         @if (!string.IsNullOrWhiteSpace(grupo.Key.DireccionEntrega))
                         {
-                            <p class="text-xs text-gray-500 mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
+                            <p class="text-xs text-muted mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
                         }
                         <EntregaBadge Confirmacion="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId)" />
                     </div>
@@ -73,13 +73,13 @@ else
                             @foreach (var s in grupo)
                             {
                                 <tr>
-                                    <td class="font-medium text-gray-900">@s.Producto?.Nombre</td>
+                                    <td class="font-medium text-heading">@s.Producto?.Nombre</td>
                                     <td>@s.Cantidad</td>
                                     <td>
                                         <Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge>
                                         @if (!string.IsNullOrWhiteSpace(s.ComentarioGestor))
                                         {
-                                            <p class="text-xs text-gray-500 mt-0.5">@s.ComentarioGestor</p>
+                                            <p class="text-xs text-muted mt-0.5">@s.ComentarioGestor</p>
                                         }
                                     </td>
                                     <td>@s.GestorNombre</td>

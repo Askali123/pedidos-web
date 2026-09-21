@@ -16,11 +16,11 @@
     <Card Title="@(passkey?.Name is { } name ? $"Renombrar la passkey \"{name}\"" : "Ponele un nombre a tu passkey")">
         <EditForm Model="Input" OnValidSubmit="Rename" FormName="rename-passkey" method="post">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger-700 text-sm mb-2" role="alert" />
+            <ValidationSummary class="text-danger-400 text-sm mb-2" role="alert" />
 
             <FormField Label="Nombre de la passkey" Required="true">
                 <InputText @bind-Value="Input.Name" id="Input.Name" class="form-input" aria-required="true" placeholder="Mi passkey" />
-                <ValidationMessage For="() => Input.Name" class="text-danger-700 text-xs mt-1" />
+                <ValidationMessage For="() => Input.Name" class="text-danger-400 text-xs mt-1" />
             </FormField>
 
             <Button Type="submit" Variant="ButtonVariant.Primary" Icon="check">Continuar</Button>

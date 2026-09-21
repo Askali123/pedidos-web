@@ -20,7 +20,7 @@
     }
     else
     {
-        <p class="text-sm text-gray-500">@usuarios.Count usuario(s) · @cantidadGestores gestor(es)</p>
+        <p class="text-sm text-muted">@usuarios.Count usuario(s) · @cantidadGestores gestor(es)</p>
 
         <div class="card table-wrap">
             <table class="table-enterprise">
@@ -36,14 +36,14 @@
                     @foreach (var u in usuarios)
                     {
                         <tr>
-                            <td class="font-medium text-gray-900">
+                            <td class="font-medium text-heading">
                                 @u.NombreCompleto
                                 @if (u.Id == currentUserId)
                                 {
-                                    <span class="text-xs text-gray-400"> (vos)</span>
+                                    <span class="text-xs text-muted"> (vos)</span>
                                 }
                             </td>
-                            <td class="text-gray-500">@u.Email</td>
+                            <td class="text-muted">@u.Email</td>
                             <td>
                                 @if (u.EsGestor)
                                 {

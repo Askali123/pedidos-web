@@ -1,8 +1,8 @@
 @* Paginación estándar para tablas. *@
 @if (TotalPages > 1)
 {
-    <div class="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-        <p class="text-xs text-gray-500">Página @CurrentPage de @TotalPages</p>
+    <div class="flex items-center justify-between px-4 py-3 border-t border-border-subtle">
+        <p class="text-xs text-muted">Página @CurrentPage de @TotalPages</p>
         <div class="flex items-center gap-1">
             <button type="button" class="btn btn-ghost btn-sm" disabled="@(CurrentPage <= 1)" @onclick="() => Ir(CurrentPage - 1)">
                 <Icon Name="chevron-left" Class="h-4 w-4" />
@@ -11,12 +11,12 @@
             {
                 @if (numeroPagina is null)
                 {
-                    <span class="h-8 w-8 flex items-center justify-center text-sm text-gray-400">…</span>
+                    <span class="h-8 w-8 flex items-center justify-center text-sm text-muted">…</span>
                 }
                 else
                 {
                     <button type="button"
-                            class="@("h-8 w-8 rounded-md text-sm font-medium " + (numeroPagina == CurrentPage ? "bg-primary-600 text-white" : "text-gray-600 hover:bg-gray-100"))"
+                            class="@("h-8 w-8 rounded-sm text-sm font-medium " + (numeroPagina == CurrentPage ? "bg-primary-600 text-white" : "text-body hover:bg-card-elevated"))"
                             @onclick="() => Ir(numeroPagina.Value)">
                         @numeroPagina
                     </button>

@@ -19,11 +19,11 @@
 
         @if (currentPasskeys is { Count: > 0 })
         {
-            <div class="divide-y divide-gray-100 border border-gray-200 rounded-lg mb-4">
+            <div class="divide-y divide-white/[.05] border border-border-subtle rounded-lg mb-4">
                 @foreach (var passkey in currentPasskeys)
                 {
                     <div class="flex items-center justify-between gap-3 px-3 py-2.5">
-                        <span class="text-sm text-gray-900">@(passkey.Name ?? "Passkey sin nombre")</span>
+                        <span class="text-sm text-heading">@(passkey.Name ?? "Passkey sin nombre")</span>
                         @{
                             var credentialId = Base64Url.EncodeToString(passkey.CredentialId);
                         }

@@ -25,19 +25,19 @@ else
 {
     <Card Title="Configurar app autenticadora">
         <StatusMessage Message="@message" />
-        <ol class="space-y-4 list-decimal list-inside text-sm text-gray-700">
+        <ol class="space-y-4 list-decimal list-inside text-sm text-body">
             <li>
                 <span>
                     Descargá una app autenticadora como Microsoft Authenticator para
-                    <a href="https://go.microsoft.com/fwlink/?Linkid=825072" class="text-primary-700 hover:underline">Android</a> y
-                    <a href="https://go.microsoft.com/fwlink/?Linkid=825073" class="text-primary-700 hover:underline">iOS</a>, o
+                    <a href="https://go.microsoft.com/fwlink/?Linkid=825072" class="text-primary-300 hover:underline">Android</a> y
+                    <a href="https://go.microsoft.com/fwlink/?Linkid=825073" class="text-primary-300 hover:underline">iOS</a>, o
                     Google Authenticator para
-                    <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en" class="text-primary-700 hover:underline">Android</a> y
-                    <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8" class="text-primary-700 hover:underline">iOS</a>.
+                    <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en" class="text-primary-300 hover:underline">Android</a> y
+                    <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8" class="text-primary-300 hover:underline">iOS</a>.
                 </span>
             </li>
             <li>
-                <p class="mb-2">Escaneá el código QR o ingresá esta clave <kbd class="px-1.5 py-0.5 rounded bg-gray-100 text-xs">@sharedKey</kbd> en tu app autenticadora. Espacios y mayúsculas no importan.</p>
+                <p class="mb-2">Escaneá el código QR o ingresá esta clave <kbd class="px-1.5 py-0.5 rounded bg-card-elevated text-xs">@sharedKey</kbd> en tu app autenticadora. Espacios y mayúsculas no importan.</p>
                 <Alert Variant="AlertVariant.Info">Aprendé a <a href="https://go.microsoft.com/fwlink/?Linkid=852423" class="underline">habilitar la generación del código QR</a>.</Alert>
                 <div data-url="@authenticatorUri"></div>
             </li>
@@ -48,10 +48,10 @@ else
                 </p>
                 <EditForm Model="Input" FormName="send-code" OnValidSubmit="OnValidSubmitAsync" method="post">
                     <DataAnnotationsValidator />
-                    <ValidationSummary class="text-danger-700 text-sm mb-2" role="alert" />
+                    <ValidationSummary class="text-danger-400 text-sm mb-2" role="alert" />
                     <FormField Label="Código de verificación" Required="true">
                         <InputText @bind-Value="Input.Code" id="Input.Code" class="form-input" autocomplete="off" placeholder="000000" />
-                        <ValidationMessage For="() => Input.Code" class="text-danger-700 text-xs mt-1" />
+                        <ValidationMessage For="() => Input.Code" class="text-danger-400 text-xs mt-1" />
                     </FormField>
                     <Button Type="submit" Variant="ButtonVariant.Primary" Icon="check">Verificar</Button>
                 </EditForm>
