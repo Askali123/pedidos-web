@@ -2,7 +2,10 @@
 @attribute [Authorize(Roles = Roles.Gestor)]
 @using System.Security.Claims
 @inject ISolicitudService Solicitudes
-@inject UserManager<ApplicationUser> UserManager
+@inject IProveedorService Proveedores
+@inject IPedidoNotificacionProveedorService NotificacionesProveedor
+@inject IConfirmacionEntregaService ConfirmacionesEntrega
+@inject IServiceScopeFactory ScopeFactory
 @inject PageHeaderState HeaderState
 
 <PageTitle>Bandeja de solicitudes</PageTitle>
@@ -10,7 +13,7 @@
 <div class="space-y-4">
     @if (!string.IsNullOrEmpty(mensaje))
     {
-        <Alert Variant="AlertVariant.Success" Dismissible="true" OnDismiss="() => mensaje = null">@mensaje</Alert>
+        <Alert Variant="mensajeVariante" Dismissible="true" OnDismiss="() => mensaje = null">@mensaje</Alert>
     }
 
     @if (grupos is null)
@@ -29,30 +32,103 @@
             <Card>
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
-                        <p class="font-medium text-gray-900">
-                            Pedido #@grupo.Key.PedidoId · @grupo.Key.SolicitanteNombre
+                        <p class="font-medium text-heading">
+                            Solicitud #@grupo.Key.SolicitudId · @grupo.Key.SolicitanteNombre
                             @if (urgente)
                             {
                                 <Badge Variant="BadgeVariant.Danger">⚠ Urgente</Badge>
                             }
                         </p>
-                        <p class="text-xs text-gray-500 mt-0.5">
+                        <p class="text-xs text-muted mt-0.5">
                             @grupo.Key.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                             @if (!string.IsNullOrWhiteSpace(grupo.Key.Comentario))
                             {
                                 <span> · @grupo.Key.Comentario</span>
                             }
                         </p>
+                        @if (!string.IsNullOrWhiteSpace(grupo.Key.DireccionEntrega))
+                        {
+                            <p class="text-xs text-muted mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
+                        }
+                        @if (enviosPorPedido.TryGetValue(grupo.Key.SolicitudId, out var envios) && envios.Count > 0)
+                        {
+                            <div class="mt-1 space-y-0.5">
+                                @foreach (var envio in envios)
+                                {
+                                    <p class="text-xs text-success-700 flex items-center gap-1">
+                                        <Icon Name="check-circle" Class="h-3.5 w-3.5 shrink-0" />
+                                        Enviado a @envio.Proveedor?.Nombre · @envio.FechaEnvio.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · @(envio.GestorNombre ?? "-")
+                                    </p>
+                                }
+                            </div>
+                        }
+                        <EntregaBadge Confirmaciones="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.SolicitudId) ?? []"
+                                      Grupos="gruposEntregaPorPedido.GetValueOrDefault(grupo.Key.SolicitudId) ?? []" />
+                        @if (confirmacionesPorPedido.GetValueOrDefault(grupo.Key.SolicitudId)?.Count > 0)
+                        {
+                            <p class="text-xs text-muted mt-0.5">
+                                La entrega corresponde a las líneas ya aprobadas de esta solicitud — las de abajo son otras líneas que todavía están pendientes de resolver.
+                            </p>
+                        }
                     </div>
 
-                    @if (grupo.Count() > 1)
-                    {
-                        <div class="flex items-center gap-2">
-                            <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => ResolverPedido(grupo.Key.PedidoId, true)">Aprobar todo</Button>
-                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => ResolverPedido(grupo.Key.PedidoId, false)">Rechazar todo</Button>
-                            <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">PDF del pedido</a>
-                        </div>
-                    }
+                    <div class="flex items-center gap-2">
+                        @if (grupo.Count() > 1)
+                        {
+                            <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => AbrirResolverPedido(grupo.Key.SolicitudId, true)">Aprobar todo</Button>
+                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => AbrirResolverPedido(grupo.Key.SolicitudId, false)">Rechazar todo</Button>
+                            @if (pedidosEnSeleccion.Contains(grupo.Key.SolicitudId))
+                            {
+                                <Button Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" OnClick="() => CancelarSeleccion(grupo.Key.SolicitudId)">Cancelar selección</Button>
+                            }
+                            else
+                            {
+                                <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Small" OnClick="() => IniciarSeleccion(grupo.Key.SolicitudId)">Resolver mezcla…</Button>
+                            }
+                        }
+                        <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.SolicitudId/pdf" target="_blank">PDF de la solicitud</a>
+
+                        @if (gruposEntregaPorPedido.TryGetValue(grupo.Key.SolicitudId, out var gruposEntrega))
+                        {
+                            @foreach (var g in gruposEntrega.Where(g => !g.Confirmado))
+                            {
+                                <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" Icon="truck"
+                                        OnClick="() => AbrirConfirmarEntrega(grupo.Key.SolicitudId, g, grupo.Key.DireccionEntrega)">
+                                    Confirmar entrega@(g.ProveedorNombre is not null ? $" — {g.ProveedorNombre}" : "")
+                                </Button>
+                            }
+                        }
+
+                        <Dropdown AlignRight="true" CloseOnClick="true">
+                            <Trigger>
+                                <span class="btn btn-secondary btn-sm">
+                                    <Icon Name="mail" Class="h-4 w-4" /> Enviar a proveedor <Icon Name="chevron-down" Class="h-3.5 w-3.5" />
+                                </span>
+                            </Trigger>
+                            <ChildContent>
+                                <div class="w-72 bg-card border border-border-subtle rounded-lg shadow-elevated py-1">
+                                    @if (proveedoresPorPedido.TryGetValue(grupo.Key.SolicitudId, out var opciones) && opciones.Count > 0)
+                                    {
+                                        @foreach (var op in opciones)
+                                        {
+                                            <button type="button" class="w-full text-left px-3 py-2 text-sm text-body hover:bg-card-elevated" @onclick="() => PedirConfirmacionEnvio(grupo.Key.SolicitudId, op)">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <span class="font-medium">@op.ProveedorNombre</span>
+                                                    <span class="text-xs text-muted shrink-0">@op.CantidadLineas prod.</span>
+                                                </div>
+                                                <p class="text-xs text-muted mt-0.5 truncate">@string.Join(", ", op.Productos.Select(p => p.Nombre))</p>
+                                            </button>
+                                        }
+                                        <p class="px-3 py-2 text-xs text-muted border-t border-border-subtle mt-1">Un producto ya enviado a otro proveedor no vuelve a aparecer acá — cada línea solo se compra una vez.</p>
+                                    }
+                                    else
+                                    {
+                                        <p class="px-3 py-2 text-sm text-muted">Aprueba al menos una línea con proveedor asociado para poder enviarla.</p>
+                                    }
+                                </div>
+                            </ChildContent>
+                        </Dropdown>
+                    </div>
                 </div>
 
                 <div class="table-wrap">
@@ -60,6 +136,7 @@
                         <thead>
                             <tr>
                                 <th>Producto</th>
+                                <th>Proveedor · Código</th>
                                 <th>Cantidad</th>
                                 <th class="text-right">Acciones</th>
                             </tr>
@@ -68,13 +145,45 @@
                             @foreach (var s in grupo)
                             {
                                 <tr>
-                                    <td class="font-medium text-gray-900">@s.Producto?.Nombre</td>
-                                    <td>@s.Cantidad</td>
+                                    <td class="font-medium text-heading" data-label="Producto">
+                                        @s.Producto?.Nombre
+                                        @if (s.Producto?.Activo == false)
+                                        {
+                                            <Badge Variant="BadgeVariant.Warning">Desactivado</Badge>
+                                        }
+                                    </td>
+                                    <td class="text-muted" data-label="Proveedor · Código">
+                                        @if (codigosPorProducto.TryGetValue(s.ProductoId, out var pp))
+                                        {
+                                            @($"{pp.Proveedor!.Nombre} · {pp.CodigoProveedor}")
+                                            @if (cantidadProveedoresPorProducto.GetValueOrDefault(s.ProductoId) > 1)
+                                            {
+                                                <a href="/catalogo/@s.ProductoId/proveedores" class="inline-block align-middle">
+                                                    <Badge Variant="BadgeVariant.Info">+@(cantidadProveedoresPorProducto[s.ProductoId] - 1) más</Badge>
+                                                </a>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <a href="/catalogo/@s.ProductoId/proveedores" class="inline-block align-middle">
+                                                <Badge Variant="BadgeVariant.Warning">Sin proveedor asociado</Badge>
+                                            </a>
+                                        }
+                                    </td>
+                                    <td data-label="Cantidad">@s.Cantidad</td>
                                     <td>
-                                        <div class="flex items-center gap-2 justify-end">
-                                            <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => Resolver(s.Id, true)">Aprobar</Button>
-                                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => Resolver(s.Id, false)">Rechazar</Button>
-                                            <a class="btn btn-secondary btn-sm" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a>
+                                        <div class="flex items-center gap-2 justify-end flex-wrap">
+                                            @if (pedidosEnSeleccion.Contains(grupo.Key.SolicitudId))
+                                            {
+                                                var decision = decisiones.GetValueOrDefault(s.Id);
+                                                <Button Variant="@(decision == true ? ButtonVariant.Success : ButtonVariant.Outline)" Size="ButtonSize.Small" Icon="check" OnClick="() => MarcarDecision(s.Id, true)">Aprobar</Button>
+                                                <Button Variant="@(decision == false ? ButtonVariant.Danger : ButtonVariant.Outline)" Size="ButtonSize.Small" Icon="x" OnClick="() => MarcarDecision(s.Id, false)">Rechazar</Button>
+                                            }
+                                            else
+                                            {
+                                                <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => AbrirResolverSolicitud(s.Id, true)">Aprobar</Button>
+                                                <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => AbrirResolverSolicitud(s.Id, false)">Rechazar</Button>
+                                            }
                                         </div>
                                     </td>
                                 </tr>
@@ -82,22 +191,118 @@
                         </tbody>
                     </table>
                 </div>
+
+                @if (pedidosEnSeleccion.Contains(grupo.Key.SolicitudId))
+                {
+                    var cantidadMarcadas = grupo.Count(s => decisiones.ContainsKey(s.Id));
+                    <div class="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-border-subtle">
+                        <span class="text-sm text-muted">@cantidadMarcadas marcada(s)</span>
+                        <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" Disabled="cantidadMarcadas == 0" OnClick="() => AbrirConfirmarVarias(grupo.Key.SolicitudId)">Confirmar selección</Button>
+                    </div>
+                }
             </Card>
         }
     }
 </div>
 
+<ConfirmDialog @bind-Visible="confirmandoEnvio" Title="Enviar a proveedor"
+               Message="@($"¿Enviar la solicitud #{pedidoPendienteEnvio} a \"{proveedorPendienteEnvio?.ProveedorNombre}\"? Se le manda un correo real con el detalle (PDF) de los productos marcados — no se puede deshacer.")"
+               ConfirmText="Enviar" OnConfirm="ConfirmarEnvio">
+    <ExtraContent>
+        @if (proveedorPendienteEnvio?.Productos.Count > 0)
+        {
+            <p class="text-xs text-muted mb-2">Desmarcá un producto para excluirlo de este proveedor (se guarda y no vuelve a ofrecerse en reenvíos).</p>
+            <ul class="space-y-1.5 mb-3">
+                @foreach (var producto in proveedorPendienteEnvio.Productos)
+                {
+                    <li class="flex items-center gap-2 text-sm text-body">
+                        <input type="checkbox" class="form-checkbox"
+                               @bind="productosIncluidosEnvio[producto.ProductoId]" />
+                        <span>@producto.Nombre</span>
+                        <span class="text-muted text-xs">· cant. @producto.Cantidad
+                            @if (!string.IsNullOrEmpty(producto.CodigoProveedor))
+                            {
+                                <text> · <code class="bg-card-elevated px-1 py-0.5 rounded text-[10px]">@producto.CodigoProveedor</code></text>
+                            }
+                        </span>
+                    </li>
+                }
+            </ul>
+            <p class="text-xs text-body mb-2">@productosIncluidosEnvio.Count(x => x.Value) de @proveedorPendienteEnvio.Productos.Count producto(s) seleccionados.</p>
+        }
+        <label class="flex items-center gap-2 text-sm text-body">
+            <input type="checkbox" class="form-checkbox" @bind="adjuntarExcel" />
+            También adjuntar el detalle en Excel
+        </label>
+    </ExtraContent>
+</ConfirmDialog>
+
+<Modal Visible="modalResolverVisible" VisibleChanged="v => modalResolverVisible = v" Title="@tituloModalResolver">
+    <ChildContent>
+        @if (pedidoIdVariasPendiente is not null)
+        {
+            <p class="text-sm text-body mb-3">
+                @cantidadAprobarPendiente aprobación(es) y @cantidadRechazarPendiente rechazo(s). El solicitante recibe una sola notificación con el resumen.
+            </p>
+        }
+        <FormField Label="Comentario (opcional)" Hint="Lo ve el solicitante — útil sobre todo al rechazar, para explicar por qué.">
+            <textarea class="form-textarea" rows="3" @bind="comentarioPendiente"></textarea>
+        </FormField>
+    </ChildContent>
+    <Footer>
+        <Button Variant="ButtonVariant.Ghost" OnClick="() => modalResolverVisible = false">Cancelar</Button>
+        @if (pedidoIdVariasPendiente is not null)
+        {
+            <Button Variant="ButtonVariant.Primary" Icon="check" OnClick="ConfirmarResolver">Confirmar</Button>
+        }
+        else
+        {
+            <Button Variant="@(aprobarPendiente ? ButtonVariant.Success : ButtonVariant.Danger)" Icon="@(aprobarPendiente ? "check" : "x")" OnClick="ConfirmarResolver">@(aprobarPendiente ? "Aprobar" : "Rechazar")</Button>
+        }
+    </Footer>
+</Modal>
+
+<Modal Visible="modalEntregaVisible" VisibleChanged="v => modalEntregaVisible = v" Title="@tituloModalEntrega">
+    <ChildContent>
+        <FormField Label="Dirección entregada" Hint="A dónde se llevaron los insumos en la práctica — prellenada con la que pidió el solicitante, pero editable si terminó siendo otra.">
+            <input class="form-input" @bind="direccionEntregadaPendiente" placeholder="Ej. Bodega principal, Cra 10 # 20-30" />
+        </FormField>
+        <label class="flex items-center gap-2 text-sm text-body mt-2 mb-4">
+            <input type="checkbox" class="form-checkbox" @bind="coincideDireccionPendiente" />
+            ¿Coincide con la dirección indicada por el solicitante?
+        </label>
+        <FormField Label="Quién lo recibió (opcional)" Hint="La persona que recibió los insumos en la práctica — no hace falta si fuiste vos mismo.">
+            <input class="form-input" @bind="recibidoPorPendiente" placeholder="Ej. Juan Pérez, portería" />
+        </FormField>
+        <FormField Label="Observaciones (opcional)" Hint="Útil sobre todo si no coincidió la dirección, para explicar qué pasó.">
+            <textarea class="form-textarea" rows="3" @bind="observacionesEntregaPendiente"></textarea>
+        </FormField>
+    </ChildContent>
+    <Footer>
+        <Button Variant="ButtonVariant.Ghost" OnClick="() => modalEntregaVisible = false">Cancelar</Button>
+        <Button Variant="ButtonVariant.Primary" Icon="truck" OnClick="ConfirmarEntregaSubmit">Confirmar entrega</Button>
+    </Footer>
+</Modal>
+
 @code {
     [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
 
-    private record PedidoResumen(int PedidoId, string SolicitanteNombre, string? Comentario, DateTime FechaCreacion);
+    private record PedidoResumen(int SolicitudId, string SolicitanteNombre, string? Comentario, string? DireccionEntrega, DateTime FechaCreacion);
 
-    private List<IGrouping<PedidoResumen, SolicitudProducto>>? grupos;
+    private List<IGrouping<PedidoResumen, DetalleSolicitud>>? grupos;
+    private Dictionary<int, ProductoProveedor> codigosPorProducto = new();
+    private Dictionary<int, int> cantidadProveedoresPorProducto = new();
+    private Dictionary<int, List<ProveedorDelPedidoDto>> proveedoresPorPedido = new();
+    private Dictionary<int, List<NotificacionProveedor>> enviosPorPedido = new();
+    private Dictionary<int, bool> tieneAprobadasPorPedido = new();
+    private Dictionary<int, List<ConfirmacionEntrega>> confirmacionesPorPedido = new();
+    private Dictionary<int, List<GrupoEntregaDto>> gruposEntregaPorPedido = new();
     private string? mensaje;
+    private AlertVariant mensajeVariante = AlertVariant.Success;
 
     protected override async Task OnInitializedAsync()
     {
-        HeaderState.Set("Bandeja de solicitudes", [("Bandeja de solicitudes", null)]);
+        HeaderState.Set("Bandeja de solicitudes");
         await Cargar();
     }
 
@@ -105,38 +310,262 @@
     {
         var solicitudes = await Solicitudes.ObtenerBandejaAsync();
         grupos = solicitudes
-            .GroupBy(s => new PedidoResumen(s.PedidoId, s.Pedido?.SolicitanteNombre ?? s.SolicitanteNombre, s.Pedido?.Comentario, s.Pedido?.FechaCreacion ?? s.FechaSolicitud))
+            .GroupBy(s => new PedidoResumen(s.SolicitudId, s.Solicitud?.SolicitanteNombre ?? s.SolicitanteNombre, s.Solicitud?.Comentario, s.Solicitud?.DireccionEntrega, s.Solicitud?.FechaCreacion ?? s.FechaSolicitud))
             .OrderBy(g => g.Key.FechaCreacion)
             .ToList();
+
+        codigosPorProducto = await Proveedores.ObtenerCodigosPreferidosAsync(solicitudes.Select(s => s.ProductoId));
+        cantidadProveedoresPorProducto = await Proveedores.ContarProveedoresPorProductoAsync(solicitudes.Select(s => s.ProductoId));
+
+        proveedoresPorPedido.Clear();
+        enviosPorPedido.Clear();
+        tieneAprobadasPorPedido.Clear();
+        confirmacionesPorPedido.Clear();
+        gruposEntregaPorPedido.Clear();
+        foreach (var pedidoId in grupos.Select(g => g.Key.SolicitudId))
+        {
+            proveedoresPorPedido[pedidoId] = await NotificacionesProveedor.ObtenerProveedoresDisponiblesAsync(pedidoId);
+            enviosPorPedido[pedidoId] = await NotificacionesProveedor.ObtenerEnviosAsync(pedidoId);
+
+            // La bandeja solo trae líneas Pendientes (ObtenerBandejaAsync), así que para
+            // saber si YA hay algo Aprobado en el pedido (y por lo tanto tiene sentido
+            // "Confirmar entrega") hay que ir a buscar el pedido completo, no el grupo local.
+            var pedidoCompleto = await Solicitudes.ObtenerSolicitudAsync(pedidoId);
+            tieneAprobadasPorPedido[pedidoId] = pedidoCompleto?.Items.Any(i => i.Estado == EstadoSolicitud.Aprobada) ?? false;
+            confirmacionesPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerPorPedidoAsync(pedidoId);
+            gruposEntregaPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerGruposDeEntregaAsync(pedidoId);
+        }
     }
 
-    private async Task<(string GestorId, string GestorNombre)> DatosGestor(Microsoft.AspNetCore.Components.Authorization.AuthenticationState authState)
+    private async Task<(string GestorId, string GestorNombre, string? GestorEmail)> DatosGestor(Microsoft.AspNetCore.Components.Authorization.AuthenticationState authState)
     {
+        // Scope aparte: se llama desde manejadores de evento que pueden coincidir con
+        // UserMenu.razor llamando a UserManager sobre el mismo AppDbContext Scoped de
+        // Identity — mismo patrón que el resto de "Administrar cuenta"
+        // (ver docs/PLAN_MEJORAS_AUTENTICACION.md #2 y #8).
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
         var gestorId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
-        var appUser = await UserManager.GetUserAsync(authState.User);
+        var appUser = await scopedUserManager.GetUserAsync(authState.User);
         var gestorNombre = appUser.NombreParaMostrar(authState.User.Identity?.Name ?? "Gestor");
-        return (gestorId, gestorNombre);
+        return (gestorId, gestorNombre, appUser?.Email);
     }
 
-    private async Task Resolver(int solicitudId, bool aprobar)
+    private bool modalResolverVisible;
+    private int? solicitudIdPendiente;
+    private int? pedidoIdPendiente;
+    private int? pedidoIdVariasPendiente;
+    private int cantidadAprobarPendiente;
+    private int cantidadRechazarPendiente;
+    private bool aprobarPendiente;
+    private string? comentarioPendiente;
+    private string tituloModalResolver = "";
+
+    // Estado del modo "Resolver mezcla…": qué pedidos están en selección múltiple y,
+    // por solicitud marcada, qué decisión (aprobar/rechazar) se le va a aplicar al
+    // confirmar — ver docs/PLAN_TRAZABILIDAD_ENTREGAS.md #10.
+    private HashSet<int> pedidosEnSeleccion = new();
+    private Dictionary<int, bool> decisiones = new();
+
+    private void AbrirResolverSolicitud(int solicitudId, bool aprobar)
     {
-        var (gestorId, gestorNombre) = await DatosGestor(await AuthStateTask!);
+        solicitudIdPendiente = solicitudId;
+        pedidoIdPendiente = null;
+        pedidoIdVariasPendiente = null;
+        aprobarPendiente = aprobar;
+        comentarioPendiente = null;
+        tituloModalResolver = aprobar ? "Aprobar solicitud" : "Rechazar solicitud";
+        modalResolverVisible = true;
+    }
 
-        await Solicitudes.ResolverAsync(solicitudId, gestorId, gestorNombre, new ResolverSolicitudDto { Aprobar = aprobar });
+    private void AbrirResolverPedido(int pedidoId, bool aprobar)
+    {
+        solicitudIdPendiente = null;
+        pedidoIdPendiente = pedidoId;
+        pedidoIdVariasPendiente = null;
+        aprobarPendiente = aprobar;
+        comentarioPendiente = null;
+        tituloModalResolver = aprobar ? "Aprobar toda la solicitud" : "Rechazar toda la solicitud";
+        modalResolverVisible = true;
+    }
 
-        mensaje = aprobar ? $"Solicitud #{solicitudId} aprobada." : $"Solicitud #{solicitudId} rechazada.";
+    private void IniciarSeleccion(int pedidoId) => pedidosEnSeleccion.Add(pedidoId);
+
+    private void CancelarSeleccion(int pedidoId)
+    {
+        pedidosEnSeleccion.Remove(pedidoId);
+        var grupo = grupos?.FirstOrDefault(g => g.Key.SolicitudId == pedidoId);
+        if (grupo is not null)
+            foreach (var s in grupo)
+                decisiones.Remove(s.Id);
+    }
+
+    private void MarcarDecision(int solicitudId, bool aprobar)
+    {
+        if (decisiones.TryGetValue(solicitudId, out var actual) && actual == aprobar)
+            decisiones.Remove(solicitudId);
+        else
+            decisiones[solicitudId] = aprobar;
+    }
+
+    private void AbrirConfirmarVarias(int pedidoId)
+    {
+        var grupo = grupos!.First(g => g.Key.SolicitudId == pedidoId);
+        var marcadas = grupo.Where(s => decisiones.ContainsKey(s.Id)).ToList();
+        if (marcadas.Count == 0)
+            return;
+
+        solicitudIdPendiente = null;
+        pedidoIdPendiente = null;
+        pedidoIdVariasPendiente = pedidoId;
+        cantidadAprobarPendiente = marcadas.Count(s => decisiones[s.Id]);
+        cantidadRechazarPendiente = marcadas.Count - cantidadAprobarPendiente;
+        comentarioPendiente = null;
+        tituloModalResolver = "Confirmar resolución";
+        modalResolverVisible = true;
+    }
+
+    private async Task ConfirmarResolver()
+    {
+        var (gestorId, gestorNombre, _) = await DatosGestor(await AuthStateTask!);
+        var comentario = string.IsNullOrWhiteSpace(comentarioPendiente) ? null : comentarioPendiente;
+
+        if (pedidoIdVariasPendiente is int pedidoIdVarias)
+        {
+            var grupo = grupos!.First(g => g.Key.SolicitudId == pedidoIdVarias);
+            var decisionesDto = grupo
+                .Where(s => decisiones.ContainsKey(s.Id))
+                .Select(s => new DecisionSolicitudDto { DetalleId = s.Id, Aprobar = decisiones[s.Id] })
+                .ToList();
+            var dtoVarias = new ResolverVariasDto { Decisiones = decisionesDto, ComentarioGestor = comentario };
+
+            var resueltasVarias = await Solicitudes.ResolverVariasAsync(pedidoIdVarias, gestorId, gestorNombre, dtoVarias);
+            mensaje = $"Solicitud #{pedidoIdVarias} resuelto ({resueltasVarias.Count} producto(s)).";
+            mensajeVariante = AlertVariant.Success;
+
+            pedidosEnSeleccion.Remove(pedidoIdVarias);
+            foreach (var s in grupo)
+                decisiones.Remove(s.Id);
+            pedidoIdVariasPendiente = null;
+
+            modalResolverVisible = false;
+            await Cargar();
+            return;
+        }
+
+        var dto = new ResolverSolicitudDto
+        {
+            Aprobar = aprobarPendiente,
+            ComentarioGestor = comentario
+        };
+
+        if (solicitudIdPendiente is int solicitudId)
+        {
+            await Solicitudes.ResolverAsync(solicitudId, gestorId, gestorNombre, dto);
+            mensaje = aprobarPendiente ? $"Solicitud #{solicitudId} aprobada." : $"Solicitud #{solicitudId} rechazada.";
+        }
+        else if (pedidoIdPendiente is int pedidoId)
+        {
+            var resueltas = await Solicitudes.ResolverSolicitudAsync(pedidoId, gestorId, gestorNombre, dto);
+            mensaje = aprobarPendiente
+                ? $"Solicitud #{pedidoId} aprobado ({resueltas.Count} producto(s))."
+                : $"Solicitud #{pedidoId} rechazado ({resueltas.Count} producto(s)).";
+        }
+
+        mensajeVariante = AlertVariant.Success;
+        modalResolverVisible = false;
         await Cargar();
     }
 
-    private async Task ResolverPedido(int pedidoId, bool aprobar)
+    private bool confirmandoEnvio;
+    private int pedidoPendienteEnvio;
+    private ProveedorDelPedidoDto? proveedorPendienteEnvio;
+    private bool adjuntarExcel;
+    private Dictionary<int, bool> productosIncluidosEnvio = new();
+
+    private void PedirConfirmacionEnvio(int pedidoId, ProveedorDelPedidoDto proveedor)
     {
-        var (gestorId, gestorNombre) = await DatosGestor(await AuthStateTask!);
+        pedidoPendienteEnvio = pedidoId;
+        proveedorPendienteEnvio = proveedor;
+        adjuntarExcel = false;
+        productosIncluidosEnvio = proveedor.Productos.ToDictionary(p => p.ProductoId, _ => true);
+        confirmandoEnvio = true;
+    }
 
-        var resueltas = await Solicitudes.ResolverPedidoAsync(pedidoId, gestorId, gestorNombre, new ResolverSolicitudDto { Aprobar = aprobar });
+    private async Task ConfirmarEnvio()
+    {
+        if (proveedorPendienteEnvio is null)
+            return;
 
-        mensaje = aprobar
-            ? $"Pedido #{pedidoId} aprobado ({resueltas.Count} producto(s))."
-            : $"Pedido #{pedidoId} rechazado ({resueltas.Count} producto(s)).";
+        var seleccionados = proveedorPendienteEnvio.Productos
+            .Where(p => productosIncluidosEnvio.GetValueOrDefault(p.ProductoId))
+            .Select(p => p.ProductoId)
+            .ToList();
+        if (seleccionados.Count == 0)
+        {
+            mensaje = "No se envió: desmarcaste todos los productos. Excluir es para dejar fuera los que no van con este proveedor, no para no enviar nada.";
+            mensajeVariante = AlertVariant.Warning;
+            return;
+        }
+
+        var (gestorId, gestorNombre, gestorEmail) = await DatosGestor(await AuthStateTask!);
+        var resultado = await NotificacionesProveedor.EnviarAProveedorAsync(pedidoPendienteEnvio, proveedorPendienteEnvio.ProveedorId, gestorId, gestorNombre, gestorEmail, adjuntarExcel, seleccionados);
+
+        mensaje = resultado.Enviado
+            ? $"Solicitud #{pedidoPendienteEnvio} enviado a {resultado.ProveedorNombre} ({(adjuntarExcel ? "PDF y Excel adjuntos" : "PDF adjunto")}, {resultado.CantidadLineas} producto(s))."
+            : $"No se pudo enviar a {resultado.ProveedorNombre}: {resultado.Motivo}";
+        mensajeVariante = resultado.Enviado ? AlertVariant.Success : AlertVariant.Warning;
+
+        if (resultado.Enviado)
+        {
+            enviosPorPedido[pedidoPendienteEnvio] = await NotificacionesProveedor.ObtenerEnviosAsync(pedidoPendienteEnvio);
+            // Un envío nuevo puede hacer aparecer un grupo de entrega nuevo (el proveedor
+            // recién notificado) — refrescar para que el botón "Confirmar entrega" de ese
+            // proveedor aparezca sin esperar a la próxima carga completa.
+            gruposEntregaPorPedido[pedidoPendienteEnvio] = await ConfirmacionesEntrega.ObtenerGruposDeEntregaAsync(pedidoPendienteEnvio);
+        }
+    }
+
+    private bool modalEntregaVisible;
+    private int pedidoIdEntregaPendiente;
+    private int? proveedorIdEntregaPendiente;
+    private string tituloModalEntrega = "Confirmar entrega";
+    private string? direccionEntregadaPendiente;
+    private bool coincideDireccionPendiente;
+    private string? recibidoPorPendiente;
+    private string? observacionesEntregaPendiente;
+
+    private void AbrirConfirmarEntrega(int pedidoId, GrupoEntregaDto grupoEntrega, string? direccionSugerida)
+    {
+        pedidoIdEntregaPendiente = pedidoId;
+        proveedorIdEntregaPendiente = grupoEntrega.ProveedorId;
+        tituloModalEntrega = grupoEntrega.ProveedorNombre is not null
+            ? $"Confirmar entrega — {grupoEntrega.ProveedorNombre}"
+            : "Confirmar entrega — sin proveedor asociado";
+        direccionEntregadaPendiente = direccionSugerida;
+        coincideDireccionPendiente = true;
+        recibidoPorPendiente = null;
+        observacionesEntregaPendiente = null;
+        modalEntregaVisible = true;
+    }
+
+    private async Task ConfirmarEntregaSubmit()
+    {
+        var (gestorId, gestorNombre, _) = await DatosGestor(await AuthStateTask!);
+        var dto = new ConfirmarEntregaDto
+        {
+            DireccionEntregada = direccionEntregadaPendiente,
+            CoincideConDireccionIndicada = coincideDireccionPendiente,
+            RecibidoPorNombre = recibidoPorPendiente,
+            Observaciones = observacionesEntregaPendiente
+        };
+
+        await ConfirmacionesEntrega.ConfirmarAsync(pedidoIdEntregaPendiente, proveedorIdEntregaPendiente, gestorId, gestorNombre, dto);
+        mensaje = $"Entrega de la solicitud #{pedidoIdEntregaPendiente} confirmada.";
+        mensajeVariante = AlertVariant.Success;
+
+        modalEntregaVisible = false;
         await Cargar();
     }
 }

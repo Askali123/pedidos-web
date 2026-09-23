@@ -1,8 +1,13 @@
 ﻿@page "/Account/AccessDenied"
+@attribute [AllowAnonymous]
 
-<PageTitle>Access denied</PageTitle>
+<PageTitle>Acceso denegado</PageTitle>
 
-<header>
-    <h1 class="text-danger">Access denied</h1>
-    <p class="text-danger">You do not have access to this resource.</p>
-</header>
+<Card Title="Acceso denegado">
+    <Alert Variant="AlertVariant.Danger">
+        No tenés permiso para acceder a este recurso.
+    </Alert>
+    <div class="mt-4 text-sm text-center">
+        <a href="/" class="text-primary-300 hover:underline">Volver al inicio</a>
+    </div>
+</Card>

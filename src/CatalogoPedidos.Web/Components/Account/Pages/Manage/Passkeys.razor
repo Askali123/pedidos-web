@@ -8,56 +8,55 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
+@inject IServiceScopeFactory ScopeFactory
+@inject PageHeaderState HeaderState
 
-<PageTitle>Manage your passkeys</PageTitle>
+<PageTitle>Passkeys</PageTitle>
 
-<h3>Manage your passkeys</h3>
+<div class="max-w-xl">
+    <Card Title="Passkeys">
+        <StatusMessage />
 
-<StatusMessage />
-
-@if (currentPasskeys is { Count: > 0 })
-{
-    <table class="table">
-        <tbody>
-            @foreach (var passkey in currentPasskeys)
-            {
-                <tr>
-                    <td>@(passkey.Name ?? "Unnamed passkey")</td>
-                    <td>
+        @if (currentPasskeys is { Count: > 0 })
+        {
+            <div class="divide-y divide-white/[.05] border border-border-subtle rounded-lg mb-4">
+                @foreach (var passkey in currentPasskeys)
+                {
+                    <div class="flex items-center justify-between gap-3 px-3 py-2.5">
+                        <span class="text-sm text-heading">@(passkey.Name ?? "Passkey sin nombre")</span>
                         @{
                             var credentialId = Base64Url.EncodeToString(passkey.CredentialId);
                         }
                         <form @formname="@($"update-passkey-{credentialId}")" @onsubmit="UpdatePasskey" method="post">
                             <AntiforgeryToken />
-                            <div>
-                                <input type="hidden" name="CredentialId" value="@credentialId" />
-                                <button type="submit" name="Action" value="rename" class="btn btn-primary" title="Rename this passkey">Rename</button>
-                                <button type="submit" name="Action" value="delete" class="btn btn-danger" title="Remove this passkey from your account">Delete</button>
+                            <input type="hidden" name="CredentialId" value="@credentialId" />
+                            <div class="flex items-center gap-2">
+                                <button type="submit" name="Action" value="rename" class="btn btn-secondary btn-sm" title="Renombrar esta passkey">Renombrar</button>
+                                <button type="submit" name="Action" value="delete" class="btn btn-danger btn-sm" title="Eliminar esta passkey de tu cuenta">Eliminar</button>
                             </div>
                         </form>
-                    </td>
-                </tr>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <EmptyState Icon="user" Title="Sin passkeys" Description="Todavía no tenés ninguna passkey registrada." />
+        }
+
+        <form @formname="add-passkey" @onsubmit="AddPasskey" method="post" class="mt-2">
+            <AntiforgeryToken />
+            @if (currentPasskeys is { Count: >= MaxPasskeyCount })
+            {
+                <Alert Variant="AlertVariant.Danger">Llegaste al máximo de passkeys permitidas. Eliminá una antes de agregar otra.</Alert>
             }
-        </tbody>
-    </table>
-}
-else
-{
-    <p>No passkeys are registered.</p>
-}
-
-<form @formname="add-passkey" @onsubmit="AddPasskey" method="post">
-    <AntiforgeryToken />
-    @if (currentPasskeys is { Count: >= MaxPasskeyCount })
-    {
-        <p class="text-danger">You have reached the maximum number of allowed passkeys. Please delete one before adding a new one.</p>
-    }
-    else
-    {
-        <PasskeySubmit Operation="PasskeyOperation.Create" Name="Input" class="btn btn-primary">Add a new passkey</PasskeySubmit>
-    }
-
-</form>
+            else
+            {
+                <PasskeySubmit Operation="PasskeyOperation.Create" Name="Input" class="btn btn-primary">Agregar una passkey nueva</PasskeySubmit>
+            }
+        </form>
+    </Card>
+</div>
 
 @code {
     private const int MaxPasskeyCount = 100;
@@ -79,15 +78,22 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        HeaderState.Set("Passkeys", [("Mi cuenta", "/Account/Manage"), ("Passkeys", null)]);
+
         Input ??= new();
 
-        user = await UserManager.GetUserAsync(HttpContext.User);
+        // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
+        // docs/PLAN_MEJORAS_AUTENTICACION.md #2.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        user = await scopedUserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
-        currentPasskeys = await UserManager.GetPasskeysAsync(user);
+        currentPasskeys = await scopedUserManager.GetPasskeysAsync(user);
     }
 
     private async Task AddPasskey()
@@ -106,27 +112,38 @@ else
 
         if (string.IsNullOrEmpty(Input.CredentialJson))
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Error: The browser did not provide a passkey.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: El navegador no proveyó ninguna passkey.", HttpContext);
             return;
         }
 
         if (currentPasskeys!.Count >= MaxPasskeyCount)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus($"Error: You have reached the maximum number of allowed passkeys.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus($"Error: Llegaste al máximo de passkeys permitidas.", HttpContext);
             return;
         }
 
-        var attestationResult = await SignInManager.PerformPasskeyAttestationAsync(Input.CredentialJson);
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var scopedSignInManager = scope.ServiceProvider.GetRequiredService<SignInManager<ApplicationUser>>();
+
+        var scopedUser = await scopedUserManager.GetUserAsync(HttpContext.User);
+        if (scopedUser is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        var attestationResult = await scopedSignInManager.PerformPasskeyAttestationAsync(Input.CredentialJson);
         if (!attestationResult.Succeeded)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus($"Error: Could not add the passkey: {attestationResult.Failure.Message}", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus($"Error: No se pudo agregar la passkey: {attestationResult.Failure.Message}", HttpContext);
             return;
         }
 
-        var addPasskeyResult = await UserManager.AddOrUpdatePasskeyAsync(user, attestationResult.Passkey);
+        var addPasskeyResult = await scopedUserManager.AddOrUpdatePasskeyAsync(scopedUser, attestationResult.Passkey);
         if (!addPasskeyResult.Succeeded)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Error: The passkey could not be added to your account.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: No se pudo agregar la passkey a tu cuenta.", HttpContext);
             return;
         }
 
@@ -146,7 +163,7 @@ else
                 await DeletePasskey();
                 break;
             default:
-                RedirectManager.RedirectToCurrentPageWithStatus($"Error: Unknown action '{Action}'.", HttpContext);
+                RedirectManager.RedirectToCurrentPageWithStatus($"Error: Acción desconocida '{Action}'.", HttpContext);
                 break;
         }
     }
@@ -166,17 +183,27 @@ else
         }
         catch (FormatException)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Error: The specified passkey ID had an invalid format.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: El ID de la passkey tiene un formato inválido.", HttpContext);
             return;
         }
 
-        var result = await UserManager.RemovePasskeyAsync(user, credentialId);
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        var scopedUser = await scopedUserManager.GetUserAsync(HttpContext.User);
+        if (scopedUser is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        var result = await scopedUserManager.RemovePasskeyAsync(scopedUser, credentialId);
         if (!result.Succeeded)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Error: The passkey could not be deleted.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: No se pudo eliminar la passkey.", HttpContext);
             return;
         }
 
-        RedirectManager.RedirectToCurrentPageWithStatus("Passkey deleted successfully.", HttpContext);
+        RedirectManager.RedirectToCurrentPageWithStatus("Passkey eliminada correctamente.", HttpContext);
     }
 }

@@ -1,0 +1,185 @@
+@page "/solicitudes/historial-envios"
+@attribute [Authorize(Roles = Roles.Gestor)]
+@inject IPedidoNotificacionProveedorService NotificacionesProveedor
+@inject IProveedorService Proveedores
+@inject PageHeaderState HeaderState
+
+<PageTitle>Historial de envíos a proveedores</PageTitle>
+
+<div class="space-y-4">
+    <Card>
+        <div class="flex flex-wrap items-end gap-4">
+            <div>
+                <label class="form-label">Desde</label>
+                <input type="date" class="form-input w-auto" @bind="fechaDesde" @bind:after="Buscar" />
+            </div>
+
+            <div>
+                <label class="form-label">Hasta</label>
+                <input type="date" class="form-input w-auto" @bind="fechaHasta" @bind:after="Buscar" />
+            </div>
+
+            <div>
+                <label class="form-label">Proveedor</label>
+                <select class="form-select w-auto" @bind="proveedorIdTexto" @bind:after="Buscar">
+                    <option value="">Todos los proveedores</option>
+                    @foreach (var prov in proveedores)
+                    {
+                        <option value="@prov.Id">@prov.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <Button Variant="ButtonVariant.Secondary" OnClick="LimpiarFiltros">Limpiar</Button>
+            </div>
+        </div>
+    </Card>
+
+    @if (resultados is null)
+    {
+        <Loading />
+    }
+    else if (resultados.Count == 0)
+    {
+        <div class="card"><EmptyState Icon="clock" Title="Sin envíos" Description="Ningún envío a proveedor coincide con estos filtros." /></div>
+    }
+    else
+    {
+        <p class="text-sm text-muted">@resultados.Count envío(s)</p>
+
+        <div class="card table-wrap">
+            <table class="table-enterprise">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Fecha de envío</th>
+                        <th>Solicitud</th>
+                        <th>Proveedor</th>
+                        <th>Correo</th>
+                        <th>Líneas</th>
+                        <th>Gestor</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var envio in paginaActual)
+                    {
+                        var lineas = envio.PedidoProveedor?.Items.Where(i => !i.Excluido).ToList();
+                        <tr>
+                            <td>
+                                @if (lineas is { Count: > 0 })
+                                {
+                                    <Button Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" OnClick="() => AlternarDetalle(envio.Id)">
+                                        <Icon Name="chevron-down" Class="@("h-4 w-4 transition-transform" + (expandidos.Contains(envio.Id) ? " rotate-180" : ""))" />
+                                    </Button>
+                                }
+                            </td>
+                            <td class="text-muted">@envio.FechaEnvio.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td class="font-medium text-heading">#@envio.SolicitudId</td>
+                            <td>@envio.Proveedor?.Nombre</td>
+                            <td class="text-muted">@envio.Email</td>
+                            <td>@envio.CantidadLineas</td>
+                            <td>@(envio.GestorNombre ?? "-")</td>
+                            <td class="text-right">
+                                @{ var urlPdf = envio.PedidoProveedorId is int idDocumento ? $"/api/pedidos-proveedor/{idDocumento}/pdf" : $"/api/pedidos/{envio.SolicitudId}/pdf"; }
+                                <a class="btn btn-secondary btn-sm" href="@urlPdf" target="_blank">PDF del pedido</a>
+                                @if (envio.PedidoProveedorId is int idDocumentoExcel)
+                                {
+                                    <a class="btn btn-secondary btn-sm" href="@($"/api/pedidos-proveedor/{idDocumentoExcel}/excel")" target="_blank">Excel</a>
+                                }
+                            </td>
+                        </tr>
+                        @if (lineas is { Count: > 0 } && expandidos.Contains(envio.Id))
+                        {
+                            <tr>
+                                <td></td>
+                                <td colspan="6" class="bg-surface">
+                                    <table class="table-enterprise">
+                                        <thead>
+                                            <tr>
+                                                <th>Producto</th>
+                                                <th>Código del proveedor</th>
+                                                <th>Cantidad</th>
+                                                <th>Unidad</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var linea in lineas)
+                                            {
+                                                <tr>
+                                                    <td>@linea.ProductoNombre</td>
+                                                    <td class="text-muted">@linea.CodigoProveedor</td>
+                                                    <td>@linea.Cantidad</td>
+                                                    <td class="text-muted">@(linea.UnidadMedida ?? "-")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <Pagination CurrentPage="paginaNumero" TotalPages="totalPaginas" CurrentPageChanged="p => paginaNumero = p" />
+        </div>
+    }
+</div>
+
+@code {
+    private const int TamanoPagina = 20;
+
+    private DateTime? fechaDesde;
+    private DateTime? fechaHasta;
+    private string proveedorIdTexto = "";
+    private int paginaNumero = 1;
+
+    private int? proveedorId => int.TryParse(proveedorIdTexto, out var id) ? id : null;
+
+    private List<NotificacionProveedor>? resultados;
+    private List<Proveedor> proveedores = new();
+    private HashSet<int> expandidos = new();
+
+    private void AlternarDetalle(int envioId)
+    {
+        if (!expandidos.Add(envioId))
+            expandidos.Remove(envioId);
+    }
+
+    private int totalPaginas => Math.Max(1, (int)Math.Ceiling((resultados?.Count ?? 0) / (double)TamanoPagina));
+    private IEnumerable<NotificacionProveedor> paginaActual =>
+        (resultados ?? []).Skip((paginaNumero - 1) * TamanoPagina).Take(TamanoPagina);
+
+    protected override async Task OnInitializedAsync()
+    {
+        HeaderState.Set("Historial de envíos a proveedores");
+        proveedores = await Proveedores.ObtenerTodosAsync();
+        await Buscar();
+    }
+
+    private async Task Buscar()
+    {
+        var filtro = new FiltroEnviosProveedorDto
+        {
+            ProveedorId = proveedorId,
+            FechaDesde = fechaDesde,
+            // Hasta es exclusivo: sumamos 1 día para incluir todo el día seleccionado.
+            FechaHasta = fechaHasta?.AddDays(1)
+        };
+
+        resultados = await NotificacionesProveedor.BuscarEnviosAsync(filtro);
+        paginaNumero = 1;
+    }
+
+    private async Task LimpiarFiltros()
+    {
+        fechaDesde = null;
+        fechaHasta = null;
+        proveedorIdTexto = "";
+        await Buscar();
+    }
+}

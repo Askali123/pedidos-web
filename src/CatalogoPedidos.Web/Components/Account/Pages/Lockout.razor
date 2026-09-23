@@ -1,4 +1,5 @@
 ﻿@page "/Account/Lockout"
+@attribute [AllowAnonymous]
 @layout CatalogoPedidos.Web.Components.Layout.AuthLayout
 
 <PageTitle>Cuenta bloqueada</PageTitle>
@@ -8,6 +9,6 @@
         Esta cuenta ha sido bloqueada por demasiados intentos fallidos. Intenta de nuevo más tarde.
     </Alert>
     <div class="mt-4 text-sm text-center">
-        <a href="Account/Login" class="text-primary-700 hover:underline">Volver a iniciar sesión</a>
+        <a href="Account/Login" class="text-primary-300 hover:underline">Volver a iniciar sesión</a>
     </div>
 </Card>

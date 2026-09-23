@@ -2,12 +2,13 @@ using CatalogoPedidos.Domain.Enums;
 
 namespace CatalogoPedidos.Domain.Entities;
 
-public class SolicitudProducto
+/// <summary>Línea de una <see cref="Solicitud"/> — antes se llamaba <c>SolicitudProducto</c>.</summary>
+public class DetalleSolicitud
 {
     public int Id { get; set; }
 
-    public int PedidoId { get; set; }
-    public Pedido? Pedido { get; set; }
+    public int SolicitudId { get; set; }
+    public Solicitud? Solicitud { get; set; }
 
     public int ProductoId { get; set; }
     public Producto? Producto { get; set; }

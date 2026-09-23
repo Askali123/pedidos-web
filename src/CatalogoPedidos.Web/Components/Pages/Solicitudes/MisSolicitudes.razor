@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using System.Security.Claims
 @inject ISolicitudService Solicitudes
+@inject IConfirmacionEntregaService ConfirmacionesEntrega
 @inject PageHeaderState HeaderState
 
 <PageTitle>Mis solicitudes</PageTitle>
@@ -25,22 +26,36 @@ else
     <div class="space-y-4">
         @foreach (var grupo in grupos)
         {
+            <div id="@($"pedido-{grupo.Key.SolicitudId}")">
             <Card>
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
-                        <p class="font-medium text-gray-900">Pedido #@grupo.Key.PedidoId</p>
-                        <p class="text-xs text-gray-500 mt-0.5">
+                        <p class="font-medium text-heading">
+                            Solicitud #@grupo.Key.SolicitudId
+                            @{ var resumen = ResumenEstado(grupo); }
+                            @if (resumen is not null)
+                            {
+                                <Badge Variant="resumen.Value.Variant">@resumen.Value.Texto</Badge>
+                            }
+                        </p>
+                        <p class="text-xs text-muted mt-0.5">
                             @grupo.Key.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                             @if (!string.IsNullOrWhiteSpace(grupo.Key.Comentario))
                             {
                                 <span> · @grupo.Key.Comentario</span>
                             }
                         </p>
+                        @if (!string.IsNullOrWhiteSpace(grupo.Key.DireccionEntrega))
+                        {
+                            <p class="text-xs text-muted mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
+                        }
+                        <EntregaBadge Confirmaciones="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.SolicitudId) ?? []"
+                                      Grupos="gruposEntregaPorPedido.GetValueOrDefault(grupo.Key.SolicitudId) ?? []" />
                     </div>
 
                     @if (grupo.Count() > 1)
                     {
-                        <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">PDF del pedido</a>
+                        <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.SolicitudId/pdf" target="_blank">PDF de la solicitud</a>
                     }
                 </div>
 
@@ -52,24 +67,35 @@ else
                                 <th>Cantidad</th>
                                 <th>Estado</th>
                                 <th>Gestor</th>
-                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var s in grupo)
                             {
                                 <tr>
-                                    <td class="font-medium text-gray-900">@s.Producto?.Nombre</td>
+                                    <td class="font-medium text-heading">
+                                        @s.Producto?.Nombre
+                                        @if (s.Producto?.Activo == false)
+                                        {
+                                            <Badge Variant="BadgeVariant.Warning">Desactivado</Badge>
+                                        }
+                                    </td>
                                     <td>@s.Cantidad</td>
-                                    <td><Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge></td>
+                                    <td>
+                                        <Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge>
+                                        @if (!string.IsNullOrWhiteSpace(s.ComentarioGestor))
+                                        {
+                                            <p class="text-xs text-muted mt-0.5">@s.ComentarioGestor</p>
+                                        }
+                                    </td>
                                     <td>@s.GestorNombre</td>
-                                    <td class="text-right"><a class="btn btn-secondary btn-sm" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a></td>
                                 </tr>
                             }
                         </tbody>
                     </table>
                 </div>
             </Card>
+            </div>
         }
     </div>
 }
@@ -77,21 +103,62 @@ else
 @code {
     [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
 
-    private record PedidoResumen(int PedidoId, string? Comentario, DateTime FechaCreacion);
+    private record PedidoResumen(int SolicitudId, string? Comentario, string? DireccionEntrega, DateTime FechaCreacion);
 
-    private List<IGrouping<PedidoResumen, SolicitudProducto>>? grupos;
+    private List<IGrouping<PedidoResumen, DetalleSolicitud>>? grupos;
+    private Dictionary<int, List<ConfirmacionEntrega>> confirmacionesPorPedido = new();
+    private Dictionary<int, List<GrupoEntregaDto>> gruposEntregaPorPedido = new();
+
+    /// <summary>
+    /// Resumen a nivel de pedido para el caso "parcialmente resuelto" — un pedido de
+    /// varias líneas donde no todas comparten el mismo estado. Se queda en null (no
+    /// muestra nada) cuando el pedido es de una sola línea, cuando todavía no se resolvió
+    /// nada, o cuando ya está resuelto de forma pareja (todo aprobado o todo rechazado) —
+    /// en esos casos los badges por línea ya cuentan toda la historia sin necesidad de un
+    /// resumen aparte.
+    /// </summary>
+    private static (string Texto, BadgeVariant Variant)? ResumenEstado(IGrouping<PedidoResumen, DetalleSolicitud> grupo)
+    {
+        var total = grupo.Count();
+        if (total <= 1)
+            return null;
+
+        var aprobadas = grupo.Count(s => s.Estado == EstadoSolicitud.Aprobada);
+        var rechazadas = grupo.Count(s => s.Estado == EstadoSolicitud.Rechazada);
+        var pendientes = total - aprobadas - rechazadas;
+        var resueltas = aprobadas + rechazadas;
+
+        if (resueltas == 0)
+            return null;
+
+        if (pendientes > 0)
+            return ($"{resueltas} de {total} resueltas", BadgeVariant.Info);
+
+        if (aprobadas > 0 && rechazadas > 0)
+            return ($"{aprobadas} aprobada(s), {rechazadas} rechazada(s)", BadgeVariant.Warning);
+
+        return null;
+    }
 
     protected override async Task OnInitializedAsync()
     {
-        HeaderState.Set("Mis solicitudes", [("Mis solicitudes", null)]);
+        HeaderState.Set("Mis solicitudes");
 
         var authState = await AuthStateTask!;
         var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
         var solicitudes = await Solicitudes.ObtenerMisSolicitudesAsync(userId);
 
         grupos = solicitudes
-            .GroupBy(s => new PedidoResumen(s.PedidoId, s.Pedido?.Comentario, s.Pedido?.FechaCreacion ?? s.FechaSolicitud))
+            .GroupBy(s => new PedidoResumen(s.SolicitudId, s.Solicitud?.Comentario, s.Solicitud?.DireccionEntrega, s.Solicitud?.FechaCreacion ?? s.FechaSolicitud))
             .OrderByDescending(g => g.Key.FechaCreacion)
             .ToList();
+
+        confirmacionesPorPedido.Clear();
+        gruposEntregaPorPedido.Clear();
+        foreach (var pedidoId in grupos.Select(g => g.Key.SolicitudId))
+        {
+            confirmacionesPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerPorPedidoAsync(pedidoId);
+            gruposEntregaPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerGruposDeEntregaAsync(pedidoId);
+        }
     }
 }

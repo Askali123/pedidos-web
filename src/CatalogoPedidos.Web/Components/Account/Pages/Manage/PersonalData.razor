@@ -5,26 +5,28 @@
 
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
+@inject IServiceScopeFactory ScopeFactory
+@inject PageHeaderState HeaderState
 
-<PageTitle>Personal Data</PageTitle>
+<PageTitle>Datos personales</PageTitle>
 
-<StatusMessage />
-<h3>Personal Data</h3>
+<div class="max-w-xl">
+    <Card Title="Datos personales">
+        <StatusMessage />
 
-<div class="row">
-    <div class="col-md-6">
-        <p>Your account contains personal data that you have given us. This page allows you to download or delete that data.</p>
-        <p>
-            <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
+        <p class="text-sm text-body">Tu cuenta contiene datos personales que nos diste. Desde acá podés descargarlos o eliminarlos.</p>
+        <p class="text-sm text-body mt-2">
+            <strong>Eliminar estos datos borra tu cuenta de forma permanente y no se puede deshacer.</strong>
         </p>
-        <form action="Account/Manage/DownloadPersonalData" method="post">
-            <AntiforgeryToken />
-            <button class="btn btn-primary" type="submit">Download</button>
-        </form>
-        <p>
-            <a href="Account/Manage/DeletePersonalData" class="btn btn-danger">Delete</a>
-        </p>
-    </div>
+
+        <div class="flex items-center gap-2 mt-4">
+            <form action="Account/Manage/DownloadPersonalData" method="post">
+                <AntiforgeryToken />
+                <Button Type="submit" Variant="ButtonVariant.Secondary" Icon="download">Descargar</Button>
+            </form>
+            <a href="Account/Manage/DeletePersonalData" class="btn btn-danger">Eliminar</a>
+        </div>
+    </Card>
 </div>
 
 @code {
@@ -33,7 +35,14 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var user  = await UserManager.GetUserAsync(HttpContext.User);
+        HeaderState.Set("Datos personales", [("Mi cuenta", "/Account/Manage"), ("Datos personales", null)]);
+
+        // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
+        // docs/PLAN_MEJORAS_AUTENTICACION.md #2.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        var user = await scopedUserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);

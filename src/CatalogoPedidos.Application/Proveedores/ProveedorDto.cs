@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace CatalogoPedidos.Application.Proveedores;
 
 public class CrearProveedorDto
@@ -6,6 +8,8 @@ public class CrearProveedorDto
     public string? Nit { get; set; }
     public string? Contacto { get; set; }
     public string? Telefono { get; set; }
+
+    [EmailAddress(ErrorMessage = "El email no tiene un formato válido.")]
     public string? Email { get; set; }
 }
 

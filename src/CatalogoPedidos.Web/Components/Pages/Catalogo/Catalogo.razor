@@ -12,7 +12,7 @@
     <Card>
         <div class="flex flex-wrap items-center gap-3">
             <div class="relative flex-1 min-w-[220px]">
-                <Icon Name="search" Class="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Icon Name="search" Class="h-4 w-4 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input type="text" class="form-input pl-9" placeholder="Buscar por nombre o descripción..."
                        @bind="texto" @bind:event="oninput" @onkeyup="Filtrar" />
             </div>
@@ -40,6 +40,17 @@
             <a class="btn btn-secondary" href="@UrlExportarPdf" target="_blank">
                 <Icon Name="download" Class="h-4 w-4" /> Exportar a PDF
             </a>
+
+            <AuthorizeView Roles="@Roles.Gestor" Context="mostrarInactivosContext">
+                <Authorized>
+                    <label class="flex items-center gap-2 text-sm text-body"
+                           title="@(proveedorId is not null ? "No aplica al filtrar por proveedor" : null)">
+                        <input type="checkbox" class="form-checkbox" @bind="mostrarInactivos" @bind:after="Filtrar"
+                               disabled="@(proveedorId is not null)" />
+                        Mostrar desactivados
+                    </label>
+                </Authorized>
+            </AuthorizeView>
         </div>
     </Card>
 
@@ -75,27 +86,36 @@
                     @foreach (var fila in paginaActual)
                     {
                         var p = fila.Producto;
-                        <tr>
+                        <tr class="@(!p.Activo ? "opacity-60" : "")">
                             @if (proveedorId is not null)
                             {
-                                <td class="text-gray-500">#@p.Id</td>
-                                <td class="font-medium text-gray-900">@fila.CodigoProveedor</td>
+                                <td class="text-muted" data-label="Código interno">#@p.Id</td>
+                                <td class="font-medium text-heading" data-label="Código proveedor">@fila.CodigoProveedor</td>
                             }
-                            <td class="font-medium text-gray-900">@p.Nombre</td>
-                            <td><Badge Variant="BadgeVariant.Neutral">@p.Categoria</Badge></td>
-                            <td class="text-gray-500">@p.Descripcion</td>
-                            <td class="text-gray-500">@p.UnidadMedida</td>
-                            <td>@p.Precio.ToString("C")</td>
-                            <td>
-                                <div class="flex items-center gap-1.5">
-                                    <span class="@(p.Stock < 0 ? "text-danger-600 font-medium" : "")">@p.Stock</span>
+                            <td class="font-medium text-heading" data-label="Nombre">
+                                @p.Nombre
+                                @if (!p.Activo)
+                                {
+                                    <Badge Variant="BadgeVariant.Warning">Desactivado</Badge>
+                                }
+                            </td>
+                            <td data-label="Categoría"><Badge Variant="BadgeVariant.Neutral">@p.Categoria</Badge></td>
+                            <td class="text-muted" data-label="Descripción">@p.Descripcion</td>
+                            <td class="text-muted" data-label="Unidad">@p.UnidadMedida</td>
+                            <td data-label="Precio">@(p.Precio > 0 ? p.Precio.ToString("C") : "Sin precio")</td>
+                            <td data-label="Stock">
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <span class="@(p.Stock < 0 ? "text-danger-400 font-medium" : "")"
+                                          title="@(p.Stock < 0 ? "Stock negativo: se aprobaron más solicitudes que el stock disponible" : null)">@p.Stock</span>
                                     @if (p.StockMinimo is not null && p.Stock <= p.StockMinimo)
                                     {
-                                        <Badge Variant="BadgeVariant.Danger">⚠ Bajo</Badge>
+                                        <span title="@($"Por debajo del mínimo configurado ({p.StockMinimo})")">
+                                            <Badge Variant="BadgeVariant.Danger">⚠ Bajo</Badge>
+                                        </span>
                                     }
                                     <AuthorizeView Roles="@Roles.Gestor" Context="stockContext">
                                         <Authorized>
-                                            <button type="button" class="text-gray-400 hover:text-gray-600" title="Configurar alerta de stock" @onclick="() => AbrirConfigStock(p)">
+                                            <button type="button" class="text-muted hover:text-body" title="Configurar alerta de stock" @onclick="() => AbrirConfigStock(p)">
                                                 <Icon Name="pencil" Class="h-3.5 w-3.5" />
                                             </button>
                                         </Authorized>
@@ -103,18 +123,31 @@
                                 </div>
                             </td>
                             <td>
-                                <div class="flex items-center gap-2 justify-end">
-                                    @if (Carrito.Contiene(p.Id))
-                                    {
-                                        <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="check" OnClick="() => AgregarAlCarrito(p)">En el carrito</Button>
-                                    }
-                                    else
-                                    {
-                                        <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" Icon="cart" OnClick="() => AgregarAlCarrito(p)">Agregar</Button>
-                                    }
+                                <div class="flex items-center gap-2 justify-end flex-wrap">
+                                    <AuthorizeView Roles="@Roles.Gestor" Context="carritoContext">
+                                        <NotAuthorized>
+                                            @if (Carrito.Contiene(p.Id))
+                                            {
+                                                <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="check" OnClick="() => AgregarAlCarrito(p)">En el carrito</Button>
+                                            }
+                                            else
+                                            {
+                                                <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" Icon="cart" OnClick="() => AgregarAlCarrito(p)">Agregar</Button>
+                                            }
+                                        </NotAuthorized>
+                                    </AuthorizeView>
                                     <AuthorizeView Roles="@Roles.Gestor" Context="gestorContext">
                                         <Authorized>
+                                            <a class="btn btn-secondary btn-sm" href="/catalogo/@p.Id/editar">Editar</a>
                                             <a class="btn btn-secondary btn-sm" href="/catalogo/@p.Id/proveedores">Proveedores</a>
+                                            @if (p.Activo)
+                                            {
+                                                <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="trash" OnClick="() => PedirConfirmacionDesactivar(p)">Desactivar</Button>
+                                            }
+                                            else
+                                            {
+                                                <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => Reactivar(p)">Reactivar</Button>
+                                            }
                                         </Authorized>
                                     </AuthorizeView>
                                 </div>
@@ -132,7 +165,7 @@
     <ChildContent>
         @if (productoEditando is not null)
         {
-            <p class="text-sm text-gray-600 mb-3">@productoEditando.Nombre</p>
+            <p class="text-sm text-body mb-3">@productoEditando.Nombre</p>
             <FormField Label="Stock mínimo (opcional)" Hint="Si el stock queda en o por debajo de este número al aprobar una solicitud, se te avisa. Déjalo vacío para no recibir alertas de este producto.">
                 <InputNumber @bind-Value="stockMinimoEditado" class="form-input" placeholder="p.ej. 5" />
             </FormField>
@@ -143,6 +176,10 @@
         <Button Variant="ButtonVariant.Primary" Icon="check" OnClick="GuardarStockMinimo">Guardar</Button>
     </Footer>
 </Modal>
+
+<ConfirmDialog @bind-Visible="confirmandoDesactivar" Title="Desactivar producto" Danger="true"
+               Message="@($"¿Desactivar \"{productoADesactivarNombre}\"? Dejará de verse en el catálogo y de poder solicitarse; su historial de solicitudes se conserva.")"
+               ConfirmText="Desactivar" OnConfirm="ConfirmarDesactivar" />
 
 @code {
     private const int TamanoPagina = 8;
@@ -164,6 +201,7 @@
     private string texto = "";
     private string categoria = "";
     private string proveedorIdTexto = "";
+    private bool mostrarInactivos;
     private int paginaNumero = 1;
 
     private int? proveedorId => int.TryParse(proveedorIdTexto, out var id) ? id : null;
@@ -185,7 +223,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        HeaderState.Set("Catálogo", [("Catálogo", null)]);
+        HeaderState.Set("Catálogo");
         Carrito.Changed += Refrescar;
         categorias = await Productos.ObtenerCategoriasAsync();
         proveedores = await Proveedores.ObtenerTodosAsync();
@@ -207,7 +245,11 @@
         }
         else
         {
-            var catalogo = await Productos.ObtenerCatalogoAsync(textoFiltro, categoriaFiltro);
+            // El toggle "Mostrar desactivados" no aplica al filtrar por proveedor: esa rama
+            // usa ObtenerProductosDeProveedorAsync(soloActivos: true), que ya es otra
+            // consulta (sobre la asociación, no sobre el producto) — se deshabilita el
+            // checkbox en el markup para que no quede la sensación de que hace algo.
+            var catalogo = await Productos.ObtenerCatalogoAsync(textoFiltro, categoriaFiltro, incluirInactivos: mostrarInactivos);
             filas = catalogo.Select(p => new FilaCatalogo { Producto = p }).ToList();
         }
 
@@ -235,6 +277,29 @@
         await Productos.ActualizarStockMinimoAsync(productoEditando.Id, stockMinimoEditado);
         productoEditando.StockMinimo = stockMinimoEditado;
         modalStockVisible = false;
+    }
+
+    private bool confirmandoDesactivar;
+    private int productoADesactivarId;
+    private string? productoADesactivarNombre;
+
+    private void PedirConfirmacionDesactivar(Producto producto)
+    {
+        productoADesactivarId = producto.Id;
+        productoADesactivarNombre = producto.Nombre;
+        confirmandoDesactivar = true;
+    }
+
+    private async Task ConfirmarDesactivar()
+    {
+        await Productos.DesactivarAsync(productoADesactivarId);
+        await Filtrar();
+    }
+
+    private async Task Reactivar(Producto producto)
+    {
+        await Productos.ReactivarAsync(producto.Id);
+        await Filtrar();
     }
 
     private void Refrescar() => InvokeAsync(StateHasChanged);

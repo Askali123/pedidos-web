@@ -3,9 +3,9 @@
 @using System.Security.Claims
 @inject CarritoState CarritoState
 @inject ISolicitudService Solicitudes
-@inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Navigation
 @inject PageHeaderState HeaderState
+@inject IServiceScopeFactory ScopeFactory
 @implements IDisposable
 
 <PageTitle>Carrito de solicitud</PageTitle>
@@ -14,22 +14,23 @@
     @if (CarritoState.TotalItems == 0)
     {
         <div class="card">
-            <EmptyState Icon="cart" Title="El carrito está vacío" Description="Agrega productos desde el catálogo para armar tu solicitud." />
-            <div class="mt-4 text-center">
-                <a class="btn btn-primary" href="/catalogo">Ir al catálogo</a>
-            </div>
+            <EmptyState Icon="cart" Title="El carrito está vacío" Description="Agrega productos desde el catálogo para armar tu solicitud.">
+                <Action>
+                    <a class="btn btn-primary" href="/catalogo">Ir al catálogo</a>
+                </Action>
+            </EmptyState>
         </div>
     }
     else
     {
         <Card Title="Productos a solicitar">
-            <div class="divide-y divide-gray-100">
+            <div class="divide-y divide-white/[.05]">
                 @foreach (var item in CarritoState.Items)
                 {
                     <div class="flex items-center gap-3 py-3">
                         <div class="flex-1 min-w-0">
-                            <p class="font-medium text-gray-900 truncate">@item.Producto.Nombre</p>
-                            <p class="text-xs text-gray-500">@item.Producto.Categoria @(string.IsNullOrEmpty(item.Producto.UnidadMedida) ? "" : $"· {item.Producto.UnidadMedida}")</p>
+                            <p class="font-medium text-heading truncate">@item.Producto.Nombre</p>
+                            <p class="text-xs text-muted">@item.Producto.Categoria @(string.IsNullOrEmpty(item.Producto.UnidadMedida) ? "" : $"· {item.Producto.UnidadMedida}")</p>
                         </div>
                         <input type="number" min="1" class="form-input w-20" value="@item.Cantidad"
                                @onchange="e => CambiarCantidad(item.Producto.Id, e.Value)" />
@@ -40,7 +41,11 @@
         </Card>
 
         <Card Title="Enviar al gestor">
-            <FormField Label="Comentario (opcional)" Hint="Se guarda una sola vez para todo este pedido.">
+            <FormField Label="Dirección de entrega" Hint="A dónde hay que llevar estos insumos. Se autocompleta con la de tu perfil, pero podés cambiarla para esta solicitud.">
+                <input class="form-input" @bind="direccionEntrega" placeholder="Ej. Bodega principal, Cra 10 # 20-30" />
+            </FormField>
+
+            <FormField Label="Comentario (opcional)" Hint="Se guarda una sola vez para toda esta solicitud.">
                 <textarea class="form-textarea" rows="3" @bind="comentario"></textarea>
             </FormField>
 
@@ -61,6 +66,7 @@
     [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
 
     private string? comentario;
+    private string? direccionEntrega;
     private string? error;
     private bool enviando;
 
@@ -68,6 +74,34 @@
     {
         HeaderState.Set("Carrito de solicitud", [("Catálogo", "/catalogo"), ("Carrito", null)]);
         CarritoState.Changed += Refrescar;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthStateTask is null)
+            return;
+
+        // El Gestor no arma solicitudes propias (ver docs/PLAN_MEJORAS_UI_UX.md, tarea 16
+        // revisada) — la UI ya no lo lleva acá, pero esto bloquea igual la entrada directa
+        // por URL. El resto del método asume que quien llega es un Usuario legítimo.
+        var authStateRol = await AuthStateTask;
+        if (authStateRol.User.IsInRole(Roles.Gestor))
+        {
+            Navigation.NavigateTo("/catalogo");
+            return;
+        }
+
+        // Scope aparte para el UserManager acá: UserMenu.razor (el menú del header) también
+        // llama a UserManager.GetUserAsync en su propio OnInitializedAsync, y ambos corren
+        // concurrentemente sobre el mismo AppDbContext Scoped de Identity si se usa el
+        // UserManager inyectado directo — EF Core no tolera eso ("A second operation was
+        // started on this context instance..."). Mismo problema y mismo arreglo que en
+        // Account/Pages/Manage/Index.razor (ver docs/PLAN_TRAZABILIDAD_ENTREGAS.md #3).
+        var authState = await AuthStateTask;
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var appUser = await scopedUserManager.GetUserAsync(authState.User);
+        direccionEntrega = appUser?.DireccionPredeterminada;
     }
 
     private void CambiarCantidad(int productoId, object? valor)
@@ -90,8 +124,15 @@
             return;
         }
 
-        var appUser = await UserManager.GetUserAsync(user);
-        var userName = appUser.NombreParaMostrar(user.Identity?.Name);
+        // Scope aparte por el mismo motivo que en OnInitializedAsync más arriba — ver
+        // docs/PLAN_MEJORAS_AUTENTICACION.md #2 y #8.
+        string userName;
+        await using (var scope = ScopeFactory.CreateAsyncScope())
+        {
+            var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var appUser = await scopedUserManager.GetUserAsync(user);
+            userName = appUser.NombreParaMostrar(user.Identity?.Name);
+        }
 
         var items = CarritoState.Items
             .Select(i => new CrearSolicitudDto { ProductoId = i.Producto.Id, Cantidad = i.Cantidad })
@@ -100,7 +141,7 @@
         enviando = true;
         try
         {
-            await Solicitudes.CrearPedidoAsync(userId, userName, comentario, items);
+            await Solicitudes.CrearSolicitudAsync(userId, userName, comentario, items, direccionEntrega);
             CarritoState.Limpiar();
             Navigation.NavigateTo("/solicitudes/mis-solicitudes");
         }

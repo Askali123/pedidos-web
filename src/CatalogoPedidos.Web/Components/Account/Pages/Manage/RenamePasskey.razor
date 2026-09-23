@@ -7,28 +7,26 @@
 
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
+@inject IServiceScopeFactory ScopeFactory
+@inject PageHeaderState HeaderState
 
-<EditForm Model="Input" OnValidSubmit="Rename" FormName="rename-passkey" method="post">
-    <DataAnnotationsValidator />
-    @if (passkey?.Name is { } name)
-    {
-        <h4>Enter a new name for your "@name" passkey</h4>
-    }
-    else
-    {
-        <h4>Enter a name for your passkey</h4>
-    }
-    <hr />
-    <ValidationSummary class="text-danger" role="alert" />
-    <div class="form-floating mb-3">
-        <InputText @bind-Value="Input.Name" id="Input.Name" class="form-control" aria-required="true" placeholder="My passkey" />
-        <label for="Input.Name" class="form-label">Passkey name</label>
-        <ValidationMessage For="() => Input.Name" class="text-danger" />
-    </div>
-    <div>
-        <button type="submit" class="w-100 btn btn-lg btn-primary">Continue</button>
-    </div>
-</EditForm>
+<PageTitle>Renombrar passkey</PageTitle>
+
+<div class="max-w-xl">
+    <Card Title="@(passkey?.Name is { } name ? $"Renombrar la passkey \"{name}\"" : "Ponele un nombre a tu passkey")">
+        <EditForm Model="Input" OnValidSubmit="Rename" FormName="rename-passkey" method="post">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger-400 text-sm mb-2" role="alert" />
+
+            <FormField Label="Nombre de la passkey" Required="true">
+                <InputText @bind-Value="Input.Name" id="Input.Name" class="form-input" aria-required="true" placeholder="Mi passkey" />
+                <ValidationMessage For="() => Input.Name" class="text-danger-400 text-xs mt-1" />
+            </FormField>
+
+            <Button Type="submit" Variant="ButtonVariant.Primary" Icon="check">Continuar</Button>
+        </EditForm>
+    </Card>
+</div>
 
 @code {
     private ApplicationUser? user;
@@ -45,9 +43,16 @@
 
     protected override async Task OnInitializedAsync()
     {
+        HeaderState.Set("Renombrar passkey", [("Mi cuenta", "/Account/Manage"), ("Passkeys", "/Account/Manage/Passkeys"), ("Renombrar", null)]);
+
         Input ??= new();
 
-        user = (await UserManager.GetUserAsync(HttpContext.User))!;
+        // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
+        // docs/PLAN_MEJORAS_AUTENTICACION.md #2.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        user = (await scopedUserManager.GetUserAsync(HttpContext.User))!;
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
@@ -61,35 +66,51 @@
         }
         catch (FormatException)
         {
-            RedirectManager.RedirectToWithStatus("Account/Manage/Passkeys", "Error: The specified passkey ID had an invalid format.", HttpContext);
+            RedirectManager.RedirectToWithStatus("Account/Manage/Passkeys", "Error: El ID de la passkey tiene un formato inválido.", HttpContext);
             return;
         }
 
-        passkey = await UserManager.GetPasskeyAsync(user, credentialId);
+        passkey = await scopedUserManager.GetPasskeyAsync(user, credentialId);
         if (passkey is null)
         {
-            RedirectManager.RedirectToWithStatus("Account/Manage/Passkeys", "Error: The specified passkey could not be found.", HttpContext);
+            RedirectManager.RedirectToWithStatus("Account/Manage/Passkeys", "Error: No se encontró la passkey especificada.", HttpContext);
             return;
         }
     }
 
     private async Task Rename()
     {
-        passkey!.Name = Input.Name;
-        var result = await UserManager.AddOrUpdatePasskeyAsync(user!, passkey);
-        if (!result.Succeeded)
+        if (user is null)
         {
-            RedirectManager.RedirectToWithStatus("Account/Manage/Passkeys", "Error: The passkey could not be updated.", HttpContext);
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
 
-        RedirectManager.RedirectToWithStatus("Account/Manage/Passkeys", "Passkey updated successfully.", HttpContext);
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        var scopedUser = await scopedUserManager.GetUserAsync(HttpContext.User);
+        if (scopedUser is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        passkey!.Name = Input.Name;
+        var result = await scopedUserManager.AddOrUpdatePasskeyAsync(scopedUser, passkey);
+        if (!result.Succeeded)
+        {
+            RedirectManager.RedirectToWithStatus("Account/Manage/Passkeys", "Error: No se pudo actualizar la passkey.", HttpContext);
+            return;
+        }
+
+        RedirectManager.RedirectToWithStatus("Account/Manage/Passkeys", "Passkey actualizada correctamente.", HttpContext);
     }
 
     private sealed class InputModel
     {
-        [Required]
-        [StringLength(200, ErrorMessage = "Passkey names must be no longer than {1} characters.")]
+        [Required(ErrorMessage = "El nombre es obligatorio.")]
+        [StringLength(200, ErrorMessage = "El nombre no puede superar los {1} caracteres.")]
         public string Name { get; set; } = "";
     }
 }

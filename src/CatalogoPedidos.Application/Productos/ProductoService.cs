@@ -8,8 +8,8 @@ public class ProductoService(
     IProductoImportador importador,
     IProductoProveedorRepository asociaciones) : IProductoService
 {
-    public Task<List<Producto>> ObtenerCatalogoAsync(string? texto = null, string? categoria = null, CancellationToken ct = default)
-        => repositorio.ObtenerCatalogoAsync(texto, categoria, ct);
+    public Task<List<Producto>> ObtenerCatalogoAsync(string? texto = null, string? categoria = null, bool incluirInactivos = false, CancellationToken ct = default)
+        => repositorio.ObtenerCatalogoAsync(texto, categoria, incluirInactivos, ct);
 
     public Task<List<string>> ObtenerCategoriasAsync(CancellationToken ct = default)
         => repositorio.ObtenerCategoriasAsync(ct);
@@ -19,6 +19,8 @@ public class ProductoService(
 
     public async Task<Producto> CrearAsync(CrearProductoDto dto, CancellationToken ct = default)
     {
+        ValidarDatosBasicos(dto);
+
         if (dto.ProveedorId is int proveedorId)
         {
             if (string.IsNullOrWhiteSpace(dto.CodigoProveedor))
@@ -58,6 +60,8 @@ public class ProductoService(
 
     public async Task ActualizarAsync(int id, CrearProductoDto dto, CancellationToken ct = default)
     {
+        ValidarDatosBasicos(dto);
+
         var producto = await repositorio.ObtenerPorIdAsync(id, ct)
             ?? throw new InvalidOperationException($"Producto {id} no encontrado.");
 
@@ -81,9 +85,39 @@ public class ProductoService(
         await repositorio.ActualizarAsync(producto, ct);
     }
 
+    public async Task DesactivarAsync(int id, CancellationToken ct = default)
+    {
+        var producto = await repositorio.ObtenerPorIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"Producto {id} no encontrado.");
+
+        producto.Activo = false;
+        await repositorio.ActualizarAsync(producto, ct);
+    }
+
+    public async Task ReactivarAsync(int id, CancellationToken ct = default)
+    {
+        var producto = await repositorio.ObtenerPorIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"Producto {id} no encontrado.");
+
+        producto.Activo = true;
+        await repositorio.ActualizarAsync(producto, ct);
+    }
+
     public Task<ResultadoAnalisisImportacion> AnalizarImportacionAsync(Stream archivo, int proveedorId, CancellationToken ct = default)
         => importador.AnalizarAsync(archivo, proveedorId, ct);
 
     public Task<ImportarProductosResultado> ConfirmarImportacionAsync(List<FilaImportacion> filas, int proveedorId, CancellationToken ct = default)
         => importador.ConfirmarAsync(filas, proveedorId, ct);
+
+    // Repite del lado servidor lo que el formulario ya valida del lado cliente
+    // (DataAnnotations en CrearProductoDto) — cualquier otro caller de este servicio
+    // (o una API futura) no debe poder saltarse esto. Ver docs/PLAN_MEJORAS_UI_UX.md #1.
+    private static void ValidarDatosBasicos(CrearProductoDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Nombre))
+            throw new InvalidOperationException("El nombre del producto es obligatorio.");
+
+        if (dto.Precio < 0)
+            throw new InvalidOperationException("El precio no puede ser negativo.");
+    }
 }

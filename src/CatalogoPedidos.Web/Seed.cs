@@ -7,7 +7,11 @@ namespace CatalogoPedidos.Web;
 
 public static class Seed
 {
-    public static async Task EjecutarAsync(IServiceProvider services)
+    // esDesarrollo gatea SOLO las cuentas y datos de ejemplo (contraseñas conocidas,
+    // productos ficticios) — no tiene sentido en un despliegue real. Los roles se
+    // crean siempre: son infraestructura que la autorización necesita en cualquier
+    // ambiente, no datos de prueba — ver docs/PLAN_MEJORAS_AUTENTICACION.md #12.
+    public static async Task EjecutarAsync(IServiceProvider services, bool esDesarrollo)
     {
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
@@ -19,6 +23,9 @@ public static class Seed
             if (!await roleManager.RoleExistsAsync(rol))
                 await roleManager.CreateAsync(new IdentityRole(rol));
         }
+
+        if (!esDesarrollo)
+            return;
 
         const string gestorEmail = "gestor@catalogo.local";
         const string gestorPassword = "Gestor123!";

@@ -1,0 +1,148 @@
+@page "/usuarios/roles"
+@attribute [Authorize(Roles = Roles.Gestor)]
+@using System.Security.Claims
+@using CatalogoPedidos.Application.Usuarios
+@inject IUsuarioRolService UsuarioRolService
+@inject IServiceScopeFactory ScopeFactory
+@inject PageHeaderState HeaderState
+
+<PageTitle>Gestión de roles</PageTitle>
+
+<div class="space-y-4">
+    @if (!string.IsNullOrEmpty(mensaje))
+    {
+        <Alert Variant="mensajeVariante" Dismissible="true" OnDismiss="() => mensaje = null">@mensaje</Alert>
+    }
+
+    @if (usuarios is null)
+    {
+        <div class="card"><Loading /></div>
+    }
+    else
+    {
+        <p class="text-sm text-muted">@usuarios.Count usuario(s) · @cantidadGestores gestor(es)</p>
+
+        <div class="card table-wrap">
+            <table class="table-enterprise">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Email</th>
+                        <th>Rol</th>
+                        <th class="text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in usuarios)
+                    {
+                        <tr>
+                            <td class="font-medium text-heading">
+                                @u.NombreCompleto
+                                @if (u.Id == currentUserId)
+                                {
+                                    <span class="text-xs text-muted"> (vos)</span>
+                                }
+                            </td>
+                            <td class="text-muted">@u.Email</td>
+                            <td>
+                                @if (u.EsGestor)
+                                {
+                                    <Badge Variant="BadgeVariant.Success">Gestor</Badge>
+                                }
+                                else
+                                {
+                                    <Badge Variant="BadgeVariant.Neutral">Solicitante</Badge>
+                                }
+                            </td>
+                            <td class="text-right">
+                                @if (u.EsGestor)
+                                {
+                                    <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Disabled="cantidadGestores <= 1" OnClick="() => QuitarGestor(u)">Quitar gestor</Button>
+                                }
+                                else
+                                {
+                                    <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" OnClick="() => AsignarGestor(u)">Hacer gestor</Button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
+
+    private List<UsuarioRolDto>? usuarios;
+    private string? currentUserId;
+    private string? mensaje;
+    private AlertVariant mensajeVariante = AlertVariant.Success;
+
+    private int cantidadGestores => usuarios?.Count(u => u.EsGestor) ?? 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        HeaderState.Set("Gestión de roles");
+
+        var authState = await AuthStateTask!;
+        currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        // Scope aparte para IUsuarioRolService: por dentro usa UserManager, que comparte
+        // el AppDbContext Scoped de Identity con UserMenu.razor — mismo criterio que el
+        // resto de "Administrar cuenta" (ver docs/PLAN_MEJORAS_AUTENTICACION.md #2).
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedService = scope.ServiceProvider.GetRequiredService<IUsuarioRolService>();
+        usuarios = await scopedService.ObtenerUsuariosAsync();
+    }
+
+    private async Task AsignarGestor(UsuarioRolDto usuario)
+    {
+        try
+        {
+            await using var scope = ScopeFactory.CreateAsyncScope();
+            var scopedService = scope.ServiceProvider.GetRequiredService<IUsuarioRolService>();
+            await scopedService.AsignarGestorAsync(usuario.Id);
+
+            mensaje = $"{usuario.NombreCompleto} ahora es Gestor.";
+            mensajeVariante = AlertVariant.Success;
+            await Cargar();
+        }
+        catch (InvalidOperationException ex)
+        {
+            mensaje = $"Error: {ex.Message}";
+            mensajeVariante = AlertVariant.Warning;
+        }
+    }
+
+    private async Task QuitarGestor(UsuarioRolDto usuario)
+    {
+        try
+        {
+            await using var scope = ScopeFactory.CreateAsyncScope();
+            var scopedService = scope.ServiceProvider.GetRequiredService<IUsuarioRolService>();
+            await scopedService.QuitarGestorAsync(usuario.Id);
+
+            // El cookie de sesión de ESTA pestaña no se puede reescribir desde un click
+            // handler interactivo (ya se mandó la respuesta HTTP inicial) — a diferencia
+            // de ChangePassword.razor, que sí puede porque corre dentro de un form POST.
+            // Si te quitaste el rol a vos mismo, avisar que hace falta volver a entrar.
+            mensaje = usuario.Id == currentUserId
+                ? "Te quitaste el rol Gestor. Cerrá sesión y volvé a entrar para que se refleje."
+                : $"Se le quitó el rol Gestor a {usuario.NombreCompleto}.";
+            mensajeVariante = AlertVariant.Success;
+            await Cargar();
+        }
+        catch (InvalidOperationException ex)
+        {
+            mensaje = $"Error: {ex.Message}";
+            mensajeVariante = AlertVariant.Warning;
+        }
+    }
+}

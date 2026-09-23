@@ -2,12 +2,12 @@
 @if (Visible)
 {
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-gray-900/50" @onclick="Cerrar"></div>
+        <div class="absolute inset-0 bg-black/60" @onclick="Cerrar"></div>
 
-        <div class="relative bg-white rounded-lg shadow-lg w-full max-w-md" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+        <div class="relative bg-card border border-border-subtle rounded-lg shadow-elevated w-full max-w-md" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
                 <h3 id="modal-title">@Title</h3>
-                <button type="button" @onclick="Cerrar" class="text-gray-400 hover:text-gray-600" aria-label="Cerrar">
+                <button type="button" @onclick="Cerrar" class="text-muted hover:text-heading" aria-label="Cerrar">
                     <Icon Name="x" Class="h-5 w-5" />
                 </button>
             </div>
@@ -18,7 +18,7 @@
 
             @if (Footer is not null)
             {
-                <div class="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200">
+                <div class="flex items-center justify-end gap-2 px-5 py-4 border-t border-border-subtle">
                     @Footer
                 </div>
             }

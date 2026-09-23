@@ -4,13 +4,13 @@
         @Label
         @if (Required)
         {
-            <span class="text-danger-600">*</span>
+            <span class="text-danger-400">*</span>
         }
     </label>
     @ChildContent
     @if (!string.IsNullOrEmpty(Error))
     {
-        <p class="text-xs text-danger-700 mt-1">@Error</p>
+        <p class="text-xs text-danger-400 mt-1">@Error</p>
     }
     else if (!string.IsNullOrEmpty(Hint))
     {

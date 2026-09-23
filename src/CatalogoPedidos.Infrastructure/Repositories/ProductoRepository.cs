@@ -7,11 +7,13 @@ namespace CatalogoPedidos.Infrastructure.Repositories;
 
 public class ProductoRepository(IDbContextFactory<AppDbContext> dbFactory) : IProductoRepository
 {
-    public async Task<List<Producto>> ObtenerCatalogoAsync(string? texto, string? categoria, CancellationToken ct = default)
+    public async Task<List<Producto>> ObtenerCatalogoAsync(string? texto, string? categoria, bool incluirInactivos = false, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-        var query = db.Productos.Where(p => p.Activo).AsQueryable();
+        var query = db.Productos.AsQueryable();
+        if (!incluirInactivos)
+            query = query.Where(p => p.Activo);
 
         if (!string.IsNullOrWhiteSpace(texto))
             query = query.Where(p => p.Nombre.Contains(texto) || p.Descripcion.Contains(texto));

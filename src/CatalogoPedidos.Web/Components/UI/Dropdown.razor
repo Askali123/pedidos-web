@@ -7,7 +7,7 @@
     @if (abierto)
     {
         <button type="button" class="fixed inset-0 z-40 cursor-default" @onclick="Cerrar" aria-label="Cerrar menú" tabindex="-1"></button>
-        <div class="absolute z-50 mt-2 @(AlignRight ? "right-0" : "left-0")">
+        <div class="absolute z-50 mt-2 @(AlignRight ? "right-0" : "left-0")" @onclick="ManejarClickContenido">
             @ChildContent
         </div>
     }
@@ -18,8 +18,22 @@
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public bool AlignRight { get; set; } = true;
 
+    /// <summary>
+    /// Si es true, cualquier clic dentro del contenido cierra el menú (útil para listas de
+    /// opciones de una sola elección, como "elegir proveedor"). Por defecto queda en false
+    /// para no cambiar el comportamiento de menús donde eso NO se quiere — p. ej.
+    /// Notificaciones.razor, donde "Marcar todas como leídas" debe dejar el menú abierto.
+    /// </summary>
+    [Parameter] public bool CloseOnClick { get; set; }
+
     private bool abierto;
 
     private void Alternar() => abierto = !abierto;
     public void Cerrar() => abierto = false;
+
+    private void ManejarClickContenido()
+    {
+        if (CloseOnClick)
+            Cerrar();
+    }
 }

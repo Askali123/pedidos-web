@@ -7,35 +7,42 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
+@inject IServiceScopeFactory ScopeFactory
+@inject PageHeaderState HeaderState
 
-<PageTitle>Profile</PageTitle>
+<PageTitle>Perfil</PageTitle>
 
-<h3>Profile</h3>
-<StatusMessage />
-
-<div class="row">
-    <div class="col-xl-6">
+<div class="max-w-xl">
+    <Card Title="Perfil">
+        <StatusMessage />
         <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <input type="text" value="@username" id="username" class="form-control" placeholder="Choose your username." disabled />
-                <label for="username" class="form-label">Username</label>
-            </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-control" placeholder="Enter your phone number" />
-                <label for="Input.PhoneNumber" class="form-label">Phone number</label>
-                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Save</button>
+            <ValidationSummary class="text-danger-400 text-sm mb-2" role="alert" />
+
+            <FormField Label="Usuario">
+                <input type="text" value="@username" id="username" class="form-input bg-card-elevated" disabled />
+            </FormField>
+
+            <FormField Label="Teléfono">
+                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-input" placeholder="Ingresá tu teléfono" />
+                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger-400 text-xs mt-1" />
+            </FormField>
+
+            <FormField Label="Dirección de entrega" Hint="Se usa para autocompletar dónde entregar tus solicitudes.">
+                <InputText @bind-Value="Input.DireccionPredeterminada" id="Input.DireccionPredeterminada" class="form-input" placeholder="Ej. Bodega principal, Cra 10 # 20-30" />
+                <ValidationMessage For="() => Input.DireccionPredeterminada" class="text-danger-400 text-xs mt-1" />
+            </FormField>
+
+            <Button Type="submit" Variant="ButtonVariant.Primary" Icon="check">Guardar</Button>
         </EditForm>
-    </div>
+    </Card>
 </div>
 
 @code {
     private ApplicationUser? user;
     private string? username;
     private string? phoneNumber;
+    private string? direccionPredeterminada;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -45,19 +52,42 @@
 
     protected override async Task OnInitializedAsync()
     {
+        HeaderState.Set("Perfil", [("Mi cuenta", "/Account/Manage"), ("Perfil", null)]);
+
         Input ??= new();
 
-        user = await UserManager.GetUserAsync(HttpContext.User);
+        // El form-post de [SupplyParameterFromForm] deja PhoneNumber en "" (no null) cuando
+        // el campo llega vacío — y [Phone] SÍ valida "" como inválido (a diferencia de
+        // null). Sin esto, cualquier usuario sin teléfono nunca puede guardar el formulario
+        // (ni siquiera para actualizar solo la dirección), porque la validación falla antes
+        // de llegar a OnValidSubmitAsync. Normalizar acá, antes de que corra la validación.
+        if (string.IsNullOrWhiteSpace(Input.PhoneNumber))
+            Input.PhoneNumber = null;
+
+        // Scope aparte para el UserManager: esta página comparte layout con UserMenu.razor
+        // (el menú "Sesión iniciada como..." del header), que también llama a
+        // UserManager.GetUserAsync en su propio OnInitializedAsync. Ambos corren
+        // concurrentemente en el mismo render y, si comparten el UserManager inyectado acá
+        // (que usa el AppDbContext Scoped de Identity — ver DependencyInjection.cs), EF Core
+        // tira "A second operation was started on this context instance..." porque un
+        // DbContext no es thread-safe. Mismo patrón que ya usa
+        // IdentityRevalidatingAuthenticationStateProvider para evitar esto.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+        user = await scopedUserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
 
-        username = await UserManager.GetUserNameAsync(user);
-        phoneNumber = await UserManager.GetPhoneNumberAsync(user);
+        username = await scopedUserManager.GetUserNameAsync(user);
+        phoneNumber = await scopedUserManager.GetPhoneNumberAsync(user);
+        direccionPredeterminada = user.DireccionPredeterminada;
 
         Input.PhoneNumber ??= phoneNumber;
+        Input.DireccionPredeterminada ??= direccionPredeterminada;
     }
 
     private async Task OnValidSubmitAsync()
@@ -68,24 +98,59 @@
             return;
         }
 
+        // Mismo motivo que en OnInitializedAsync: aislar del UserManager/DbContext que
+        // UserMenu.razor usa concurrentemente en el mismo render.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var scopedSignInManager = scope.ServiceProvider.GetRequiredService<SignInManager<ApplicationUser>>();
+
+        // OJO: no reusar el "user" cargado en OnInitializedAsync — quedó rastreado por el
+        // DbContext de AQUEL scope, que ya se cerró. Si se lo pasa tal cual a UpdateAsync de
+        // ESTE scope, las validaciones internas de Identity (que consultan por email/username
+        // contra el mismo contexto) terminan rastreando OTRA instancia con el mismo Id y EF
+        // Core tira "cannot be tracked because another instance... is already being tracked".
+        // Hay que volver a pedirlo con el UserManager de este mismo scope.
+        var scopedUser = await scopedUserManager.GetUserAsync(HttpContext.User);
+        if (scopedUser is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
         if (Input.PhoneNumber != phoneNumber)
         {
-            var setPhoneResult = await UserManager.SetPhoneNumberAsync(user, Input.PhoneNumber);
+            var setPhoneResult = await scopedUserManager.SetPhoneNumberAsync(scopedUser, Input.PhoneNumber);
             if (!setPhoneResult.Succeeded)
             {
-                RedirectManager.RedirectToCurrentPageWithStatus("Error: Failed to set phone number.", HttpContext);
+                RedirectManager.RedirectToCurrentPageWithStatus("Error: No se pudo guardar el teléfono.", HttpContext);
                 return;
             }
         }
 
-        await SignInManager.RefreshSignInAsync(user);
-        RedirectManager.RedirectToCurrentPageWithStatus("Your profile has been updated", HttpContext);
+        var direccionNueva = string.IsNullOrWhiteSpace(Input.DireccionPredeterminada) ? null : Input.DireccionPredeterminada.Trim();
+        if (direccionNueva != direccionPredeterminada)
+        {
+            scopedUser.DireccionPredeterminada = direccionNueva;
+            var updateResult = await scopedUserManager.UpdateAsync(scopedUser);
+            if (!updateResult.Succeeded)
+            {
+                RedirectManager.RedirectToCurrentPageWithStatus("Error: No se pudo guardar la dirección.", HttpContext);
+                return;
+            }
+        }
+
+        await scopedSignInManager.RefreshSignInAsync(scopedUser);
+        RedirectManager.RedirectToCurrentPageWithStatus("Tu perfil se actualizó correctamente.", HttpContext);
     }
 
     private sealed class InputModel
     {
-        [Phone]
-        [Display(Name = "Phone number")]
+        [Phone(ErrorMessage = "El teléfono no tiene un formato válido.")]
+        [Display(Name = "Teléfono")]
         public string? PhoneNumber { get; set; }
+
+        [StringLength(300, ErrorMessage = "La {0} no puede superar los {1} caracteres.")]
+        [Display(Name = "Dirección de entrega")]
+        public string? DireccionPredeterminada { get; set; }
     }
 }

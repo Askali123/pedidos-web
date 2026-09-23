@@ -1,7 +1,7 @@
 @* Navegación lateral — único punto de verdad de la estructura de módulos de la app. *@
-<aside class="@($"bg-gray-900 text-white flex flex-col shrink-0 transition-all duration-200 {(Collapsed ? "w-16" : "w-64")} " +
+<aside class="@($"bg-surface text-heading flex flex-col shrink-0 transition-all duration-200 {(Collapsed ? "w-16" : "w-64")} " +
                 $"fixed inset-y-0 left-0 z-40 lg:static lg:z-auto {(MobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0")}")">
-    <div class="h-14 flex items-center gap-2 px-4 border-b border-white/10 shrink-0">
+    <div class="h-14 flex items-center gap-2 px-4 border-b border-border-subtle shrink-0">
         <div class="h-7 w-7 rounded-md bg-primary-600 flex items-center justify-center font-bold text-sm shrink-0">C</div>
         @if (!Collapsed)
         {
@@ -28,11 +28,11 @@
             <Authorized>
                 @if (!Collapsed)
                 {
-                    <p class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">Gestión</p>
+                    <p class="px-3 pt-4 pb-1 text-xs font-semibold text-muted uppercase tracking-wide">Gestión</p>
                 }
                 else
                 {
-                    <div class="border-t border-white/10 my-2"></div>
+                    <div class="border-t border-border-subtle my-2"></div>
                 }
 
                 <NavLink href="/solicitudes/bandeja" class="sidebar-link" ActiveClass="sidebar-link-active">
@@ -41,7 +41,15 @@
                 </NavLink>
                 <NavLink href="/solicitudes/administrar" class="sidebar-link" ActiveClass="sidebar-link-active">
                     <Icon Name="adjustments" Class="h-5 w-5 shrink-0" />
-                    @if (!Collapsed) { <span>Administrar pedidos</span> }
+                    @if (!Collapsed) { <span>Administrar solicitudes</span> }
+                </NavLink>
+                <NavLink href="/solicitudes/historial-envios" class="sidebar-link" ActiveClass="sidebar-link-active">
+                    <Icon Name="clock" Class="h-5 w-5 shrink-0" />
+                    @if (!Collapsed) { <span>Historial de envíos</span> }
+                </NavLink>
+                <NavLink href="/solicitudes/historial-resoluciones" class="sidebar-link" ActiveClass="sidebar-link-active">
+                    <Icon Name="clock" Class="h-5 w-5 shrink-0" />
+                    @if (!Collapsed) { <span>Historial de resoluciones</span> }
                 </NavLink>
                 <NavLink href="/catalogo/nuevo" class="sidebar-link" ActiveClass="sidebar-link-active">
                     <Icon Name="plus" Class="h-5 w-5 shrink-0" />
@@ -55,11 +63,15 @@
                     <Icon Name="truck" Class="h-5 w-5 shrink-0" />
                     @if (!Collapsed) { <span>Proveedores</span> }
                 </NavLink>
+                <NavLink href="/usuarios/roles" class="sidebar-link" ActiveClass="sidebar-link-active">
+                    <Icon Name="user" Class="h-5 w-5 shrink-0" />
+                    @if (!Collapsed) { <span>Gestión de roles</span> }
+                </NavLink>
             </Authorized>
         </AuthorizeView>
     </nav>
 
-    <button type="button" class="hidden lg:flex items-center gap-2 px-4 py-3 border-t border-white/10 text-gray-400 hover:text-white text-sm" @onclick="() => CollapsedChanged.InvokeAsync(!Collapsed)">
+    <button type="button" class="hidden lg:flex items-center gap-2 px-4 py-3 border-t border-border-subtle text-muted hover:text-heading text-sm" @onclick="() => CollapsedChanged.InvokeAsync(!Collapsed)">
         <Icon Name="@(Collapsed ? "chevron-right" : "chevron-left")" Class="h-4 w-4" />
         @if (!Collapsed) { <span>Colapsar</span> }
     </button>
@@ -67,7 +79,7 @@
 
 @if (MobileOpen)
 {
-    <button type="button" class="fixed inset-0 z-30 bg-gray-900/50 lg:hidden" @onclick="() => MobileOpenChanged.InvokeAsync(false)" aria-label="Cerrar menú"></button>
+    <button type="button" class="fixed inset-0 z-30 bg-black/60 lg:hidden" @onclick="() => MobileOpenChanged.InvokeAsync(false)" aria-label="Cerrar menú"></button>
 }
 
 @code {

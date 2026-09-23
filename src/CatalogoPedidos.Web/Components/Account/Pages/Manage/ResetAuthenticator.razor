@@ -7,51 +7,64 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<ResetAuthenticator> Logger
+@inject IServiceScopeFactory ScopeFactory
+@inject PageHeaderState HeaderState
 
-<PageTitle>Reset authenticator key</PageTitle>
+<PageTitle>Restablecer app autenticadora</PageTitle>
 
-<StatusMessage />
-<h3>Reset authenticator key</h3>
-<div class="alert alert-warning" role="alert">
-    <p>
-        <span class="glyphicon glyphicon-warning-sign"></span>
-        <strong>If you reset your authenticator key your authenticator app will not work until you reconfigure it.</strong>
-    </p>
-    <p>
-        This process disables 2FA until you verify your authenticator app.
-        If you do not complete your authenticator app configuration you may lose access to your account.
-    </p>
-</div>
-<div>
-    <form @formname="reset-authenticator" @onsubmit="OnSubmitAsync" method="post">
-        <AntiforgeryToken />
-        <button class="btn btn-danger" type="submit">Reset authenticator key</button>
-    </form>
+<div class="max-w-xl">
+    <Card Title="Restablecer clave del autenticador">
+        <StatusMessage />
+
+        <Alert Variant="AlertVariant.Warning">
+            <p><strong>Si restablecés la clave, tu app autenticadora no va a funcionar hasta que la reconfigures.</strong></p>
+            <p class="mt-1">
+                Este proceso desactiva el 2FA hasta que verifiques la app de nuevo. Si no completás la
+                configuración, podrías perder el acceso a tu cuenta.
+            </p>
+        </Alert>
+
+        <form @formname="reset-authenticator" @onsubmit="OnSubmitAsync" method="post" class="mt-4">
+            <AntiforgeryToken />
+            <Button Type="submit" Variant="ButtonVariant.Danger">Restablecer clave del autenticador</Button>
+        </form>
+    </Card>
 </div>
 
 @code {
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
+    protected override void OnInitialized()
+    {
+        HeaderState.Set("Restablecer app autenticadora", [("Mi cuenta", "/Account/Manage"), ("Autenticación en dos pasos", "/Account/Manage/TwoFactorAuthentication"), ("Restablecer app autenticadora", null)]);
+    }
+
     private async Task OnSubmitAsync()
     {
-        var user = await UserManager.GetUserAsync(HttpContext.User);
+        // Scope aparte por la misma razón que en el resto de "Administrar cuenta" — ver
+        // docs/PLAN_MEJORAS_AUTENTICACION.md #2.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedUserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var scopedSignInManager = scope.ServiceProvider.GetRequiredService<SignInManager<ApplicationUser>>();
+
+        var user = await scopedUserManager.GetUserAsync(HttpContext.User);
         if (user is null)
         {
             RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
             return;
         }
 
-        await UserManager.SetTwoFactorEnabledAsync(user, false);
-        await UserManager.ResetAuthenticatorKeyAsync(user);
-        var userId = await UserManager.GetUserIdAsync(user);
+        await scopedUserManager.SetTwoFactorEnabledAsync(user, false);
+        await scopedUserManager.ResetAuthenticatorKeyAsync(user);
+        var userId = await scopedUserManager.GetUserIdAsync(user);
         Logger.LogInformation("User with ID '{UserId}' has reset their authentication app key.", userId);
 
-        await SignInManager.RefreshSignInAsync(user);
+        await scopedSignInManager.RefreshSignInAsync(user);
 
         RedirectManager.RedirectToWithStatus(
             "Account/Manage/EnableAuthenticator",
-            "Your authenticator app key has been reset, you will need to configure your authenticator app using the new key.",
+            "Se restableció la clave del autenticador. Vas a tener que reconfigurar tu app con la nueva clave.",
             HttpContext);
     }
 }

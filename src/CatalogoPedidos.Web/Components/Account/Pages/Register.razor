@@ -1,4 +1,5 @@
 @page "/Account/Register"
+@attribute [AllowAnonymous]
 @layout CatalogoPedidos.Web.Components.Layout.AuthLayout
 
 @using System.ComponentModel.DataAnnotations
@@ -26,33 +27,37 @@
 
     <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
         <DataAnnotationsValidator />
-        <ValidationSummary class="text-danger-700 text-sm mb-2" role="alert" />
+        <ValidationSummary class="text-danger-400 text-sm mb-2" role="alert" />
 
         <FormField Label="Nombre completo" Required="true">
             <InputText @bind-Value="Input.NombreCompleto" id="Input.NombreCompleto" class="form-input" autocomplete="name" aria-required="true" placeholder="Nombre y apellido" />
-            <ValidationMessage For="() => Input.NombreCompleto" class="text-danger-700 text-xs mt-1" />
+            <ValidationMessage For="() => Input.NombreCompleto" class="text-danger-400 text-xs mt-1" />
         </FormField>
 
         <FormField Label="Email" Required="true">
             <InputText @bind-Value="Input.Email" id="Input.Email" class="form-input" autocomplete="username" aria-required="true" placeholder="nombre@ejemplo.com" />
-            <ValidationMessage For="() => Input.Email" class="text-danger-700 text-xs mt-1" />
+            <ValidationMessage For="() => Input.Email" class="text-danger-400 text-xs mt-1" />
+        </FormField>
+
+        <FormField Label="Dirección de entrega" Hint="Opcional — se usa para autocompletar dónde entregar tus solicitudes. Puedes cambiarla luego en tu perfil.">
+            <InputText @bind-Value="Input.DireccionPredeterminada" id="Input.DireccionPredeterminada" class="form-input" autocomplete="street-address" placeholder="Ej. Bodega principal, Cra 10 # 20-30" />
         </FormField>
 
         <FormField Label="Contraseña" Required="true">
             <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-input" autocomplete="new-password" aria-required="true" placeholder="••••••••" />
-            <ValidationMessage For="() => Input.Password" class="text-danger-700 text-xs mt-1" />
+            <ValidationMessage For="() => Input.Password" class="text-danger-400 text-xs mt-1" />
         </FormField>
 
         <FormField Label="Confirmar contraseña" Required="true">
             <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-input" autocomplete="new-password" aria-required="true" placeholder="••••••••" />
-            <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger-700 text-xs mt-1" />
+            <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger-400 text-xs mt-1" />
         </FormField>
 
         <Button Type="submit" Variant="ButtonVariant.Primary">Crear cuenta</Button>
 
-        <div class="border-t border-gray-100 mt-4 pt-4 text-sm text-center">
-            <span class="text-gray-500">¿Ya tienes cuenta?</span>
-            <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Login", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))" class="text-primary-700 hover:underline">Inicia sesión</a>
+        <div class="border-t border-border-subtle mt-4 pt-4 text-sm text-center">
+            <span class="text-muted">¿Ya tienes cuenta?</span>
+            <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Login", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))" class="text-primary-300 hover:underline">Inicia sesión</a>
         </div>
     </EditForm>
 </Card>
@@ -68,7 +73,16 @@
     [SupplyParameterFromQuery]
     private string? ReturnUrl { get; set; }
 
-    private string? Message => identityErrors is null ? null : string.Join(", ", identityErrors.Select(error => error.Description));
+    // "DuplicateUserName"/"DuplicateEmail" confirmarían que ese email ya tiene cuenta
+    // (enumeración de cuentas) si se mostrara tal cual — se reemplaza por un mensaje
+    // genérico que no lo confirma. El resto de errores (contraseña débil, etc.) no
+    // filtran nada, así que se muestran específicos para que el usuario pueda
+    // corregirlos — ver docs/PLAN_MEJORAS_AUTENTICACION.md #10.
+    private const string MensajeEmailDuplicado = "No pudimos completar el registro con estos datos. Si ya tenés una cuenta, iniciá sesión o recuperá tu contraseña.";
+
+    private string? Message => identityErrors is null ? null : string.Join(", ", identityErrors
+        .Select(error => error.Code is "DuplicateUserName" or "DuplicateEmail" ? MensajeEmailDuplicado : error.Description)
+        .Distinct());
 
     protected override void OnInitialized()
     {
@@ -79,6 +93,7 @@
     {
         var user = CreateUser();
         user.NombreCompleto = Input.NombreCompleto;
+        user.DireccionPredeterminada = string.IsNullOrWhiteSpace(Input.DireccionPredeterminada) ? null : Input.DireccionPredeterminada.Trim();
 
         await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
         var emailStore = GetEmailStore();
@@ -157,6 +172,10 @@
         [EmailAddress(ErrorMessage = "El email no tiene un formato válido.")]
         [Display(Name = "Email")]
         public string Email { get; set; } = "";
+
+        [StringLength(300, ErrorMessage = "La {0} no puede superar los {1} caracteres.")]
+        [Display(Name = "Dirección de entrega")]
+        public string? DireccionPredeterminada { get; set; }
 
         [Required(ErrorMessage = "La contraseña es obligatoria.")]
         [StringLength(100, ErrorMessage = "La {0} debe tener entre {2} y {1} caracteres.", MinimumLength = 6)]

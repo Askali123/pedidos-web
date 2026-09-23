@@ -20,9 +20,30 @@ public interface IProductoProveedorRepository
         CancellationToken ct = default);
     Task<ProductoProveedor?> ObtenerPorIdAsync(int id, CancellationToken ct = default);
     Task<ProductoProveedor?> ObtenerPorProveedorYCodigoAsync(int proveedorId, string codigo, CancellationToken ct = default);
+
+    /// <summary>
+    /// La asociación de UN (producto, proveedor), exista o no (activa o inactiva). Sirve
+    /// para decidir entre "asociar" y "reactivar": el índice único (ProductoId, ProveedorId)
+    /// no permite crear una fila nueva encima de una desactivada — se reactiva la misma.
+    /// </summary>
+    Task<ProductoProveedor?> ObtenerPorProductoYProveedorAsync(int productoId, int proveedorId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Para cada producto en <paramref name="productoIds"/>, la asociación a mostrar como
+    /// referencia rápida: la marcada <c>EsPreferido</c> si existe, si no la primera que
+    /// haya (por <c>FechaAsociacion</c>). Como máximo una fila por producto — a diferencia de
+    /// <see cref="ObtenerPorProductoAsync"/>, que trae todas sus asociaciones.
+    /// </summary>
+    Task<List<ProductoProveedor>> ObtenerPreferidosPorProductosAsync(IEnumerable<int> productoIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// TODAS las asociaciones (no solo la preferida) de los productos en <paramref name="productoIds"/>,
+    /// con el <c>Proveedor</c> ya cargado. Pensado para armar el selector "elegir proveedor para
+    /// enviarle este pedido" — un producto puede tener varios proveedores y el gestor decide cuál.
+    /// </summary>
+    Task<List<ProductoProveedor>> ObtenerPorProductosAsync(IEnumerable<int> productoIds, CancellationToken ct = default);
     Task<bool> ExisteAsociacionAsync(int productoId, int proveedorId, CancellationToken ct = default);
     Task<bool> ExisteCodigoParaOtroProductoAsync(int proveedorId, string codigo, int productoId, CancellationToken ct = default);
     Task<ProductoProveedor> CrearAsync(ProductoProveedor asociacion, CancellationToken ct = default);
     Task ActualizarAsync(ProductoProveedor asociacion, CancellationToken ct = default);
-    Task EliminarAsync(int id, CancellationToken ct = default);
 }

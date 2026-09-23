@@ -39,7 +39,7 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
 
             var properties = signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
             return TypedResults.Challenge(properties, [provider]);
-        });
+        }).AllowAnonymous(); // se llama desde Login.razor, antes de tener sesión.
 
         accountGroup.MapPost("/Logout", async (
             ClaimsPrincipal user,
@@ -48,7 +48,7 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
         {
             await signInManager.SignOutAsync();
             return TypedResults.LocalRedirect($"~/{returnUrl}");
-        });
+        }).AllowAnonymous(); // SignOutAsync es idempotente; no debe exigir sesión previa.
 
         accountGroup.MapPost("/PasskeyCreationOptions", async (
             HttpContext context,
@@ -87,7 +87,7 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
             var user = string.IsNullOrEmpty(username) ? null : await userManager.FindByNameAsync(username);
             var optionsJson = await signInManager.MakePasskeyRequestOptionsAsync(user);
             return TypedResults.Content(optionsJson, contentType: "application/json");
-        });
+        }).AllowAnonymous(); // login con passkey desde Login.razor, antes de tener sesión.
 
         var manageGroup = accountGroup.MapGroup("/Manage").RequireAuthorization();
 

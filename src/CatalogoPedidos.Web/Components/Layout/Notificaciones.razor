@@ -8,36 +8,36 @@
     <Authorized>
         <Dropdown @ref="dropdown">
             <Trigger>
-                <button type="button" class="relative h-9 w-9 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700" title="Notificaciones" aria-label="Notificaciones">
+                <button type="button" class="relative h-9 w-9 flex items-center justify-center rounded-sm text-muted hover:bg-card-elevated hover:text-heading" title="Notificaciones" aria-label="Notificaciones">
                     <Icon Name="bell" Class="h-5 w-5" />
                     @if (noLeidas > 0)
                     {
-                        <span class="absolute top-1 right-1 h-4 min-w-4 px-0.5 rounded-full bg-danger-600 text-white text-[10px] leading-4 text-center">@(noLeidas > 9 ? "9+" : noLeidas.ToString())</span>
+                        <span class="absolute top-1 right-1 h-4 min-w-4 px-0.5 rounded-full bg-accent-magenta text-white text-[10px] leading-4 text-center">@(noLeidas > 9 ? "9+" : noLeidas.ToString())</span>
                     }
                 </button>
             </Trigger>
             <ChildContent>
-                <div class="w-80 max-h-96 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
-                    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <div class="w-80 max-h-96 overflow-y-auto bg-card border border-border-subtle rounded-lg shadow-elevated">
+                    <div class="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
                         <h3>Notificaciones</h3>
                         @if (noLeidas > 0)
                         {
-                            <button type="button" class="text-xs text-primary-700 hover:underline" @onclick="MarcarTodasLeidas">Marcar todas como leídas</button>
+                            <button type="button" class="text-xs text-primary-300 hover:underline" @onclick="MarcarTodasLeidas">Marcar todas como leídas</button>
                         }
                     </div>
 
                     @if (notificaciones.Count == 0)
                     {
-                        <p class="text-sm text-gray-500 px-4 py-6 text-center">No tienes notificaciones.</p>
+                        <p class="text-sm text-muted px-4 py-6 text-center">No tienes notificaciones.</p>
                     }
                     else
                     {
                         @foreach (var n in notificaciones)
                         {
-                            <button type="button" class="@("w-full text-left px-4 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50 " + (n.Leida ? "" : "bg-primary-50/60"))" @onclick="() => Abrir(n)">
-                                <p class="text-sm font-medium text-gray-900">@n.Titulo</p>
-                                <p class="text-xs text-gray-500 mt-0.5">@n.Mensaje</p>
-                                <p class="text-[11px] text-gray-400 mt-1">@n.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</p>
+                            <button type="button" class="@("w-full text-left px-4 py-3 border-b border-white/[.05] last:border-0 hover:bg-card-elevated " + (n.Leida ? "" : "bg-primary-500/10"))" @onclick="() => Abrir(n)">
+                                <p class="text-sm font-medium text-heading">@n.Titulo</p>
+                                <p class="text-xs text-muted mt-0.5">@n.Mensaje</p>
+                                <p class="text-[11px] text-muted/70 mt-1">@n.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</p>
                             </button>
                         }
                     }
