@@ -112,6 +112,35 @@
     @apply outline-none ring-2 ring-primary-400 ring-offset-2 ring-offset-base;
   }
 
+  /* Scrollbars — el gris claro por defecto del navegador desentona fuerte con
+     el tema oscuro (se nota sobre todo en .table-wrap y en los dropdowns con
+     overflow-y-auto). Cubre Firefox (scrollbar-width/-color, estándar) y
+     Chromium/WebKit (::-webkit-scrollbar, todavía sin equivalente estándar). */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-primary-500);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
   /* Ganchos que requiere el propio framework Blazor — no se pueden quitar */
   .validation-message {
     @apply text-sm text-danger-400 mt-1 block;
