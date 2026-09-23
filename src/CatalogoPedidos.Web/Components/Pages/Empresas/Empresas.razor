@@ -1,0 +1,193 @@
+@page "/empresas"
+@attribute [Authorize(Roles = Roles.Gestor)]
+@inject IEmpresaService EmpresaService
+@inject PageHeaderState HeaderState
+
+<PageTitle>Empresas</PageTitle>
+
+<div class="space-y-6">
+    <Card Title="Empresas filiales de Auropaq">
+        @if (empresas is null)
+        {
+            <Loading />
+        }
+        else if (empresas.Count == 0)
+        {
+            <EmptyState Icon="building-store" Title="Sin empresas" Description="Todavía no hay empresas filiales registradas." />
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table-enterprise">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>NIT</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in empresas)
+                        {
+                            <tr>
+                                <td class="font-medium text-heading" data-label="Nombre">@e.Nombre</td>
+                                <td data-label="NIT">@e.Nit</td>
+                                <td class="text-right">
+                                    <div class="flex items-center gap-2 justify-end flex-wrap">
+                                        <a class="btn btn-secondary btn-sm" href="/sedes?empresaId=@e.Id">Ver sedes</a>
+                                        <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="pencil" OnClick="() => AbrirEditar(e)">Editar</Button>
+                                        <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="trash" OnClick="() => PedirConfirmacionDesactivar(e)">Desactivar</Button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </Card>
+
+    <div class="max-w-xl">
+        <Card Title="Nueva empresa">
+            <EditForm Model="modelo" OnValidSubmit="Guardar" FormName="nueva-empresa">
+                <DataAnnotationsValidator />
+
+                <FormField Label="Nombre" Required="true">
+                    <InputText @bind-Value="modelo.Nombre" class="form-input" />
+                </FormField>
+
+                <FormField Label="NIT">
+                    <InputText @bind-Value="modelo.Nit" class="form-input" />
+                </FormField>
+
+                @if (!string.IsNullOrEmpty(error))
+                {
+                    <Alert Variant="AlertVariant.Danger">@error</Alert>
+                }
+                @if (!string.IsNullOrEmpty(mensaje))
+                {
+                    <Alert Variant="AlertVariant.Success">@mensaje</Alert>
+                }
+
+                <div class="mt-2">
+                    <Button Type="submit" Variant="ButtonVariant.Primary" Icon="plus">Guardar empresa</Button>
+                </div>
+            </EditForm>
+        </Card>
+    </div>
+</div>
+
+<Modal Visible="modalEditarVisible" VisibleChanged="v => modalEditarVisible = v" Title="Editar empresa">
+    <ChildContent>
+        <EditForm Model="modeloEditar" OnValidSubmit="GuardarEdicion" FormName="editar-empresa">
+            <DataAnnotationsValidator />
+
+            <FormField Label="Nombre" Required="true">
+                <InputText @bind-Value="modeloEditar.Nombre" class="form-input" />
+            </FormField>
+
+            <FormField Label="NIT">
+                <InputText @bind-Value="modeloEditar.Nit" class="form-input" />
+            </FormField>
+
+            @if (!string.IsNullOrEmpty(errorEditar))
+            {
+                <Alert Variant="AlertVariant.Danger">@errorEditar</Alert>
+            }
+
+            <button type="submit" class="hidden" aria-hidden="true"></button>
+        </EditForm>
+    </ChildContent>
+    <Footer>
+        <Button Variant="ButtonVariant.Ghost" OnClick="() => modalEditarVisible = false">Cancelar</Button>
+        <Button Variant="ButtonVariant.Primary" Icon="check" OnClick="GuardarEdicion">Guardar</Button>
+    </Footer>
+</Modal>
+
+<ConfirmDialog @bind-Visible="confirmandoDesactivar" Title="Desactivar empresa" Danger="true"
+               Message="@($"¿Desactivar \"{empresaADesactivarNombre}\"? Dejará de aparecer para asociar sedes/usuarios nuevos; sus sedes e histórico se conservan.")"
+               ConfirmText="Desactivar" OnConfirm="ConfirmarDesactivar" />
+
+@code {
+    private List<Empresa>? empresas;
+    private CrearEmpresaDto modelo = new();
+    private string? mensaje;
+    private string? error;
+
+    private bool modalEditarVisible;
+    private int empresaEditandoId;
+    private CrearEmpresaDto modeloEditar = new();
+    private string? errorEditar;
+
+    private bool confirmandoDesactivar;
+    private int empresaADesactivarId;
+    private string? empresaADesactivarNombre;
+
+    protected override async Task OnInitializedAsync()
+    {
+        HeaderState.Set("Empresas");
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        empresas = await EmpresaService.ObtenerTodasAsync();
+    }
+
+    private async Task Guardar()
+    {
+        error = null;
+        mensaje = null;
+        try
+        {
+            await EmpresaService.CrearAsync(modelo);
+            mensaje = $"Empresa '{modelo.Nombre}' guardada correctamente.";
+            modelo = new();
+            await Cargar();
+        }
+        catch (InvalidOperationException ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    private void AbrirEditar(Empresa empresa)
+    {
+        empresaEditandoId = empresa.Id;
+        modeloEditar = new CrearEmpresaDto
+        {
+            Nombre = empresa.Nombre,
+            Nit = empresa.Nit
+        };
+        errorEditar = null;
+        modalEditarVisible = true;
+    }
+
+    private async Task GuardarEdicion()
+    {
+        errorEditar = null;
+        try
+        {
+            await EmpresaService.ActualizarAsync(empresaEditandoId, modeloEditar);
+            modalEditarVisible = false;
+            await Cargar();
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorEditar = ex.Message;
+        }
+    }
+
+    private void PedirConfirmacionDesactivar(Empresa empresa)
+    {
+        empresaADesactivarId = empresa.Id;
+        empresaADesactivarNombre = empresa.Nombre;
+        confirmandoDesactivar = true;
+    }
+
+    private async Task ConfirmarDesactivar()
+    {
+        await EmpresaService.DesactivarAsync(empresaADesactivarId);
+        await Cargar();
+    }
+}

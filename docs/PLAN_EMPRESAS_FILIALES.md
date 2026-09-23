@@ -359,8 +359,20 @@ dependencias nueva resuelve en runtime sin errores.
 
 ### Etapa 3 — UI: administración de Empresas
 
-- [ ] `Empresas.razor` (`Roles.Gestor`) — tabla crear/editar/desactivar, calcada de
+- [x] `Empresas.razor` (`Roles.Gestor`) — tabla crear/editar/desactivar, calcada de
   `Proveedores.razor`. Entrada de menú nueva.
+  Hecho. `Archivos: src/CatalogoPedidos.Web/Components/Pages/Empresas/Empresas.razor,
+  src/CatalogoPedidos.Web/Components/Layout/Sidebar.razor,
+  src/CatalogoPedidos.Web/Components/_Imports.razor`. Incluye un link "Ver sedes" por
+  fila hacia `/sedes?empresaId=X` — esa ruta todavía no existe, la crea la Etapa 4 (hasta
+  entonces da 404 si se hace clic, no rompe nada del resto de la página).
+  Verificado con `dotnet build` (0 errores/advertencias), `dotnet test` (10/10, sin
+  regresiones) y un arranque de prueba: `curl /empresas` sin sesión redirige a
+  `Iniciar sesión` (confirma que el `[Authorize(Roles = Roles.Gestor)]` y el routing
+  funcionan, sin excepciones en el log del servidor). **No se probó el flujo completo
+  crear/editar/desactivar con clics reales en el navegador** — recomiendo hacer esa
+  pasada de UI recién cuando también esté la Etapa 4 (Sedes), para probar de una vez el
+  flujo completo Empresa→Sede en vez de dos pasadas de navegador separadas.
 
 ### Etapa 4 — UI: administración de Sedes
 
