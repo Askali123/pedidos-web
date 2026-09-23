@@ -486,6 +486,11 @@ y `/api/reportes/consumo-empresas/excel`, ambos HTTP 200 sin excepciones en el l
 
 ### Etapa 8 — Archivado histórico anual (prioridad a revisar, ver §4)
 
+**Diferida a pedido explícito del usuario (2026-09-23): "esperar a tener datos reales de
+volumen antes de construirla".** No se aborda todavía — la Etapa 9 se ejecuta antes,
+fuera de orden numérico, porque corrige un gap real detectado en la Etapa 5 (no es una
+reordenación de prioridad, es intercalar un bugfix urgente).
+
 - [ ] Diseñar y crear tablas de archivo (`SolicitudArchivada`, `DetalleSolicitudArchivada`,
   y las tablas relacionadas que corresponda) con la misma forma que las originales.
 - [ ] Acción administrativa ("Archivar año X") que mueva las solicitudes cerradas de un
@@ -493,6 +498,74 @@ y `/api/reportes/consumo-empresas/excel`, ambos HTTP 200 sin excepciones en el l
   transaccional (todo o nada).
 - [ ] Adaptar el dashboard (Etapa 6) para que, al filtrar por un año ya archivado, consulte
   transparentemente las tablas de archivo en vez de las activas.
+
+### Etapa 9 — Manejo de desactivación de Empresa/Sede con usuarios asociados
+
+Pedido explícito del usuario (2026-09-23): "corrige qué pasó cuando una sede es
+desactivada o una empresa, usuario, no está contemplado". Analicé el código de las
+Etapas 1-5 y confirmé 5 gaps reales — ninguno corrompe datos, pero dejan estados
+inconsistentes o engañosos en la UI.
+
+**Diagnóstico (gaps confirmados leyendo el código actual):**
+
+1. `EmpresaService.DesactivarAsync` no cascadea a sus `Sede` — una Empresa puede quedar
+   `Activo = false` mientras sus Sedes siguen `Activo = true`, totalmente operables
+   (se pueden seguir asociando usuarios nuevos a ellas, seguir recibiendo solicitudes).
+2. `SedeService.DesactivarAsync` no toca ni avisa sobre los `ApplicationUser.SedeId` que
+   ya apuntan a esa sede — quedan "colgados" de una sede inactiva sin ninguna señal para
+   el Gestor.
+3. **Bug real**: `UsuarioRolService.AsociarSedeAsync` valida que la sede *exista*
+   (`ISedeRepository.ObtenerPorIdAsync`, que no filtra por `Activo`) pero no que esté
+   *activa* — hoy se puede asociar a un usuario a una sede ya desactivada sin que nada lo
+   impida.
+4. En `GestionRoles.razor`, las opciones del `<select>` de Sede salen de
+   `SedeService.ObtenerTodasAsync()` (solo activas). Si la sede actual de un usuario se
+   desactiva después, no hay ningún `<option>` que calce con su valor real — el selector
+   aparenta (falsamente) que el usuario no tiene sede.
+5. `IUsuarioSedeDirectory.ObtenerSedeAsync` (el que autocompleta el snapshot al crear una
+   Solicitud) no filtra por `Activo` — un usuario con sede desactivada sigue generando
+   solicitudes nuevas etiquetadas con esa sede/empresa ya inactiva, sin ningún aviso en
+   ningún lado.
+
+**Decisiones a validar:**
+
+- **¿Desactivar una Empresa cascada a sus Sedes?** Recomiendo **sí** (mismo
+  `Activo = false`, sin tocar usuarios ni histórico) — una Sede no puede seguir "activa"
+  con su Empresa inactiva sin ser la misma inconsistencia que ya se evitó en otros lados
+  del dominio (ej. `Proveedor`/`ProductoProveedor`).
+- **¿Bloquear desactivar una Sede/Empresa si tiene usuarios activos asociados, o
+  permitirlo igual (como ya hace `Proveedor.DesactivarAsync`)?** Recomiendo **permitirlo
+  igual** — es el mismo criterio de baja lógica usado en todo el dominio ("nunca se
+  bloquea por tener asociaciones, solo deja de ofrecerse para lo nuevo") — pero con un
+  aviso explícito en el diálogo de confirmación ("Esta sede tiene N usuario(s) asociados
+  — van a quedar sin sede activa hasta que los reasignes").
+- **¿Un usuario con sede inactiva debe poder seguir creando solicitudes nuevas?**
+  Recomiendo **sí, seguir permitiéndolo** — bloquear al Solicitante por una decisión
+  administrativa que no le compete resolver en el momento sería una regresión de UX dura
+  (un Solicitante no puede "arreglar" que su sede esté inactiva). El costo es que el
+  Gestor necesita visibilidad para reasignar a tiempo — eso lo cubre la tarea 4 de abajo.
+
+**Plan por tareas:**
+
+- [ ] 1. `EmpresaService.DesactivarAsync`: cascada — desactivar también todas las Sedes
+  activas de esa Empresa.
+- [ ] 2. `ISedeService`/`ISedeRepository`: método para contar cuántos usuarios
+  (`ApplicationUser.SedeId`) apuntan a una Sede dada — necesario para el aviso de la
+  tarea 3. Requiere una consulta desde Infrastructure/Identity (mismo problema de capas
+  que `IUsuarioSedeDirectory` — otra interfaz en `Application/Usuarios` implementada en
+  Infrastructure).
+- [ ] 3. `Sedes.razor`/`Empresas.razor`: el diálogo de confirmación de desactivar muestra
+  ese conteo si es mayor a 0 ("Esta sede tiene N usuario(s) asociados — van a quedar sin
+  sede activa hasta que los reasignes desde Gestión de roles").
+- [ ] 4. `UsuarioRolService.AsociarSedeAsync`: validar `sede.Activo`, no solo su
+  existencia — corrige el bug real de la tarea 3 del diagnóstico.
+- [ ] 5. `GestionRoles.razor`: si `u.SedeId` apunta a una sede inactiva, agregarla como
+  opción extra al `<select>` (marcada "— inactiva —", usando el mismo
+  `ISedeRepository.ObtenerPorIdsAsync` que ya trae inactivas para el nombre) para no
+  mentir visualmente, más un badge de aviso (⚠) junto al selector.
+- [ ] 6. Tests: cascada Empresa→Sedes, `AsociarSedeAsync` rechaza sedes inactivas,
+  `IUsuarioSedeDirectory.ObtenerSedeAsync` sigue devolviendo el snapshot aunque la sede
+  esté inactiva (comportamiento permisivo confirmado arriba).
 
 ---
 
