@@ -80,8 +80,17 @@ public class UsuarioRolService(UserManager<ApplicationUser> userManager, ISedeRe
         var usuario = await userManager.FindByIdAsync(usuarioId)
             ?? throw new InvalidOperationException("El usuario no existe.");
 
-        if (sedeId is not null && await sedes.ObtenerPorIdAsync(sedeId.Value, ct) is null)
-            throw new InvalidOperationException("La sede seleccionada no existe.");
+        if (sedeId is not null)
+        {
+            var sede = await sedes.ObtenerPorIdAsync(sedeId.Value, ct)
+                ?? throw new InvalidOperationException("La sede seleccionada no existe.");
+
+            // Bug real detectado en docs/PLAN_EMPRESAS_FILIALES.md, Etapa 9: antes solo se
+            // validaba que la sede existiera, no que estuviera activa — permitía asociar
+            // usuarios nuevos a una sede ya desactivada.
+            if (!sede.Activo)
+                throw new InvalidOperationException($"La sede '{sede.Nombre}' está desactivada — no se pueden asociar usuarios nuevos.");
+        }
 
         usuario.SedeId = sedeId;
         var resultado = await userManager.UpdateAsync(usuario);

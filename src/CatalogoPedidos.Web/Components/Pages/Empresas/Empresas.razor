@@ -1,6 +1,9 @@
 @page "/empresas"
 @attribute [Authorize(Roles = Roles.Gestor)]
 @inject IEmpresaService EmpresaService
+@inject ISedeService SedeService
+@inject IUsuarioSedeDirectory UsuarioSedeDirectory
+@inject IServiceScopeFactory ScopeFactory
 @inject PageHeaderState HeaderState
 
 <PageTitle>Empresas</PageTitle>
@@ -105,7 +108,7 @@
 </Modal>
 
 <ConfirmDialog @bind-Visible="confirmandoDesactivar" Title="Desactivar empresa" Danger="true"
-               Message="@($"¿Desactivar \"{empresaADesactivarNombre}\"? Dejará de aparecer para asociar sedes/usuarios nuevos; sus sedes e histórico se conservan.")"
+               Message="@MensajeConfirmacionDesactivar()"
                ConfirmText="Desactivar" OnConfirm="ConfirmarDesactivar" />
 
 @code {
@@ -122,6 +125,8 @@
     private bool confirmandoDesactivar;
     private int empresaADesactivarId;
     private string? empresaADesactivarNombre;
+    private int sedesAfectadasDesactivar;
+    private int usuariosAfectadosDesactivar;
 
     protected override async Task OnInitializedAsync()
     {
@@ -178,10 +183,21 @@
         }
     }
 
-    private void PedirConfirmacionDesactivar(Empresa empresa)
+    private async Task PedirConfirmacionDesactivar(Empresa empresa)
     {
         empresaADesactivarId = empresa.Id;
         empresaADesactivarNombre = empresa.Nombre;
+
+        // Desactivar una Empresa cascadea a sus Sedes activas (ver EmpresaService), así
+        // que el aviso debe contar ambos niveles, no solo usuarios directos de la Empresa.
+        sedesAfectadasDesactivar = (await SedeService.ObtenerTodasAsync(empresa.Id)).Count;
+
+        // Scope aparte: IUsuarioSedeDirectory usa UserManager por dentro, que comparte el
+        // AppDbContext Scoped de Identity — mismo criterio que GestionRoles.razor.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedDirectory = scope.ServiceProvider.GetRequiredService<IUsuarioSedeDirectory>();
+        usuariosAfectadosDesactivar = await scopedDirectory.ContarUsuariosPorEmpresaAsync(empresa.Id);
+
         confirmandoDesactivar = true;
     }
 
@@ -189,5 +205,18 @@
     {
         await EmpresaService.DesactivarAsync(empresaADesactivarId);
         await Cargar();
+    }
+
+    private string MensajeConfirmacionDesactivar()
+    {
+        var baseMsg = $"¿Desactivar \"{empresaADesactivarNombre}\"? Dejará de aparecer para asociar sedes/usuarios nuevos; sus sedes e histórico se conservan.";
+        if (sedesAfectadasDesactivar == 0)
+            return baseMsg;
+
+        var avisoSedes = $"Esta empresa tiene {sedesAfectadasDesactivar} sede(s) activa(s) que también quedarán desactivadas";
+        var avisoUsuarios = usuariosAfectadosDesactivar > 0
+            ? $", con {usuariosAfectadosDesactivar} usuario(s) asociado(s) que quedarán sin sede activa hasta que los reasignes desde Gestión de roles."
+            : ".";
+        return $"{baseMsg} {avisoSedes}{avisoUsuarios}";
     }
 }

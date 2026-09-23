@@ -1,8 +1,9 @@
+using CatalogoPedidos.Application.Sedes;
 using CatalogoPedidos.Domain.Entities;
 
 namespace CatalogoPedidos.Application.Empresas;
 
-public class EmpresaService(IEmpresaRepository empresas) : IEmpresaService
+public class EmpresaService(IEmpresaRepository empresas, ISedeRepository sedes) : IEmpresaService
 {
     public Task<List<Empresa>> ObtenerTodasAsync(CancellationToken ct = default)
         => empresas.ObtenerTodasAsync(ct);
@@ -45,5 +46,15 @@ public class EmpresaService(IEmpresaRepository empresas) : IEmpresaService
 
         empresa.Activo = false;
         await empresas.ActualizarAsync(empresa, ct);
+
+        // Cascada: una Sede no puede seguir "activa" con su Empresa inactiva — mismo
+        // criterio de baja lógica que el resto del dominio (no borra, no toca usuarios ni
+        // histórico, solo deja de ofrecerse para lo nuevo). Ver docs/PLAN_EMPRESAS_FILIALES.md, Etapa 9.
+        var sedesActivas = await sedes.ObtenerTodasAsync(id, ct);
+        foreach (var sede in sedesActivas)
+        {
+            sede.Activo = false;
+            await sedes.ActualizarAsync(sede, ct);
+        }
     }
 }

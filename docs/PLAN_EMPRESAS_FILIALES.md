@@ -547,25 +547,56 @@ inconsistentes o engañosos en la UI.
 
 **Plan por tareas:**
 
-- [ ] 1. `EmpresaService.DesactivarAsync`: cascada — desactivar también todas las Sedes
+- [x] 1. `EmpresaService.DesactivarAsync`: cascada — desactivar también todas las Sedes
   activas de esa Empresa.
-- [ ] 2. `ISedeService`/`ISedeRepository`: método para contar cuántos usuarios
+  Hecho. `Archivos: src/CatalogoPedidos.Application/Empresas/EmpresaService.cs` (nueva
+  dependencia `ISedeRepository`).
+- [x] 2. `ISedeService`/`ISedeRepository`: método para contar cuántos usuarios
   (`ApplicationUser.SedeId`) apuntan a una Sede dada — necesario para el aviso de la
   tarea 3. Requiere una consulta desde Infrastructure/Identity (mismo problema de capas
   que `IUsuarioSedeDirectory` — otra interfaz en `Application/Usuarios` implementada en
   Infrastructure).
-- [ ] 3. `Sedes.razor`/`Empresas.razor`: el diálogo de confirmación de desactivar muestra
+  Hecho, extendiendo `IUsuarioSedeDirectory` (ya existía para este mismo problema de
+  capas) en vez de tocar `ISedeService`: `ContarUsuariosPorSedeAsync` y
+  `ContarUsuariosPorEmpresaAsync` (esta última cuenta usuarios de TODAS las sedes de la
+  empresa, ya que desactivar la Empresa cascadea a sus Sedes — tarea 1).
+  `Archivos: src/CatalogoPedidos.Application/Usuarios/IUsuarioSedeDirectory.cs,
+  src/CatalogoPedidos.Infrastructure/Identity/UsuarioSedeDirectory.cs`.
+- [x] 3. `Sedes.razor`/`Empresas.razor`: el diálogo de confirmación de desactivar muestra
   ese conteo si es mayor a 0 ("Esta sede tiene N usuario(s) asociados — van a quedar sin
   sede activa hasta que los reasignes desde Gestión de roles").
-- [ ] 4. `UsuarioRolService.AsociarSedeAsync`: validar `sede.Activo`, no solo su
+  Hecho — en `Empresas.razor` el aviso cubre ambos niveles (sedes que se desactivan en
+  cascada + usuarios afectados en todas ellas). Mismo criterio que `GestionRoles.razor`
+  para el scope aparte (`IUsuarioSedeDirectory` usa `UserManager` por dentro).
+  `Archivos: src/CatalogoPedidos.Web/Components/Pages/Empresas/Sedes.razor,
+  src/CatalogoPedidos.Web/Components/Pages/Empresas/Empresas.razor,
+  src/CatalogoPedidos.Web/Components/_Imports.razor`.
+- [x] 4. `UsuarioRolService.AsociarSedeAsync`: validar `sede.Activo`, no solo su
   existencia — corrige el bug real de la tarea 3 del diagnóstico.
-- [ ] 5. `GestionRoles.razor`: si `u.SedeId` apunta a una sede inactiva, agregarla como
+  Hecho. `Archivos: src/CatalogoPedidos.Infrastructure/Identity/UsuarioRolService.cs`.
+- [x] 5. `GestionRoles.razor`: si `u.SedeId` apunta a una sede inactiva, agregarla como
   opción extra al `<select>` (marcada "— inactiva —", usando el mismo
   `ISedeRepository.ObtenerPorIdsAsync` que ya trae inactivas para el nombre) para no
   mentir visualmente, más un badge de aviso (⚠) junto al selector.
-- [ ] 6. Tests: cascada Empresa→Sedes, `AsociarSedeAsync` rechaza sedes inactivas,
-  `IUsuarioSedeDirectory.ObtenerSedeAsync` sigue devolviendo el snapshot aunque la sede
-  esté inactiva (comportamiento permisivo confirmado arriba).
+  Hecho, con un atajo respecto al plan original: no hizo falta un segundo llamado a
+  `ObtenerPorIdsAsync` — `UsuarioRolDto.SedeNombre` (Etapa 2) ya trae el nombre correcto
+  aunque la sede esté inactiva, así que solo hizo falta un `HashSet<int>` de sedes
+  activas para detectar el caso y agregar la opción/badge condicional.
+  `Archivos: src/CatalogoPedidos.Web/Components/Pages/Usuarios/GestionRoles.razor`.
+- [x] 6. Tests: cascada Empresa→Sedes cubierta con 2 tests nuevos en
+  `CatalogoPedidos.Application.Tests/Empresas/EmpresaServiceTests.cs` (con sedes activas
+  y sin ninguna). Las tareas 4 y 5 viven en Infrastructure/Web, que este repo
+  deliberadamente no cubre con tests todavía (`AGENTS.md`: "un solo proyecto por ahora...
+  Domain/Infrastructure/Web todavía no tienen tests propios") — se verificaron con
+  `dotnet build` + revisión de código + smoke test no interactivo de las 3 rutas tocadas.
+  La tarea sobre `IUsuarioSedeDirectory.ObtenerSedeAsync` del plan original no aplicó: la
+  decisión fue mantenerlo permisivo tal cual está (sin cambios), así que no hay nada
+  nuevo que testear ahí.
+
+Verificación conjunta de la etapa: `dotnet build`/`dotnet test` (0 errores, 16/16 — 14
+existentes + 2 nuevos) y smoke test no interactivo (`curl` a `/empresas`, `/sedes` y
+`/usuarios/roles`, los tres HTTP 200 sin excepciones en el log). **Clic-testing real lo
+hace el usuario** (ver memoria `feedback-no-browser-testing`).
 
 ---
 

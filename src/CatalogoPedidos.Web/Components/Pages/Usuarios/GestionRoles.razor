@@ -57,18 +57,28 @@
                                 }
                             </td>
                             <td>
-                                <select class="form-select w-auto" value="@(u.SedeId?.ToString() ?? "")" @onchange="e => AsociarSede(u, e.Value?.ToString())">
-                                    <option value="">Sin sede</option>
-                                    @foreach (var grupo in sedesPorEmpresa)
+                                <div class="flex items-center gap-2">
+                                    <select class="form-select w-auto" value="@(u.SedeId?.ToString() ?? "")" @onchange="e => AsociarSede(u, e.Value?.ToString())">
+                                        <option value="">Sin sede</option>
+                                        @if (EsSedeInactiva(u))
+                                        {
+                                            <option value="@u.SedeId">@u.SedeNombre — inactiva</option>
+                                        }
+                                        @foreach (var grupo in sedesPorEmpresa)
+                                        {
+                                            <optgroup label="@grupo.Key">
+                                                @foreach (var s in grupo)
+                                                {
+                                                    <option value="@s.Id">@s.Nombre</option>
+                                                }
+                                            </optgroup>
+                                        }
+                                    </select>
+                                    @if (EsSedeInactiva(u))
                                     {
-                                        <optgroup label="@grupo.Key">
-                                            @foreach (var s in grupo)
-                                            {
-                                                <option value="@s.Id">@s.Nombre</option>
-                                            }
-                                        </optgroup>
+                                        <span class="text-xs text-warning-700" title="La sede de este usuario está desactivada — conviene reasignarlo.">⚠ sede inactiva</span>
                                     }
-                                </select>
+                                </div>
                             </td>
                             <td class="text-right">
                                 @if (u.EsGestor)
@@ -93,11 +103,20 @@
 
     private List<UsuarioRolDto>? usuarios;
     private List<IGrouping<string, Sede>> sedesPorEmpresa = [];
+    private HashSet<int> sedesActivasIds = [];
     private string? currentUserId;
     private string? mensaje;
     private AlertVariant mensajeVariante = AlertVariant.Success;
 
     private int cantidadGestores => usuarios?.Count(u => u.EsGestor) ?? 0;
+
+    /// <summary>
+    /// True cuando la sede del usuario ya no está entre las activas — pasa cuando se
+    /// desactivó después de asociarlo (ver docs/PLAN_EMPRESAS_FILIALES.md, Etapa 9). Sin
+    /// esto, el <select> no tendría ningún <option> que calce con su valor real y
+    /// aparentaría (falsamente) que el usuario no tiene sede.
+    /// </summary>
+    private bool EsSedeInactiva(UsuarioRolDto u) => u.SedeId is not null && !sedesActivasIds.Contains(u.SedeId.Value);
 
     protected override async Task OnInitializedAsync()
     {
@@ -110,6 +129,7 @@
         // SedeRepository.ObtenerTodasAsync) — GroupBy conserva ese orden.
         var sedes = await SedeService.ObtenerTodasAsync();
         sedesPorEmpresa = sedes.GroupBy(s => s.Empresa?.Nombre ?? "Sin empresa").ToList();
+        sedesActivasIds = sedes.Select(s => s.Id).ToHashSet();
 
         await Cargar();
     }

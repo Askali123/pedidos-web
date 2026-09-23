@@ -2,6 +2,8 @@
 @attribute [Authorize(Roles = Roles.Gestor)]
 @inject ISedeService SedeService
 @inject IEmpresaService EmpresaService
+@inject IUsuarioSedeDirectory UsuarioSedeDirectory
+@inject IServiceScopeFactory ScopeFactory
 @inject PageHeaderState HeaderState
 
 <PageTitle>Sedes</PageTitle>
@@ -184,7 +186,7 @@
 </Modal>
 
 <ConfirmDialog @bind-Visible="confirmandoDesactivar" Title="Desactivar sede" Danger="true"
-               Message="@($"¿Desactivar \"{sedeADesactivarNombre}\"? Dejará de aparecer para asociar usuarios nuevos; sus usuarios y solicitudes históricas se conservan.")"
+               Message="@MensajeConfirmacionDesactivar()"
                ConfirmText="Desactivar" OnConfirm="ConfirmarDesactivar" />
 
 @code {
@@ -206,6 +208,7 @@
     private bool confirmandoDesactivar;
     private int sedeADesactivarId;
     private string? sedeADesactivarNombre;
+    private int usuariosAfectadosDesactivar;
 
     protected override async Task OnInitializedAsync()
     {
@@ -277,10 +280,17 @@
         }
     }
 
-    private void PedirConfirmacionDesactivar(Sede sede)
+    private async Task PedirConfirmacionDesactivar(Sede sede)
     {
         sedeADesactivarId = sede.Id;
         sedeADesactivarNombre = sede.Nombre;
+
+        // Scope aparte: IUsuarioSedeDirectory usa UserManager por dentro, que comparte el
+        // AppDbContext Scoped de Identity — mismo criterio que GestionRoles.razor.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedDirectory = scope.ServiceProvider.GetRequiredService<IUsuarioSedeDirectory>();
+        usuariosAfectadosDesactivar = await scopedDirectory.ContarUsuariosPorSedeAsync(sede.Id);
+
         confirmandoDesactivar = true;
     }
 
@@ -288,5 +298,13 @@
     {
         await SedeService.DesactivarAsync(sedeADesactivarId);
         await Cargar();
+    }
+
+    private string MensajeConfirmacionDesactivar()
+    {
+        var baseMsg = $"¿Desactivar \"{sedeADesactivarNombre}\"? Dejará de aparecer para asociar usuarios nuevos; sus usuarios y solicitudes históricas se conservan.";
+        return usuariosAfectadosDesactivar > 0
+            ? $"{baseMsg} Esta sede tiene {usuariosAfectadosDesactivar} usuario(s) asociado(s) — van a quedar sin sede activa hasta que los reasignes desde Gestión de roles."
+            : baseMsg;
     }
 }
