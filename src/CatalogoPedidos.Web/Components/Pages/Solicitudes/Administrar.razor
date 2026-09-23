@@ -160,145 +160,269 @@
                                 }
                             }
 
-                            <Dropdown AlignRight="true" CloseOnClick="true">
-                                <Trigger>
-                                    <span class="btn btn-secondary btn-sm">
-                                        <Icon Name="mail" Class="h-4 w-4" /> Enviar a proveedor
-                                        <Icon Name="chevron-down" Class="h-3.5 w-3.5" />
-                                    </span>
-                                </Trigger>
-                                <ChildContent>
-                                    <div
-                                        class="w-72 bg-card border border-border-subtle rounded-lg shadow-elevated py-1 flex flex-col gap-1 max-h-96 overflow-y-auto">
-                                        @if (proveedoresPorPedido.TryGetValue(grupo.Key.SolicitudId, out var opciones) &&
-                                            opciones.Count > 0)
-                                        {
-                                            @foreach (var op in opciones)
+                            @if (proveedorId is not null)
+                            {
+                                <Dropdown AlignRight="true" CloseOnClick="true">
+                                    <Trigger>
+                                        <span class="btn btn-secondary btn-sm">
+                                            <Icon Name="mail" Class="h-4 w-4" /> Enviar a proveedor
+                                            <Icon Name="chevron-down" Class="h-3.5 w-3.5" />
+                                        </span>
+                                    </Trigger>
+                                    <ChildContent>
+                                        <div
+                                            class="w-72 bg-card border border-border-subtle rounded-lg shadow-elevated py-1 flex flex-col gap-1 max-h-96 overflow-y-auto">
+                                            @if (proveedoresPorPedido.TryGetValue(grupo.Key.SolicitudId, out var opciones) &&
+                                                opciones.Count > 0)
                                             {
-                                                var productosVisibles = ExpandirProductos(grupo.Key.SolicitudId, op)
-                                                    ? op.Productos
-                                                    : op.Productos.Take(LimiteProductosVisibles).ToList();
-                                                <div class="border-b border-border-subtle last:border-b-0">
-                                                    <button type="button"
-                                                            class="w-full text-left px-3 py-2 text-sm text-body hover:bg-card-elevated"
-                                                            @onclick="() => PedirConfirmacionEnvio(grupo.Key.SolicitudId, op)">
-                                                        <div class="flex items-center justify-between gap-2">
-                                                            <span class="font-medium">@op.ProveedorNombre</span>
-                                                            <span class="text-xs text-muted shrink-0">@op.CantidadLineas prod.</span>
-                                                        </div>
-                                                    </button>
-                                                    <div class="px-3 pb-2 space-y-1">
-                                                        @foreach (var p in productosVisibles)
-                                                        {
-                                                            <div class="flex items-center justify-between gap-2 text-xs text-muted">
-                                                                <span class="truncate">@p.Nombre</span>
-                                                                <span class="shrink-0 flex items-center gap-1.5">
-                                                                    @if (!string.IsNullOrEmpty(p.CodigoProveedor))
-                                                                    {
-                                                                        <code class="bg-card-elevated px-1 py-0.5 rounded text-[10px]">@p.CodigoProveedor</code>
-                                                                    }
-                                                                    <span>· cant. @p.Cantidad</span>
-                                                                </span>
+                                                @foreach (var op in opciones)
+                                                {
+                                                    var productosVisibles = ExpandirProductos(grupo.Key.SolicitudId, op)
+                                                        ? op.Productos
+                                                        : op.Productos.Take(LimiteProductosVisibles).ToList();
+                                                    <div class="border-b border-border-subtle last:border-b-0">
+                                                        <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-sm text-body hover:bg-card-elevated"
+                                                                @onclick="() => PedirConfirmacionEnvio(grupo.Key.SolicitudId, op)">
+                                                            <div class="flex items-center justify-between gap-2">
+                                                                <span class="font-medium">@op.ProveedorNombre</span>
+                                                                <span class="text-xs text-muted shrink-0">@op.CantidadLineas prod.</span>
                                                             </div>
-                                                        }
-                                                        @if (op.Productos.Count > LimiteProductosVisibles)
-                                                        {
-                                                            <button type="button"
-                                                                    class="text-xs text-primary-300 hover:underline mt-1"
-                                                                    @onclick="() => AlternarExpansion(grupo.Key.SolicitudId, op)"
-                                                                    @onclick:stopPropagation="true">
-                                                                @(ExpandirProductos(grupo.Key.SolicitudId, op)
-                                                                    ? "Ver menos"
-                                                                    : $"Ver {op.Productos.Count - LimiteProductosVisibles} más")
-                                                            </button>
-                                                        }
+                                                        </button>
+                                                        <div class="px-3 pb-2 space-y-1">
+                                                            @foreach (var p in productosVisibles)
+                                                            {
+                                                                <div class="flex items-center justify-between gap-2 text-xs text-muted">
+                                                                    <span class="truncate">@p.Nombre</span>
+                                                                    <span class="shrink-0 flex items-center gap-1.5">
+                                                                        @if (!string.IsNullOrEmpty(p.CodigoProveedor))
+                                                                        {
+                                                                            <code class="bg-card-elevated px-1 py-0.5 rounded text-[10px]">@p.CodigoProveedor</code>
+                                                                        }
+                                                                        <span>· cant. @p.Cantidad</span>
+                                                                    </span>
+                                                                </div>
+                                                            }
+                                                            @if (op.Productos.Count > LimiteProductosVisibles)
+                                                            {
+                                                                <button type="button"
+                                                                        class="text-xs text-primary-300 hover:underline mt-1"
+                                                                        @onclick="() => AlternarExpansion(grupo.Key.SolicitudId, op)"
+                                                                        @onclick:stopPropagation="true">
+                                                                    @(ExpandirProductos(grupo.Key.SolicitudId, op)
+                                                                        ? "Ver menos"
+                                                                        : $"Ver {op.Productos.Count - LimiteProductosVisibles} más")
+                                                                </button>
+                                                            }
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            }
-                                            <p class="px-3 py-2 text-xs text-muted border-t border-border-subtle mt-1">Un producto ya enviado a otro proveedor no vuelve a aparecer acá — cada línea solo se compra una vez.</p>
-                                        }
-                                        else
-                                        {
-                                            <p class="px-3 py-2 text-sm text-muted">Esta solicitud no tiene líneas aprobadas con proveedor
-                                                asociado.</p>
-                                        }
-                                    </div>
-                                </ChildContent>
-                            </Dropdown>
-                                </div>
-                            </div>
-
-                            <div class="table-wrap">
-                                <table class="table-enterprise">
-                                    <thead>
-                                        <tr>
-                                            <th>N.º</th>
-                                            <th>Producto</th>
-                                            @if (proveedorId is not null)
-                                            {
-                                                <th>Código interno</th>
-                                                <th>Código proveedor</th>
+                                                }
+                                                <p class="px-3 py-2 text-xs text-muted border-t border-border-subtle mt-1">Un producto ya enviado a otro proveedor no vuelve a aparecer acá — cada línea solo se compra una vez.</p>
                                             }
                                             else
                                             {
-                                                <th>Proveedor · Código</th>
+                                                <p class="px-3 py-2 text-sm text-muted">Esta solicitud no tiene líneas aprobadas con proveedor
+                                                    asociado.</p>
                                             }
-                                            <th>Cantidad</th>
-                                            <th>Estado</th>
-                                            <th>Gestor</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var s in grupo)
-                                        {
-                                            <tr>
-                                                <td class="text-muted" data-label="N.º">#@s.Id</td>
-                                                <td class="font-medium text-heading" data-label="Producto">
-                                                    @s.Producto?.Nombre
-                                                    @if (s.Producto?.Activo == false)
-                                                    {
-                                                        <Badge Variant="BadgeVariant.Warning">Desactivado</Badge>
-                                                    }
-                                                </td>
-                                                @if (proveedorId is not null)
+                                        </div>
+                                    </ChildContent>
+                                </Dropdown>
+                            }
+                        </div>
+                    </div>
+
+                    @if (proveedorId is not null)
+                    {
+                        <div class="table-wrap">
+                            <table class="table-enterprise">
+                                <thead>
+                                    <tr>
+                                        <th>N.º</th>
+                                        <th>Producto</th>
+                                        <th>Código interno</th>
+                                        <th>Código proveedor</th>
+                                        <th>Cantidad</th>
+                                        <th>Estado</th>
+                                        <th>Gestor</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var s in grupo)
+                                    {
+                                        <tr>
+                                            <td class="text-muted" data-label="N.º">#@s.Id</td>
+                                            <td class="font-medium text-heading" data-label="Producto">
+                                                @s.Producto?.Nombre
+                                                @if (s.Producto?.Activo == false)
                                                 {
-                                                    <td class="text-muted" data-label="Código interno">#@s.ProductoId</td>
-                                                    <td class="font-medium text-heading" data-label="Código proveedor">
-                                                        @codigosProveedorPorProducto.GetValueOrDefault(s.ProductoId, "-")</td>
-                                                    }
-                                    else
-                                                    {
-                                                        <td class="text-muted" data-label="Proveedor · Código">
-                                                            @if (codigosPreferidosPorProducto.TryGetValue(s.ProductoId, out var pp))
-                                                            {
-                                                                @($"{pp.Proveedor!.Nombre} · {pp.CodigoProveedor}")
-                                                                @if (cantidadProveedoresPorProducto.GetValueOrDefault(s.ProductoId) > 1)
-                                                                {
-                                                                    <a href="/catalogo/@s.ProductoId/proveedores" class="inline-block align-middle">
-                                                                        <Badge Variant="BadgeVariant.Info">+@(cantidadProveedoresPorProducto[s.ProductoId] - 1) más</Badge>
-                                                                    </a>
-                                                                }
-                                                            }
-                                                            else
-                                                            {
-                                                                <a href="/catalogo/@s.ProductoId/proveedores" class="inline-block align-middle">
-                                                                    <Badge Variant="BadgeVariant.Warning">Sin proveedor asociado</Badge>
-                                                                </a>
-                                                            }
-                                                        </td>
-                                                    }
+                                                    <Badge Variant="BadgeVariant.Warning">Desactivado</Badge>
+                                                }
+                                            </td>
+                                            <td class="text-muted" data-label="Código interno">#@s.ProductoId</td>
+                                            <td class="font-medium text-heading" data-label="Código proveedor">
+                                                @codigosProveedorPorProducto.GetValueOrDefault(s.ProductoId, "-")</td>
+                                            <td data-label="Cantidad">@s.Cantidad</td>
+                                            <td data-label="Estado">
+                                                <Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge>
+                                            </td>
+                                            <td data-label="Gestor">@(s.GestorNombre ?? "-")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="space-y-3">
+                            @foreach (var op in proveedoresPorPedido.GetValueOrDefault(grupo.Key.SolicitudId) ?? [])
+                            {
+                                var lineasGrupo = grupo.Where(s => op.Productos.Any(p => p.ProductoId == s.ProductoId)).ToList();
+                                var codigoPorProducto = op.Productos.ToDictionary(p => p.ProductoId, p => p.CodigoProveedor);
+                                var enviadoAEsteGrupo = YaEnviadoA(grupo.Key.SolicitudId, op.ProveedorId);
+                                <div class="table-wrap">
+                                    <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-white/[.03] border-b border-border-subtle">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <Icon Name="truck" Class="h-4 w-4 text-muted" />
+                                            <span class="font-medium text-heading">@op.ProveedorNombre</span>
+                                            <span class="text-xs text-muted">· @lineasGrupo.Count producto(s)</span>
+                                            @if (enviadoAEsteGrupo)
+                                            {
+                                                <Badge Variant="BadgeVariant.Success">✓ Enviado</Badge>
+                                            }
+                                        </div>
+                                        <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="mail"
+                                                OnClick="() => PedirConfirmacionEnvio(grupo.Key.SolicitudId, op)">
+                                            @(enviadoAEsteGrupo ? "Reenviar" : "Enviar a este proveedor")
+                                        </Button>
+                                    </div>
+                                    <table class="table-enterprise">
+                                        <thead>
+                                            <tr>
+                                                <th>N.º</th>
+                                                <th>Producto</th>
+                                                <th>Código</th>
+                                                <th>Cantidad</th>
+                                                <th>Estado</th>
+                                                <th>Gestor</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var s in lineasGrupo)
+                                            {
+                                                <tr>
+                                                    <td class="text-muted" data-label="N.º">#@s.Id</td>
+                                                    <td class="font-medium text-heading" data-label="Producto">
+                                                        @s.Producto?.Nombre
+                                                        @if (s.Producto?.Activo == false)
+                                                        {
+                                                            <Badge Variant="BadgeVariant.Warning">Desactivado</Badge>
+                                                        }
+                                                    </td>
+                                                    <td data-label="Código">
+                                                        <code class="text-xs bg-card-elevated px-1.5 py-0.5 rounded">@codigoPorProducto.GetValueOrDefault(s.ProductoId, "-")</code>
+                                                    </td>
                                                     <td data-label="Cantidad">@s.Cantidad</td>
                                                     <td data-label="Estado">
                                                         <Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge>
                                                     </td>
                                                     <td data-label="Gestor">@(s.GestorNombre ?? "-")</td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </Card>
+                                                    <td class="text-right">
+                                                        <button type="button" class="text-muted hover:text-body" title="Editar asociación con este proveedor"
+                                                                @onclick="() => AbrirEditarAsociacion(s.ProductoId, op.ProveedorId, s.Producto?.Nombre)">
+                                                            <Icon Name="pencil" Class="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
                             }
+
+                            @{ var sinProveedor = LineasSinCobertura(grupo); }
+                            @if (sinProveedor.Count > 0)
+                            {
+                                <div class="table-wrap">
+                                    <div class="flex items-center gap-2 px-4 py-2.5 bg-white/[.03] border-b border-border-subtle">
+                                        <Icon Name="exclamation-triangle" Class="h-4 w-4 text-warning-400" />
+                                        <span class="font-medium text-heading">Sin proveedor asociado</span>
+                                        <span class="text-xs text-muted">· @sinProveedor.Count producto(s)</span>
+                                    </div>
+                                    <table class="table-enterprise">
+                                        <thead>
+                                            <tr>
+                                                <th>N.º</th>
+                                                <th>Producto</th>
+                                                <th>Cantidad</th>
+                                                <th>Gestor</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var s in sinProveedor)
+                                            {
+                                                <tr>
+                                                    <td class="text-muted" data-label="N.º">#@s.Id</td>
+                                                    <td class="font-medium text-heading" data-label="Producto">@s.Producto?.Nombre</td>
+                                                    <td data-label="Cantidad">@s.Cantidad</td>
+                                                    <td data-label="Gestor">@(s.GestorNombre ?? "-")</td>
+                                                    <td class="text-right">
+                                                        @if (TieneAsociacionEnCatalogo(s.ProductoId))
+                                                        {
+                                                            <a class="text-xs text-primary-300 hover:underline" href="/catalogo/@s.ProductoId/proveedores">Ver asociaciones</a>
+                                                        }
+                                                        else
+                                                        {
+                                                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Small" Icon="plus"
+                                                                    OnClick="() => AbrirAsociarProveedor(s.ProductoId, s.Producto?.Nombre)">Asociar proveedor</Button>
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+
+                            @{ var otras = grupo.Where(s => s.Estado != EstadoSolicitud.Aprobada).ToList(); }
+                            @if (otras.Count > 0)
+                            {
+                                <div class="table-wrap">
+                                    <div class="px-4 py-2.5 bg-white/[.03] border-b border-border-subtle">
+                                        <span class="font-medium text-heading">Pendientes / rechazadas</span>
+                                        <span class="text-xs text-muted">· @otras.Count producto(s)</span>
+                                    </div>
+                                    <table class="table-enterprise">
+                                        <thead>
+                                            <tr>
+                                                <th>N.º</th>
+                                                <th>Producto</th>
+                                                <th>Cantidad</th>
+                                                <th>Estado</th>
+                                                <th>Gestor</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var s in otras)
+                                            {
+                                                <tr>
+                                                    <td class="text-muted" data-label="N.º">#@s.Id</td>
+                                                    <td class="font-medium text-heading" data-label="Producto">@s.Producto?.Nombre</td>
+                                                    <td data-label="Cantidad">@s.Cantidad</td>
+                                                    <td data-label="Estado"><Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge></td>
+                                                    <td data-label="Gestor">@(s.GestorNombre ?? "-")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        </div>
+                    }
+                </Card>
+            }
 
                             <div class="card">
                                 <Pagination CurrentPage="paginaNumero" TotalPages="totalPaginas" CurrentPageChanged="p => paginaNumero = p" />
@@ -364,6 +488,49 @@
                         </Footer>
                     </Modal>
 
+                    <Modal Visible="modalAsociacionVisible" VisibleChanged="v => modalAsociacionVisible = v"
+                           Title="@(editandoAsociacion ? "Editar asociación" : "Asociar proveedor")">
+                        <ChildContent>
+                            <p class="text-sm text-body mb-3">@nombreProductoAsociacion</p>
+                            <FormField Label="Proveedor" Required="true">
+                                <select class="form-select" @bind="modeloAsociacion.ProveedorId" disabled="@editandoAsociacion">
+                                    <option value="0">Selecciona uno...</option>
+                                    @foreach (var p in proveedores)
+                                    {
+                                        <option value="@p.Id">@p.Nombre</option>
+                                    }
+                                </select>
+                                @if (editandoAsociacion)
+                                {
+                                    <p class="mt-1 text-xs text-muted">El proveedor no se puede cambiar al editar — si necesitas otro, quitá esta asociación y creá una nueva.</p>
+                                }
+                            </FormField>
+                            <FormField Label="Código con el que ESE proveedor identifica este producto" Required="true"
+                                       Hint="Es el SKU/referencia propio del proveedor, no el Id interno del catálogo.">
+                                <input class="form-input" @bind="modeloAsociacion.CodigoProveedor" placeholder="p.ej. SKU-8827-A" />
+                            </FormField>
+                            <FormField Label="Precio del proveedor (opcional)">
+                                <InputNumber @bind-Value="modeloAsociacion.PrecioProveedor" class="form-input" />
+                            </FormField>
+                            <label class="flex items-center gap-2 text-sm text-body mb-2">
+                                <input type="checkbox" class="form-checkbox" @bind="modeloAsociacion.EsPreferido" />
+                                Marcar como proveedor preferido
+                            </label>
+                            @if (!string.IsNullOrEmpty(errorAsociacion))
+                            {
+                                <Alert Variant="AlertVariant.Danger">@errorAsociacion</Alert>
+                            }
+                        </ChildContent>
+                        <Footer>
+                            @if (editandoAsociacion)
+                            {
+                                <Button Variant="ButtonVariant.Danger" Icon="x-circle" OnClick="DesactivarAsociacionDesdeModal">Quitar proveedor</Button>
+                            }
+                            <Button Variant="ButtonVariant.Ghost" OnClick="() => modalAsociacionVisible = false">Cancelar</Button>
+                            <Button Variant="ButtonVariant.Primary" Icon="check" OnClick="GuardarAsociacion">@(editandoAsociacion ? "Guardar cambios" : "Asociar")</Button>
+                        </Footer>
+                    </Modal>
+
 @code {
     [CascadingParameter]
     private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask
@@ -398,6 +565,29 @@
         var clave = ClaveOpcionProveedor(pedidoId, op);
         if (!proveedoresExpandidos.Remove(clave))
             proveedoresExpandidos.Add(clave);
+    }
+
+    private bool YaEnviadoA(int solicitudId, int proveedorId)
+        => enviosPorPedido.GetValueOrDefault(solicitudId)?.Any(e => e.ProveedorId == proveedorId) ?? false;
+
+    private bool TieneAsociacionEnCatalogo(int productoId)
+        => codigosPreferidosPorProducto.ContainsKey(productoId);
+
+    /// <summary>
+    /// Líneas Aprobadas de esta solicitud que no aparecen en NINGÚN grupo de proveedor
+    /// (ni el ya enviado ni ningún otro disponible) — ya sea porque el producto no tiene
+    /// ninguna asociación de catálogo, o porque las que tiene no están disponibles ahora
+    /// (desactivadas o excluidas de este pedido). Se usa para la sección "Sin proveedor
+    /// asociado" de la vista agrupada (solo cuando NO hay filtro por un proveedor puntual).
+    /// </summary>
+    private List<DetalleSolicitud> LineasSinCobertura(IGrouping<PedidoResumen, DetalleSolicitud> grupo)
+    {
+        var cubiertas = (proveedoresPorPedido.GetValueOrDefault(grupo.Key.SolicitudId) ?? [])
+            .SelectMany(op => op.Productos)
+            .Select(p => p.ProductoId)
+            .ToHashSet();
+
+        return grupo.Where(s => s.Estado == EstadoSolicitud.Aprobada && !cubiertas.Contains(s.ProductoId)).ToList();
     }
 
     private record PedidoResumen(int SolicitudId, string SolicitanteNombre, string? Comentario, string? DireccionEntrega,
@@ -653,6 +843,86 @@ gestorNombre, dto);
         mensajeEnvioVariante = AlertVariant.Success;
 
         modalEntregaVisible = false;
+        await Buscar();
+    }
+
+    // --- Asociar/editar/quitar proveedor de un producto, sin salir de esta pantalla ---
+    // Mismo servicio (IProveedorService) y mismo DTO que /catalogo/{id}/proveedores — un
+    // atajo inline para no perder el contexto de filtros/solicitud, no un mecanismo aparte.
+    private bool modalAsociacionVisible;
+    private bool editandoAsociacion;
+    private int asociacionEnEdicionId;
+    private AsociarProveedorDto modeloAsociacion = new();
+    private string? nombreProductoAsociacion;
+    private string? errorAsociacion;
+
+    private void AbrirAsociarProveedor(int productoId, string? nombreProducto)
+    {
+        editandoAsociacion = false;
+        asociacionEnEdicionId = 0;
+        modeloAsociacion = new AsociarProveedorDto { ProductoId = productoId };
+        nombreProductoAsociacion = nombreProducto;
+        errorAsociacion = null;
+        modalAsociacionVisible = true;
+    }
+
+    private async Task AbrirEditarAsociacion(int productoId, int proveedorId, string? nombreProducto)
+    {
+        // No se precarga el Id de la asociación en ningún lado (los DTO de esta pantalla
+        // solo traen el código, no el Id) — se busca al vuelo, solo al abrir el modal.
+        var existente = (await Proveedores.ObtenerProveedoresDeProductoAsync(productoId))
+            .FirstOrDefault(a => a.ProveedorId == proveedorId);
+        if (existente is null)
+            return;
+
+        editandoAsociacion = true;
+        asociacionEnEdicionId = existente.Id;
+        modeloAsociacion = new AsociarProveedorDto
+        {
+            ProductoId = productoId,
+            ProveedorId = existente.ProveedorId,
+            CodigoProveedor = existente.CodigoProveedor,
+            PrecioProveedor = existente.PrecioProveedor,
+            EsPreferido = existente.EsPreferido
+        };
+        nombreProductoAsociacion = nombreProducto;
+        errorAsociacion = null;
+        modalAsociacionVisible = true;
+    }
+
+    private async Task GuardarAsociacion()
+    {
+        errorAsociacion = null;
+
+        if (modeloAsociacion.ProveedorId == 0)
+        {
+            errorAsociacion = "Selecciona un proveedor.";
+            return;
+        }
+
+        try
+        {
+            if (editandoAsociacion)
+                await Proveedores.ActualizarAsociacionAsync(asociacionEnEdicionId, modeloAsociacion);
+            else
+                await Proveedores.AsociarProveedorAsync(modeloAsociacion);
+
+            modalAsociacionVisible = false;
+            await Buscar();
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorAsociacion = ex.Message;
+        }
+    }
+
+    private async Task DesactivarAsociacionDesdeModal()
+    {
+        if (asociacionEnEdicionId == 0)
+            return;
+
+        await Proveedores.DesactivarAsociacionAsync(asociacionEnEdicionId);
+        modalAsociacionVisible = false;
         await Buscar();
     }
 
