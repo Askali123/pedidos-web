@@ -472,9 +472,17 @@ y `/api/reportes/consumo-empresas/excel`, ambos HTTP 200 sin excepciones en el l
 
 ### Etapa 7 — Reconciliar con el plan de funcionalidades de negocio existente
 
-- [ ] Marcar la Tarea 2 (`CentroCosto`) de `PLAN_FUNCIONALIDADES_NEGOCIO.md` como
+- [x] Marcar la Tarea 2 (`CentroCosto`) de `PLAN_FUNCIONALIDADES_NEGOCIO.md` como
   superada por `Sede` (o ajustar según lo que se decida en §4) para no dejar dos planes
   con propuestas contradictorias.
+  Hecho, con un ajuste: la Tarea 2 no quedó 100% resuelta porque tenía dos partes
+  distintas mezcladas. La parte de "campo de agrupación organizativa" sí queda marcada
+  como superada por `Empresa`/`Sede`, con una nota fechada y el link a este plan. La otra
+  parte — evaluar un tope de gasto mensual configurable que dispare alerta o exija
+  segunda aprobación — **no se tocó**, no es algo que este plan haya construido, así que
+  la dejé explícitamente como pendiente y renombré la tarea para que el título refleje
+  solo lo que sigue abierto, en vez de marcarla `[x]` de forma engañosa.
+  `Archivos: docs/PLAN_FUNCIONALIDADES_NEGOCIO.md` (Tarea 2 renombrada y anotada).
 
 ### Etapa 8 — Archivado histórico anual (prioridad a revisar, ver §4)
 

@@ -24,11 +24,21 @@ el orden es la prioridad acordada.
   `Proveedor` en un rango de fechas (usando `Precio`/`PrecioProveedor` × `Cantidad`), con
   exportación a Excel — con datos que ya existen pero que hoy solo se ven fila por fila.
 
-- [ ] **2. Centro de costo / presupuesto por pedido**
-  Hoy no hay ninguna noción de presupuesto en todo el dominio — cualquier Gestor puede
-  aprobar cualquier categoría y cualquier monto sin ningún umbral. Agregar un campo
-  `CentroCosto` (o `Departamento`) opcional en `Pedido`, y evaluar un tope de gasto mensual
-  configurable que dispare una alerta o exija una segunda aprobación al superarse.
+- [ ] **2. Tope de gasto mensual / segunda aprobación al superarse** (antes "Centro de
+  costo / presupuesto por pedido")
+  **Revisado el 2026-09-23** — la mitad de esta tarea (el campo de agrupación
+  organizativa: `CentroCosto`/`Departamento`) quedó **superada por `Empresa`/`Sede`**
+  (ver `docs/PLAN_EMPRESAS_FILIALES.md`): ya no hace falta agregar ese campo aparte —
+  `Sede` cubre la misma necesidad de agrupar solicitudes por unidad organizativa, y además
+  trae geolocalización propia y jerarquía real con el holding Auropaq. Ese plan ya
+  implementó el modelo, la administración (crear/editar/desactivar) y un dashboard de
+  consumo filtrable por Empresa/Sede/período.
+
+  Lo que sigue **sin tocar** de esta tarea es la idea original del umbral: hoy no hay
+  ninguna noción de presupuesto en el dominio — cualquier Gestor puede aprobar cualquier
+  categoría y cualquier monto sin ningún tope. Evaluar un tope de gasto mensual
+  configurable (por Empresa/Sede o global) que dispare una alerta o exija una segunda
+  aprobación al superarse — eso queda pendiente, no forma parte del plan de Empresas.
 
 - [ ] **3. Lead time real por proveedor**
   Ahora que `NotificacionProveedor.FechaEnvio` y `ConfirmacionEntrega.FechaEntrega`
