@@ -702,3 +702,51 @@ el orden es la prioridad acordada.
   `Infrastructure/Pdf/PdfExportService.cs`, `Program.cs`, `Administrar.razor`,
   `Bandeja.razor`, `HistorialResoluciones.razor`, `MisSolicitudes.razor`,
   `HistorialEnvios.razor`.
+
+- [x] **20. Administrar solicitudes: agrupar por proveedor + gestionar asociaciones
+  inline + Categoría en el Excel/PDF del pedido** — Hecho (2026-09-23).
+
+  Pedido del usuario, con un diseño propuesto y confirmado antes de tocar código (3
+  opciones con mockups; eligió la opción "tabla agrupada por proveedor" con una vuelta de
+  tuerca: que también se pudiera asociar/editar/quitar proveedor sin salir de la pantalla).
+
+  **Categoría en el detalle del pedido a proveedor** — `DetallePedidoProveedor` gana un
+  campo `Categoria` (snapshot, igual criterio que `ProductoNombre`/`UnidadMedida`: congelada
+  al momento del envío, no se lee en vivo del catálogo). Migración nueva
+  `AgregarCategoriaADetallePedidoProveedor` (`ALTER TABLE ADD COLUMN` nullable, aplicada).
+  Columna "Categoría" agregada tanto al Excel (`ExcelExportService.ExportarPedidoProveedor`)
+  como al PDF hermano, para que ambos formatos queden consistentes.
+  Archivos: `Domain/Entities/DetallePedidoProveedor.cs`, `AppDbContext.cs`,
+  `PedidoNotificacionProveedorService.cs` (`ConstruirSnapshots`),
+  `ExcelExportService.cs`, `PdfExportService.cs`, migración nueva.
+
+  **Administrar solicitudes reorganizada** (solo en la vista SIN filtro de proveedor — con
+  un proveedor filtrado se mantiene la tabla plana de siempre, que ya tiene sentido ahí):
+  la única tabla plana por solicitud se reemplazó por una lista de secciones, una por
+  proveedor de destino (usando la misma cobertura que ya calculaba
+  `ObtenerProveedoresDisponiblesAsync` — nada de lógica nueva de negocio, solo de
+  presentación), cada una con su propio botón "Enviar a este proveedor"/"Reenviar" en vez
+  del dropdown único de antes (que queda solo para la vista filtrada). Se agregan dos
+  secciones más para no perder ninguna línea de vista: "Sin proveedor asociado" (con un
+  botón "Asociar proveedor" inline si el producto no tiene ninguna asociación de catálogo,
+  o un link a `/catalogo/{id}/proveedores` si la tiene pero no está disponible ahora —
+  desactivada o excluida) y "Pendientes / rechazadas" (informativa, sin acciones — resolver
+  líneas sigue siendo trabajo de Bandeja).
+
+  **Gestión de asociación inline** — cada línea dentro de un grupo de proveedor gana un
+  ícono de lápiz que abre un modal para editar código/precio/preferido o quitar la
+  asociación (busca el Id de la asociación al vuelo con
+  `ObtenerProveedoresDeProductoAsync`, ya que las líneas de esta pantalla no lo traían
+  precargado). El modal reutiliza el mismo `IProveedorService`/`AsociarProveedorDto` que
+  `/catalogo/{id}/proveedores` — ni un mecanismo aparte ni una tabla paralela: es el mismo
+  dominio, solo expuesto sin salir de Administrar solicitudes (se pierde el contexto de
+  filtros/página si hay que navegar a otra pantalla para cada producto huérfano de un
+  pedido con varios).
+
+  Verificado: `dotnet build` limpio, `dotnet test` 7/7, migración aplicada sin errores, la
+  app arrancó y `/solicitudes/administrar` respondió sin excepciones en el log. No probado
+  clic-por-clic en el navegador.
+  Archivos: `Administrar.razor` (reescritura grande de la sección de tabla + nuevo modal +
+  métodos `LineasSinCobertura`/`YaEnviadoA`/`TieneAsociacionEnCatalogo`/
+  `AbrirAsociarProveedor`/`AbrirEditarAsociacion`/`GuardarAsociacion`/
+  `DesactivarAsociacionDesdeModal`).

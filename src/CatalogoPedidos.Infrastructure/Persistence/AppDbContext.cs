@@ -143,6 +143,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
             entity.Property(d => d.CodigoProveedor).HasMaxLength(100).IsRequired();
             entity.Property(d => d.UnidadMedida).HasMaxLength(50);
             entity.Property(d => d.PrecioProveedor).HasColumnType("decimal(18,2)");
+            entity.Property(d => d.Categoria).HasMaxLength(100);
 
             entity.HasOne(d => d.PedidoProveedor)
                   .WithMany(pp => pp.Items)

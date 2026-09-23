@@ -284,6 +284,7 @@ public class PedidoNotificacionProveedorService(
             CodigoProveedor = codigoPorProducto[l.ProductoId],
             UnidadMedida = l.Producto?.UnidadMedida,
             PrecioProveedor = precioPorProducto[l.ProductoId],
+            Categoria = l.Producto?.Categoria,
             Excluido = excluido
         }).ToList();
     }

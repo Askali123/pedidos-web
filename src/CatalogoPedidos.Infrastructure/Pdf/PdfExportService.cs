@@ -319,6 +319,7 @@ public class PdfExportService : IPdfExportService
                         columns.RelativeColumn(1);
                         columns.RelativeColumn(1);
                         columns.RelativeColumn(4);
+                        columns.RelativeColumn(2);
                         columns.RelativeColumn(1);
                         columns.RelativeColumn(2);
                         columns.RelativeColumn(2);
@@ -329,6 +330,7 @@ public class PdfExportService : IPdfExportService
                         header.Cell().Text("Código interno").Bold();
                         header.Cell().Text("Código proveedor").Bold();
                         header.Cell().Text("Producto").Bold();
+                        header.Cell().Text("Categoría").Bold();
                         header.Cell().Text("Cant.").Bold();
                         header.Cell().Text("Unidad").Bold();
                         header.Cell().Text("Precio").Bold();
@@ -339,6 +341,7 @@ public class PdfExportService : IPdfExportService
                         table.Cell().Text(d.ProductoId.ToString());
                         table.Cell().Text(d.CodigoProveedor);
                         table.Cell().Text(d.ProductoNombre);
+                        table.Cell().Text(d.Categoria ?? "-");
                         table.Cell().Text(d.Cantidad.ToString());
                         table.Cell().Text(d.UnidadMedida ?? "-");
                         table.Cell().Text($"{(d.PrecioProveedor ?? 0):C}");

@@ -162,7 +162,7 @@ public class ExcelExportService : IExcelExportService
             hoja.Cell(2, 2).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
         }
 
-        string[] encabezados = ["Código interno", "Código proveedor", "Producto", "Cantidad", "Unidad", "Precio"];
+        string[] encabezados = ["Código interno", "Código proveedor", "Producto", "Categoría", "Cantidad", "Unidad", "Precio"];
         for (var i = 0; i < encabezados.Length; i++)
         {
             var celda = hoja.Cell(3, i + 1);
@@ -178,10 +178,11 @@ public class ExcelExportService : IExcelExportService
             hoja.Cell(fila, 1).Value = d.ProductoId;
             hoja.Cell(fila, 2).Value = d.CodigoProveedor;
             hoja.Cell(fila, 3).Value = d.ProductoNombre;
-            hoja.Cell(fila, 4).Value = d.Cantidad;
-            hoja.Cell(fila, 5).Value = d.UnidadMedida ?? "-";
-            hoja.Cell(fila, 6).Value = d.PrecioProveedor ?? 0;
-            hoja.Cell(fila, 6).Style.NumberFormat.Format = "#,##0.00";
+            hoja.Cell(fila, 4).Value = d.Categoria ?? "-";
+            hoja.Cell(fila, 5).Value = d.Cantidad;
+            hoja.Cell(fila, 6).Value = d.UnidadMedida ?? "-";
+            hoja.Cell(fila, 7).Value = d.PrecioProveedor ?? 0;
+            hoja.Cell(fila, 7).Style.NumberFormat.Format = "#,##0.00";
             fila++;
         }
 
