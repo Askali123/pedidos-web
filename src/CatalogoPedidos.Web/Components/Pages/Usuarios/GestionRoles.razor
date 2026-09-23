@@ -3,6 +3,7 @@
 @using System.Security.Claims
 @using CatalogoPedidos.Application.Usuarios
 @inject IUsuarioRolService UsuarioRolService
+@inject ISedeService SedeService
 @inject IServiceScopeFactory ScopeFactory
 @inject PageHeaderState HeaderState
 
@@ -29,6 +30,7 @@
                         <th>Usuario</th>
                         <th>Email</th>
                         <th>Rol</th>
+                        <th>Sede (empresa filial)</th>
                         <th class="text-right">Acciones</th>
                     </tr>
                 </thead>
@@ -54,6 +56,20 @@
                                     <Badge Variant="BadgeVariant.Neutral">Solicitante</Badge>
                                 }
                             </td>
+                            <td>
+                                <select class="form-select w-auto" value="@(u.SedeId?.ToString() ?? "")" @onchange="e => AsociarSede(u, e.Value?.ToString())">
+                                    <option value="">Sin sede</option>
+                                    @foreach (var grupo in sedesPorEmpresa)
+                                    {
+                                        <optgroup label="@grupo.Key">
+                                            @foreach (var s in grupo)
+                                            {
+                                                <option value="@s.Id">@s.Nombre</option>
+                                            }
+                                        </optgroup>
+                                    }
+                                </select>
+                            </td>
                             <td class="text-right">
                                 @if (u.EsGestor)
                                 {
@@ -76,6 +92,7 @@
     [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
 
     private List<UsuarioRolDto>? usuarios;
+    private List<IGrouping<string, Sede>> sedesPorEmpresa = [];
     private string? currentUserId;
     private string? mensaje;
     private AlertVariant mensajeVariante = AlertVariant.Success;
@@ -88,6 +105,11 @@
 
         var authState = await AuthStateTask!;
         currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        // Ya vienen ordenadas por Empresa.Nombre y luego Sede.Nombre (ver
+        // SedeRepository.ObtenerTodasAsync) — GroupBy conserva ese orden.
+        var sedes = await SedeService.ObtenerTodasAsync();
+        sedesPorEmpresa = sedes.GroupBy(s => s.Empresa?.Nombre ?? "Sin empresa").ToList();
 
         await Cargar();
     }
@@ -143,6 +165,33 @@
         {
             mensaje = $"Error: {ex.Message}";
             mensajeVariante = AlertVariant.Warning;
+        }
+    }
+
+    private async Task AsociarSede(UsuarioRolDto usuario, string? valorSeleccionado)
+    {
+        int? sedeId = string.IsNullOrEmpty(valorSeleccionado) ? null : int.Parse(valorSeleccionado);
+
+        try
+        {
+            await using var scope = ScopeFactory.CreateAsyncScope();
+            var scopedService = scope.ServiceProvider.GetRequiredService<IUsuarioRolService>();
+            await scopedService.AsociarSedeAsync(usuario.Id, sedeId);
+
+            var sedeNombre = sedesPorEmpresa.SelectMany(g => g).FirstOrDefault(s => s.Id == sedeId)?.Nombre;
+            mensaje = sedeId is null
+                ? $"Se le quitó la sede a {usuario.NombreCompleto}."
+                : $"{usuario.NombreCompleto} quedó asociado a {sedeNombre}.";
+            mensajeVariante = AlertVariant.Success;
+            await Cargar();
+        }
+        catch (InvalidOperationException ex)
+        {
+            mensaje = $"Error: {ex.Message}";
+            mensajeVariante = AlertVariant.Warning;
+            // El <select> ya cambió visualmente por el binding manual (value="@u.SedeId") —
+            // recargar deja la UI fiel al estado real si la asociación falló.
+            await Cargar();
         }
     }
 }

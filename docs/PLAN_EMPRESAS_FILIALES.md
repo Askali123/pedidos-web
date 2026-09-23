@@ -397,9 +397,19 @@ dependencias nueva resuelve en runtime sin errores.
 
 ### Etapa 5 — UI: asociar usuarios a Sede
 
-- [ ] Extender `GestionRoles.razor` (o la pantalla de gestión de usuarios que corresponda)
+- [x] Extender `GestionRoles.razor` (o la pantalla de gestión de usuarios que corresponda)
   con un selector de Empresa → Sede por usuario, reusando el patrón try/catch + mensaje +
   recarga ya usado para `AsignarGestor`/`QuitarGestor`.
+  Hecho. `Archivos: src/CatalogoPedidos.Web/Components/Pages/Usuarios/GestionRoles.razor`.
+  Nueva columna "Sede (empresa filial)" con un `<select>` agrupado por Empresa
+  (`<optgroup>`), que llama a `AsociarSedeAsync` (agregada en Etapa 2) con el mismo patrón
+  try/catch + mensaje + `Cargar()` que ya usaban `AsignarGestor`/`QuitarGestor` — si la
+  asociación falla, se recarga igual para que el `<select>` vuelva a reflejar el estado
+  real (el `value` está atado manualmente, no con `@bind`, porque cada fila necesita su
+  propio usuario en el handler).
+  Verificado con `dotnet build`/`dotnet test` (0 errores, 10/10 sin regresiones) y smoke
+  test no interactivo (`curl /usuarios/roles` → HTTP 200, sin excepciones en el log).
+  **Clic-testing real lo hace el usuario** (ver memoria `feedback-no-browser-testing`).
 
 ### Etapa 6 — Dashboard de solicitudes/consumos
 
