@@ -376,10 +376,24 @@ dependencias nueva resuelve en runtime sin errores.
 
 ### Etapa 4 — UI: administración de Sedes
 
-- [ ] `Sedes.razor` (`Roles.Gestor`) — tabla crear/editar/desactivar con los campos de
+- [x] `Sedes.razor` (`Roles.Gestor`) — tabla crear/editar/desactivar con los campos de
   geolocalización (país, ciudad, dirección); filtro/selector de Empresa dueña.
   Posiblemente accesible también desde el detalle de cada Empresa en `Empresas.razor`
   ("Ver sedes de esta empresa").
+  Hecho. `Archivos: src/CatalogoPedidos.Web/Components/Pages/Empresas/Sedes.razor,
+  src/CatalogoPedidos.Web/Components/Layout/Sidebar.razor,
+  src/CatalogoPedidos.Web/Components/UI/Icon.razor` (ícono nuevo `map-pin`, no existía en
+  la librería de íconos). Filtro por Empresa arriba de la tabla (selector `<select>`,
+  mismo patrón que los filtros de `Administrar.razor`) que también lee `?empresaId=` de
+  la URL vía `[SupplyParameterFromQuery]` — así el link "Ver sedes" que quedó pendiente
+  de la Etapa 3 en `Empresas.razor` ya funciona y llega con el filtro preaplicado.
+  Verificado con `dotnet build`/`dotnet test` (0 errores, 10/10 sin regresiones) y
+  smoke test no interactivo (`curl` a `/sedes`, `/sedes?empresaId=1` y `/empresas`, los
+  tres HTTP 200 sin excepciones en el log del servidor).
+  **El clic-testing real (crear/editar/desactivar sedes, filtro por empresa, el link
+  "Ver sedes" desde Empresas) lo hace el usuario directamente en su navegador** — no lo
+  hago yo por costo de tokens (ver memoria `feedback-no-browser-testing`). Instrucciones
+  de qué probar abajo, en el mensaje de cierre de esta etapa.
 
 ### Etapa 5 — UI: asociar usuarios a Sede
 
