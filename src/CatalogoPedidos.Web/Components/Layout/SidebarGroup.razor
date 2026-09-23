@@ -1,0 +1,31 @@
+@* Sub-sección colapsable del sidebar — clic en el encabezado esconde/muestra sus links.
+   Con el sidebar entero colapsado (solo íconos) no tiene sentido esconder nada más, así
+   que ahí se ve como antes: un simple separador, siempre expandido. *@
+@if (Collapsed)
+{
+    <div class="border-t border-border-subtle my-2"></div>
+    @ChildContent
+}
+else
+{
+    <button type="button"
+            class="w-full flex items-center justify-between px-3 pt-4 pb-1 text-xs font-semibold text-muted uppercase tracking-wide hover:text-heading transition-colors"
+            @onclick="Alternar">
+        <span>@Title</span>
+        <Icon Name="@(expandido ? "chevron-down" : "chevron-right")" Class="h-3.5 w-3.5 shrink-0" />
+    </button>
+    @if (expandido)
+    {
+        @ChildContent
+    }
+}
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public bool Collapsed { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool expandido = true;
+
+    private void Alternar() => expandido = !expandido;
+}

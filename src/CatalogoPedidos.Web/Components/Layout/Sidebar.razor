@@ -26,61 +26,67 @@
 
         <AuthorizeView Roles="@Roles.Gestor">
             <Authorized>
-                <SidebarGroupLabel Text="Solicitudes" Collapsed="Collapsed" />
-                <NavLink href="/solicitudes/bandeja" class="sidebar-link" ActiveClass="sidebar-link-active">
-                    <Icon Name="inbox" Class="h-5 w-5 shrink-0" />
-                    @if (!Collapsed) { <span>Bandeja de solicitudes</span> }
-                </NavLink>
-                <NavLink href="/solicitudes/administrar" class="sidebar-link" ActiveClass="sidebar-link-active">
-                    <Icon Name="adjustments" Class="h-5 w-5 shrink-0" />
-                    @if (!Collapsed) { <span>Administrar solicitudes</span> }
-                </NavLink>
-                <NavLink href="/solicitudes/historial-envios" class="sidebar-link" ActiveClass="sidebar-link-active">
-                    <Icon Name="clock" Class="h-5 w-5 shrink-0" />
-                    @if (!Collapsed) { <span>Historial de envíos</span> }
-                </NavLink>
-                <NavLink href="/solicitudes/historial-resoluciones" class="sidebar-link" ActiveClass="sidebar-link-active">
-                    <Icon Name="clock" Class="h-5 w-5 shrink-0" />
-                    @if (!Collapsed) { <span>Historial de resoluciones</span> }
-                </NavLink>
+                <SidebarGroup Title="Solicitudes" Collapsed="Collapsed">
+                    <NavLink href="/solicitudes/bandeja" class="sidebar-link" ActiveClass="sidebar-link-active">
+                        <Icon Name="inbox" Class="h-5 w-5 shrink-0" />
+                        @if (!Collapsed) { <span>Bandeja de solicitudes</span> }
+                    </NavLink>
+                    <NavLink href="/solicitudes/administrar" class="sidebar-link" ActiveClass="sidebar-link-active">
+                        <Icon Name="adjustments" Class="h-5 w-5 shrink-0" />
+                        @if (!Collapsed) { <span>Administrar solicitudes</span> }
+                    </NavLink>
+                    <NavLink href="/solicitudes/historial-envios" class="sidebar-link" ActiveClass="sidebar-link-active">
+                        <Icon Name="clock" Class="h-5 w-5 shrink-0" />
+                        @if (!Collapsed) { <span>Historial de envíos</span> }
+                    </NavLink>
+                    <NavLink href="/solicitudes/historial-resoluciones" class="sidebar-link" ActiveClass="sidebar-link-active">
+                        <Icon Name="clock" Class="h-5 w-5 shrink-0" />
+                        @if (!Collapsed) { <span>Historial de resoluciones</span> }
+                    </NavLink>
+                </SidebarGroup>
 
-                <SidebarGroupLabel Text="Catálogo" Collapsed="Collapsed" />
-                <NavLink href="/catalogo/nuevo" class="sidebar-link" ActiveClass="sidebar-link-active">
-                    <Icon Name="plus" Class="h-5 w-5 shrink-0" />
-                    @if (!Collapsed) { <span>Nuevo producto</span> }
-                </NavLink>
-                <NavLink href="/catalogo/importar" class="sidebar-link" ActiveClass="sidebar-link-active">
-                    <Icon Name="download" Class="h-5 w-5 shrink-0" />
-                    @if (!Collapsed) { <span>Importar productos</span> }
-                </NavLink>
+                <SidebarGroup Title="Catálogo" Collapsed="Collapsed">
+                    <NavLink href="/catalogo/nuevo" class="sidebar-link" ActiveClass="sidebar-link-active">
+                        <Icon Name="plus" Class="h-5 w-5 shrink-0" />
+                        @if (!Collapsed) { <span>Nuevo producto</span> }
+                    </NavLink>
+                    <NavLink href="/catalogo/importar" class="sidebar-link" ActiveClass="sidebar-link-active">
+                        <Icon Name="download" Class="h-5 w-5 shrink-0" />
+                        @if (!Collapsed) { <span>Importar productos</span> }
+                    </NavLink>
+                </SidebarGroup>
 
-                <SidebarGroupLabel Text="Proveedores" Collapsed="Collapsed" />
-                <NavLink href="/proveedores" class="sidebar-link" ActiveClass="sidebar-link-active">
-                    <Icon Name="truck" Class="h-5 w-5 shrink-0" />
-                    @if (!Collapsed) { <span>Proveedores</span> }
-                </NavLink>
+                <SidebarGroup Title="Proveedores" Collapsed="Collapsed">
+                    <NavLink href="/proveedores" class="sidebar-link" ActiveClass="sidebar-link-active">
+                        <Icon Name="truck" Class="h-5 w-5 shrink-0" />
+                        @if (!Collapsed) { <span>Proveedores</span> }
+                    </NavLink>
+                </SidebarGroup>
 
-                <SidebarGroupLabel Text="Organización" Collapsed="Collapsed" />
-                <NavLink href="/empresas" class="sidebar-link" ActiveClass="sidebar-link-active">
-                    <Icon Name="building-store" Class="h-5 w-5 shrink-0" />
-                    @if (!Collapsed) { <span>Empresas</span> }
-                </NavLink>
-                <NavLink href="/sedes" class="sidebar-link" ActiveClass="sidebar-link-active">
-                    <Icon Name="map-pin" Class="h-5 w-5 shrink-0" />
-                    @if (!Collapsed) { <span>Sedes</span> }
-                </NavLink>
+                <SidebarGroup Title="Organización" Collapsed="Collapsed">
+                    <NavLink href="/empresas" class="sidebar-link" ActiveClass="sidebar-link-active">
+                        <Icon Name="building-store" Class="h-5 w-5 shrink-0" />
+                        @if (!Collapsed) { <span>Empresas</span> }
+                    </NavLink>
+                    <NavLink href="/sedes" class="sidebar-link" ActiveClass="sidebar-link-active">
+                        <Icon Name="map-pin" Class="h-5 w-5 shrink-0" />
+                        @if (!Collapsed) { <span>Sedes</span> }
+                    </NavLink>
+                </SidebarGroup>
 
-                <SidebarGroupLabel Text="Reportes" Collapsed="Collapsed" />
-                <NavLink href="/reportes/consumo-empresas" class="sidebar-link" ActiveClass="sidebar-link-active">
-                    <Icon Name="dashboard" Class="h-5 w-5 shrink-0" />
-                    @if (!Collapsed) { <span>Consumo por empresa</span> }
-                </NavLink>
+                <SidebarGroup Title="Reportes" Collapsed="Collapsed">
+                    <NavLink href="/reportes/consumo-empresas" class="sidebar-link" ActiveClass="sidebar-link-active">
+                        <Icon Name="dashboard" Class="h-5 w-5 shrink-0" />
+                        @if (!Collapsed) { <span>Consumo por empresa</span> }
+                    </NavLink>
+                </SidebarGroup>
 
-                <SidebarGroupLabel Text="Usuarios" Collapsed="Collapsed" />
-                <NavLink href="/usuarios/roles" class="sidebar-link" ActiveClass="sidebar-link-active">
-                    <Icon Name="user" Class="h-5 w-5 shrink-0" />
-                    @if (!Collapsed) { <span>Gestión de roles</span> }
-                </NavLink>
+                <SidebarGroup Title="Usuarios" Collapsed="Collapsed">
+                    <NavLink href="/usuarios/roles" class="sidebar-link" ActiveClass="sidebar-link-active">
+                        <Icon Name="user" Class="h-5 w-5 shrink-0" />
+                        @if (!Collapsed) { <span>Gestión de roles</span> }
+                    </NavLink>
+                </SidebarGroup>
             </Authorized>
         </AuthorizeView>
     </nav>

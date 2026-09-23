@@ -860,7 +860,8 @@ falta un rediseño amplio, dos hallazgos puntuales explicaban el pedido.
   el patrón repetido (`@if (!Collapsed) { <p>...</p> } else { <div class="border-t">...` })
   a un componente nuevo `SidebarGroupLabel.razor` — antes solo se usaba una vez, ahora se
   repite 6 veces, dejarlo inline habría significado seis copias idénticas del mismo
-  `@if`/`@else`.
+  `@if`/`@else`. **(Nota: este componente se reemplazó por `SidebarGroup.razor` en la
+  tarea 26 de esta misma ronda — ver esa tarea.)**
 
   No se tocaron: la estructura de rutas (ningún link cambió de URL), el ítem "Catálogo" ni
   "Mis solicitudes" (fuera del bloque de Gestor, sin agrupar a propósito — son de un solo
@@ -873,4 +874,73 @@ falta un rediseño amplio, dos hallazgos puntuales explicaban el pedido.
   regresiones) y smoke test no interactivo de 4 rutas (sin excepciones en el log). **No se
   verificó visualmente en el navegador** (ver memoria `feedback-no-browser-testing`).
   Archivos: `Components/Layout/Sidebar.razor`, `Components/Layout/SidebarGroupLabel.razor`
-  (nuevo).
+  (nuevo, reemplazado después).
+
+- [x] **24. "Mi cuenta" sin forma explícita de salir** — Hecho.
+
+  El usuario reportó: "no se puede salir de ahí sino dando clic en otro lado". Confirmado
+  en el código: `ManageNavMenu.razor` (la tarjeta "Mi cuenta" que acompaña las 14 páginas
+  de `Account/Manage/*`) solo tenía links a las sub-secciones internas (Perfil, Email,
+  Contraseña, etc.) — ningún link de "volver"/"cerrar". La única salida real era clicar
+  algo del sidebar principal (que sigue visible, `ManageLayout.razor` usa el `MainLayout`
+  normal), pero sin ningún indicio ahí mismo de que esa era la forma de salir.
+
+  Se agregó un botón "← Volver" en el `HeaderActions` de la tarjeta "Mi cuenta" (slot que
+  `Card.razor` ya tenía pero ningún lugar de la app usaba todavía), al lado del título,
+  apuntando a `/`. Queda visible en las 14 páginas de `Account/Manage/*` porque todas
+  comparten el mismo `ManageNavMenu.razor`.
+
+  Verificado con `dotnet build` (0 errores/advertencias) y smoke test no interactivo de
+  `/Account/Manage` y `/Account/Manage/Email` (sin excepciones en el log). **No se
+  verificó visualmente en el navegador** (ver memoria `feedback-no-browser-testing`).
+  Archivos: `Components/Account/Shared/ManageNavMenu.razor`.
+
+- [x] **25. No se podía editar el nombre completo desde "Mi cuenta"** — Hecho.
+
+  `Account/Manage/Index.razor` (Perfil) mostraba "Usuario" (el username/email) como campo
+  deshabilitado, y tenía Teléfono/Dirección editables — pero `NombreCompleto` (el nombre
+  que se pide obligatorio al registrarse, y que queda como snapshot en
+  `SolicitanteNombre`/`GestorNombre` de cada solicitud) no tenía ningún campo en esta
+  pantalla, en ningún lado de la app.
+
+  Se agregó un campo "Nombre completo" al formulario de Perfil, con la misma validación
+  `[Required]` que ya usa `Register.razor` para el mismo campo (mismo mensaje de error,
+  mismo `[Display(Name = "Nombre completo")]`). El guardado se unificó con el de
+  Dirección (antes solo guardaba si cambiaba la dirección; ahora guarda si cambió
+  cualquiera de los dos, en un solo `UpdateAsync`) — Teléfono sigue aparte porque usa
+  `SetPhoneNumberAsync` (un setter propio de `UserManager`, no una propiedad plana como
+  `NombreCompleto`/`DireccionPredeterminada`).
+
+  Cambiar el nombre acá **no** altera retroactivamente `SolicitanteNombre`/`GestorNombre`
+  de solicitudes ya creadas — son snapshots, mismo criterio ya documentado en la tarea 7
+  de este plan (dato histórico, no se recalcula).
+
+  Verificado con `dotnet build` (0 errores/advertencias) y smoke test no interactivo de
+  `/Account/Manage` (sin excepciones en el log). **No se verificó visualmente en el
+  navegador** (ver memoria `feedback-no-browser-testing`).
+  Archivos: `Components/Account/Pages/Manage/Index.razor`.
+
+- [x] **26. Las 6 sub-secciones del sidebar (tarea 23) ahora se pueden esconder** — Hecho.
+
+  Pedido explícito del usuario, como continuación directa de la tarea 23: que cada una de
+  las 6 sub-secciones nuevas del sidebar de Gestor se pueda ocultar/mostrar.
+
+  `SidebarGroupLabel.razor` (un encabezado estático) se reemplazó por `SidebarGroup.razor`
+  — ahora envuelve sus links (`ChildContent`) en vez de ser solo una etiqueta suelta antes
+  de ellos, y el encabezado es un `<button>` con estado propio (`expandido`, default
+  `true` — nada queda escondido de entrada, coherente con el comportamiento actual; el
+  usuario decide qué colapsar) que alterna un ícono `chevron-down`/`chevron-right`. Con el
+  sidebar entero colapsado (modo solo-íconos) el acordeón no aplica — ahí se sigue viendo
+  como un separador simple, siempre expandido, porque no hay texto que esconder.
+
+  El estado de cada grupo (abierto/cerrado) vive en el propio componente `SidebarGroup`,
+  así que persiste mientras dure la sesión/circuito (navegar entre páginas no lo resetea,
+  porque el sidebar es parte del layout persistente) pero no sobrevive un refresh completo
+  del navegador — no se agregó persistencia en `localStorage`, se consideró fuera de
+  alcance del pedido ("que se esconda" no pedía que se recuerde entre sesiones).
+
+  Verificado con `dotnet build` (0 errores/advertencias), `dotnet test` (16/16 sin
+  regresiones) y smoke test no interactivo (sin excepciones en el log). **No se verificó
+  visualmente en el navegador** (ver memoria `feedback-no-browser-testing`).
+  Archivos: `Components/Layout/SidebarGroup.razor` (nuevo, reemplaza a
+  `SidebarGroupLabel.razor`, eliminado), `Components/Layout/Sidebar.razor`.
