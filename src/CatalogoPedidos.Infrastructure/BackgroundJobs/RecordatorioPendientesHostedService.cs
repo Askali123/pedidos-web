@@ -10,7 +10,7 @@ namespace CatalogoPedidos.Infrastructure.BackgroundJobs;
 /// (ISolicitudService.EnviarRecordatoriosPendientesAsync) y (2) los pedidos con algo
 /// Aprobado hace más de 72h sin confirmar la entrega
 /// (IConfirmacionEntregaService.EnviarRecordatoriosEntregaPendienteAsync), sin depender
-/// de que alguien tenga la Bandeja o Administrar pedidos abiertos. Corre una vez al
+/// de que alguien tenga la Bandeja o Administrar solicitudes abiertos. Corre una vez al
 /// iniciar la app y luego según <see cref="Intervalo"/>.
 /// </summary>
 public class RecordatorioPendientesHostedService(

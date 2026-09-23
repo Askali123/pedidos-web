@@ -5,7 +5,8 @@ Idioma del repo: **español** (docs, comentarios y commits).
 
 ## Comandos (verificados)
 
-- Build: `dotnet build src/CatalogoPedidos.slnx` — la solución usa el formato **slnx** (no `.sln`). Build limpio (0 errores/advertencias) es la única verificación disponible: no hay tests, CI ni linter en el repo.
+- Build: `dotnet build src/CatalogoPedidos.slnx` — la solución usa el formato **slnx** (no `.sln`). Build limpio (0 errores/advertencias) + tests son la verificación disponible: no hay CI ni linter en el repo.
+- Tests: `dotnet test src/CatalogoPedidos.slnx` — xUnit + Moq, un solo proyecto por ahora: `src/CatalogoPedidos.Application.Tests` (cubre la lógica de negocio de `Application/Solicitudes`, sin DB real — repos simulados con listas en memoria). Domain/Infrastructure/Web todavía no tienen tests propios.
 - Correr: `cd src/CatalogoPedidos.Web; dotnet run --urls "http://localhost:5220"`
 - Migración nueva (siempre con ambos proyectos, si no falla):
   `dotnet ef migrations add Nombre --project src/CatalogoPedidos.Infrastructure --startup-project src/CatalogoPedidos.Web --output-dir Persistence/Migrations`

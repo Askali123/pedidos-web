@@ -545,24 +545,56 @@ el orden es la prioridad acordada.
   `HttpsRedirectionMiddleware`).
   Archivo(s): `Bandeja.razor`
 
-- [x] **16. Confirmar si el Gestor debería ver el ícono de carrito en el header** — Hecho,
-  sin cambios de código.
-  `Layout/Carrito.razor` (el ícono del carrito en el topbar) aparece también para un
-  usuario con rol Gestor, cuyo trabajo principal es administrar pedidos, no solicitarlos.
+- [x] **16. Confirmar si el Gestor debería ver el ícono de carrito en el header** —
+  **Revisado el 2026-09-22: la decisión cambió.**
+
+  La resolución original (dejarlo sin cambios, ver texto tachado abajo) partía de la
+  premisa "un Gestor puede armar y enviar su propia solicitud igual que un Solicitante".
+  El usuario confirmó explícitamente que esa premisa ya no aplica: el Gestor administra el
+  catálogo y aprueba/envía solicitudes ajenas, pero no arma solicitudes propias. Se
+  revirtió en las mismas 4 capas que la resolución anterior había verificado como
+  consistentes:
+  - `Layout/Carrito.razor`: el ícono del carrito pasó de `<AuthorizeView>` (sin rol) a
+    `<AuthorizeView Roles="@Roles.Gestor"><NotAuthorized>...</NotAuthorized></AuthorizeView>`
+    — se muestra a cualquier autenticado que NO sea Gestor.
+  - `Catalogo.razor`: el botón "Agregar"/"En el carrito" quedó envuelto en el mismo patrón
+    (antes se mostraba a todos sin condición de rol).
+  - `Pages/Solicitudes/Carrito.razor`: además de que ya no hay ningún link visible hacia
+    ahí para un Gestor, se agregó un chequeo en `OnInitializedAsync` que redirige a
+    `/catalogo` si `authState.User.IsInRole(Roles.Gestor)` — defensa contra entrar por URL
+    directa (la página seguía con `[Authorize]` simple, sin restricción de rol).
+
+  Nota de implementación: en este sistema los roles son aditivos, no excluyentes —
+  `Register.razor` le da `Roles.Usuario` a todo el que se registra, y `UsuarioRolService`
+  (la pantalla de gestión de roles) solo AGREGA `Roles.Gestor` encima, nunca quita
+  `Usuario`. Por eso el chequeo es "¿tiene el rol Gestor?" (lo bloquea sin importar si
+  también tiene Usuario) y no "¿tiene el rol Usuario?" (que fallaría para un Gestor
+  promovido que sí conserva Usuario).
+
+  Verificado: `dotnet build` limpio. No probado clic-por-clic en el navegador.
+  Archivos: `Layout/Carrito.razor`, `Catalogo.razor`, `Pages/Solicitudes/Carrito.razor`.
+
+  <details><summary>Resolución original (2026-09-18), ya no vigente</summary>
+
+  Hecho, sin cambios de código. `Layout/Carrito.razor` (el ícono del carrito en el
+  topbar) aparece también para un usuario con rol Gestor, cuyo trabajo principal es
+  administrar pedidos, no solicitarlos.
 
   Se confirmó en el código, antes de suponer que era un descuido: `Catalogo.razor` solo
   tiene `[Authorize]` (sin restricción de rol), el botón "Agregar" (agregar al carrito) no
   está condicionado por rol en ningún lado del markup, la página `/solicitudes/carrito`
   tampoco restringe por rol, y `Layout/Carrito.razor` usa `<AuthorizeView>` sin `Roles` —
-  se muestra a cualquier usuario autenticado. Es decir, es intencional y consistente en
+  se muestra a cualquier usuario autenticado. Es decir, era intencional y consistente en
   las 4 capas (página de catálogo, botón de agregar, página de carrito, ícono del header):
-  un Gestor puede armar y enviar su propia solicitud igual que un Solicitante, no solo
+  un Gestor podía armar y enviar su propia solicitud igual que un Solicitante, no solo
   administrar las de otros.
 
-  Verificado en el navegador logueado como Gestor: el catálogo muestra el botón "Agregar"
+  Verificado en el navegador logueado como Gestor: el catálogo mostraba el botón "Agregar"
   en cada producto (junto con "Editar"/"Proveedores"/"Desactivar", exclusivos de Gestor) y
-  el ícono de carrito del header está presente y funcional. No se hizo ningún cambio de
-  código — el comportamiento ya era el correcto.
+  el ícono de carrito del header estaba presente y funcional. No se hizo ningún cambio de
+  código en ese momento — el comportamiento se consideraba correcto entonces.
+
+  </details>
 
 - [x] **17. Alertar sobre NIT duplicado al crear un proveedor** — Hecho.
   Dos proveedores convivían con el mismo NIT ("1001": "Tiendas Ara" / "Tiendas Ara
@@ -594,3 +626,79 @@ el orden es la prioridad acordada.
   del servidor (solo el falso positivo ya conocido de `HttpsRedirectionMiddleware`).
   Archivo(s): `Proveedores.razor` (y `wwwroot/app.css`, recompilado con `npm run
   build:css` para que Tailwind incluya la clase nueva `text-warning-700`)
+
+- [x] **18. Desactivar un producto era un camino sin retorno y sin rastro** — Hecho
+  (2026-09-22).
+
+  El usuario reportó: "cuando un producto es desactivado no se ve a dónde va". Se
+  confirmó en el código, no era una percepción: `ProductoService.DesactivarAsync` pone
+  `Activo = false`, pero **no existía `ReactivarAsync`** (sí existe para asociaciones
+  producto-proveedor, `ReactivarAsociacionAsync`, pero nunca se replicó para el Producto
+  en sí). `ObtenerCatalogoAsync` filtra `Where(p => p.Activo)` a nivel de repositorio y no
+  había ningún toggle/filtro "ver desactivados" en ninguna pantalla — un producto
+  desactivado desaparecía sin dejar ningún rastro navegable, y era irreversible salvo
+  editando la base directamente.
+
+  - **Reactivar:** `IProductoService.ReactivarAsync`/`ProductoService.ReactivarAsync`
+    nuevos (mismo patrón que `DesactivarAsync`, solo que pone `Activo = true`).
+  - **Verlo y reactivarlo:** `ObtenerCatalogoAsync` ganó un parámetro
+    `incluirInactivos` (default `false`, no rompe a los callers existentes). En
+    `Catalogo.razor`, el Gestor tiene un checkbox "Mostrar desactivados" (deshabilitado si
+    hay un filtro de proveedor activo, porque esa rama usa otra consulta que no lo
+    soporta) que trae activos e inactivos juntos — fila atenuada (`opacity-60`) + badge
+    "Desactivado" junto al nombre, y el botón "Desactivar" se reemplaza por "Reactivar"
+    para esas filas.
+  - **Avisar en el historial:** `MisSolicitudes.razor`, `Bandeja.razor`,
+    `Administrar.razor` y `HistorialResoluciones.razor` muestran el mismo badge
+    "Desactivado" junto al nombre del producto cuando `s.Producto?.Activo == false`, para
+    que quede claro por qué esa línea no se puede volver a pedir.
+  - **`ProveedoresDeProducto.razor`** (antes solo mostraba el estado de la *asociación*,
+    nunca el del producto padre) gana un `Alert` de advertencia arriba de la tabla cuando
+    el producto está desactivado, con link directo al catálogo para reactivarlo.
+
+  No se tocó `ProductosDeProveedor.razor` (la vista desde el lado del proveedor) — ese
+  listado ya filtra por asociación activa y no es el lugar natural para gestionar el
+  estado del producto.
+
+  Verificado: `dotnet build` limpio en cada paso; `dotnet test` sigue en 7/7. No probado
+  clic-por-clic en el navegador.
+  Archivos: `Application/Productos/IProductoService.cs`, `ProductoService.cs`,
+  `IProductoRepository.cs`, `Infrastructure/Repositories/ProductoRepository.cs`,
+  `Catalogo.razor`, `ProveedoresDeProducto.razor`, `MisSolicitudes.razor`, `Bandeja.razor`,
+  `Administrar.razor`, `HistorialResoluciones.razor`.
+
+- [x] **19. Quitar el PDF por línea; dejar por solicitud y por pedido; agregar Excel del
+  pedido a proveedor** — Hecho (2026-09-23).
+
+  Pedido del usuario: sacar la exportación PDF de una línea individual (`DetalleSolicitud`)
+  — quedaba un botón "PDF" por cada fila en Bandeja/Administrar/Mis solicitudes/Historial
+  de resoluciones, redundante con el PDF de la solicitud completa (que ya existía) — y
+  agregar una exportación Excel del documento por proveedor con el detalle de códigos
+  (el equivalente al PDF de `ExportarPedidoProveedor`, que hasta ahora solo se generaba
+  para el adjunto del correo, sin botón de descarga propio).
+
+  - **PDF por línea, eliminado:** `IPdfExportService.ExportarSolicitud(DetalleSolicitud)` +
+    su implementación en `PdfExportService`, el endpoint `GET /api/solicitudes/{id}/pdf` en
+    `Program.cs`, y los 4 botones "PDF" (uno por línea) en `Administrar.razor`,
+    `Bandeja.razor`, `HistorialResoluciones.razor` y `MisSolicitudes.razor` (columnas de
+    tabla correspondientes también removidas). Se mantienen intactos:
+    - **Por solicitud:** `ExportarPedido(Solicitud)` vía `GET /api/pedidos/{id}/pdf` —
+      botón "PDF de la solicitud" en Bandeja/Administrar/Mis solicitudes.
+    - **Por pedido (documento a un proveedor):** `ExportarPedidoProveedor` vía
+      `GET /api/pedidos-proveedor/{id}/pdf` — botón "PDF del pedido" en `HistorialEnvios.razor`.
+  - **Excel del pedido a proveedor, agregado:** nuevo endpoint
+    `GET /api/pedidos-proveedor/{id}/excel` en `Program.cs` (mismo patrón que su hermano
+    PDF: recarga el documento por Id, descarta líneas `Excluido`, usa
+    `IExcelExportService.ExportarPedidoProveedor` — que ya existía para el adjunto de
+    correo, solo le faltaba un endpoint de descarga propio). Botón "Excel" nuevo en
+    `HistorialEnvios.razor`, al lado de "PDF del pedido" — solo aparece cuando el envío
+    tiene un documento `PedidoProveedor` real (`PedidoProveedorId` no nulo); las filas
+    legacy sin documento (previas a esta funcionalidad) no lo muestran, porque no hay
+    snapshot por proveedor del que generarlo.
+
+  Verificado: `dotnet build` limpio, `dotnet test` 7/7, grep sin referencias colgantes al
+  método/endpoint eliminados. No probado clic-por-clic en el navegador.
+  Archivos: `Application/Exportacion/IPdfExportService.cs`,
+  `Infrastructure/Pdf/PdfExportService.cs`, `Program.cs`, `Administrar.razor`,
+  `Bandeja.razor`, `HistorialResoluciones.razor`, `MisSolicitudes.razor`,
+  `HistorialEnvios.razor`.

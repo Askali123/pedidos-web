@@ -14,7 +14,8 @@ public class ResolverSolicitudDto
 
 public class DecisionSolicitudDto
 {
-    public int SolicitudId { get; set; }
+    /// <summary>Id de la línea (<see cref="Domain.Entities.DetalleSolicitud"/>) que se está decidiendo — no el de la Solicitud (cabecera).</summary>
+    public int DetalleId { get; set; }
     public bool Aprobar { get; set; }
 }
 

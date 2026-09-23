@@ -4,6 +4,7 @@ using CatalogoPedidos.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260921212813_AgregarPedidoProveedorYDocsPorProveedor")]
+    partial class AgregarPedidoProveedorYDocsPorProveedor
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -51,21 +54,20 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                     b.Property<string>("Observaciones")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("PedidoId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("ProveedorId")
                         .HasColumnType("int");
 
                     b.Property<string>("RecibidoPorNombre")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("SolicitudId")
-                        .HasColumnType("int")
-                        .HasColumnName("PedidoId");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("ProveedorId");
+                    b.HasIndex("PedidoId");
 
-                    b.HasIndex("SolicitudId");
+                    b.HasIndex("ProveedorId");
 
                     b.ToTable("ConfirmacionesEntrega");
                 });
@@ -115,59 +117,6 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("DetallesPedidoProveedor");
-                });
-
-            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.DetalleSolicitud", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("Cantidad")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ComentarioGestor")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("Estado")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("FechaResolucion")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("FechaSolicitud")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("GestorId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("GestorNombre")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("ProductoId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SolicitanteId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SolicitanteNombre")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("SolicitudId")
-                        .HasColumnType("int")
-                        .HasColumnName("PedidoId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductoId");
-
-                    b.HasIndex("SolicitudId");
-
-                    b.ToTable("Solicitudes", (string)null);
                 });
 
             modelBuilder.Entity("CatalogoPedidos.Domain.Entities.Notificacion", b =>
@@ -237,25 +186,61 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                     b.Property<string>("GestorNombre")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("PedidoId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("PedidoProveedorId")
                         .HasColumnType("int");
 
                     b.Property<int>("ProveedorId")
                         .HasColumnType("int");
 
-                    b.Property<int>("SolicitudId")
-                        .HasColumnType("int")
-                        .HasColumnName("PedidoId");
-
                     b.HasKey("Id");
+
+                    b.HasIndex("PedidoId");
 
                     b.HasIndex("PedidoProveedorId");
 
                     b.HasIndex("ProveedorId");
 
-                    b.HasIndex("SolicitudId");
-
                     b.ToTable("NotificacionesProveedor");
+                });
+
+            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.Pedido", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Comentario")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DireccionEntrega")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("RecordatorioEntregaEnviado")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RecordatorioEnviado")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SolicitanteId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SolicitanteNombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Pedidos");
                 });
 
             modelBuilder.Entity("CatalogoPedidos.Domain.Entities.PedidoProveedor", b =>
@@ -276,18 +261,17 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<int>("ProveedorId")
+                    b.Property<int>("PedidoId")
                         .HasColumnType("int");
 
-                    b.Property<int>("SolicitudId")
-                        .HasColumnType("int")
-                        .HasColumnName("PedidoId");
+                    b.Property<int>("ProveedorId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ProveedorId");
 
-                    b.HasIndex("SolicitudId", "ProveedorId")
+                    b.HasIndex("PedidoId", "ProveedorId")
                         .IsUnique();
 
                     b.ToTable("PedidosProveedor");
@@ -419,7 +403,7 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                     b.ToTable("Proveedores");
                 });
 
-            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.Solicitud", b =>
+            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.SolicitudProducto", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -427,20 +411,32 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Comentario")
+                    b.Property<int>("Cantidad")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ComentarioGestor")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("DireccionEntrega")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int>("Estado")
+                        .HasColumnType("int");
 
-                    b.Property<DateTime>("FechaCreacion")
+                    b.Property<DateTime?>("FechaResolucion")
                         .HasColumnType("datetime2");
 
-                    b.Property<bool>("RecordatorioEntregaEnviado")
-                        .HasColumnType("bit");
+                    b.Property<DateTime>("FechaSolicitud")
+                        .HasColumnType("datetime2");
 
-                    b.Property<bool>("RecordatorioEnviado")
-                        .HasColumnType("bit");
+                    b.Property<string>("GestorId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GestorNombre")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PedidoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductoId")
+                        .HasColumnType("int");
 
                     b.Property<string>("SolicitanteId")
                         .IsRequired()
@@ -448,12 +444,15 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("SolicitanteNombre")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Pedidos", (string)null);
+                    b.HasIndex("PedidoId");
+
+                    b.HasIndex("ProductoId");
+
+                    b.ToTable("Solicitudes");
                 });
 
             modelBuilder.Entity("CatalogoPedidos.Infrastructure.Identity.ApplicationUser", b =>
@@ -685,20 +684,20 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("CatalogoPedidos.Domain.Entities.ConfirmacionEntrega", b =>
                 {
+                    b.HasOne("CatalogoPedidos.Domain.Entities.Pedido", "Pedido")
+                        .WithMany("ConfirmacionesEntrega")
+                        .HasForeignKey("PedidoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("CatalogoPedidos.Domain.Entities.Proveedor", "Proveedor")
                         .WithMany()
                         .HasForeignKey("ProveedorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("CatalogoPedidos.Domain.Entities.Solicitud", "Solicitud")
-                        .WithMany("ConfirmacionesEntrega")
-                        .HasForeignKey("SolicitudId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Navigation("Pedido");
 
                     b.Navigation("Proveedor");
-
-                    b.Navigation("Solicitud");
                 });
 
             modelBuilder.Entity("CatalogoPedidos.Domain.Entities.DetallePedidoProveedor", b =>
@@ -720,27 +719,14 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                     b.Navigation("Producto");
                 });
 
-            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.DetalleSolicitud", b =>
+            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.NotificacionProveedor", b =>
                 {
-                    b.HasOne("CatalogoPedidos.Domain.Entities.Producto", "Producto")
-                        .WithMany("Solicitudes")
-                        .HasForeignKey("ProductoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("CatalogoPedidos.Domain.Entities.Solicitud", "Solicitud")
-                        .WithMany("Items")
-                        .HasForeignKey("SolicitudId")
+                    b.HasOne("CatalogoPedidos.Domain.Entities.Pedido", "Pedido")
+                        .WithMany("NotificacionesProveedor")
+                        .HasForeignKey("PedidoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Producto");
-
-                    b.Navigation("Solicitud");
-                });
-
-            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.NotificacionProveedor", b =>
-                {
                     b.HasOne("CatalogoPedidos.Domain.Entities.PedidoProveedor", "PedidoProveedor")
                         .WithMany("Notificaciones")
                         .HasForeignKey("PedidoProveedorId")
@@ -752,36 +738,30 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CatalogoPedidos.Domain.Entities.Solicitud", "Solicitud")
-                        .WithMany("NotificacionesProveedor")
-                        .HasForeignKey("SolicitudId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Navigation("Pedido");
 
                     b.Navigation("PedidoProveedor");
 
                     b.Navigation("Proveedor");
-
-                    b.Navigation("Solicitud");
                 });
 
             modelBuilder.Entity("CatalogoPedidos.Domain.Entities.PedidoProveedor", b =>
                 {
+                    b.HasOne("CatalogoPedidos.Domain.Entities.Pedido", "Pedido")
+                        .WithMany("PedidosProveedor")
+                        .HasForeignKey("PedidoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("CatalogoPedidos.Domain.Entities.Proveedor", "Proveedor")
                         .WithMany()
                         .HasForeignKey("ProveedorId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("CatalogoPedidos.Domain.Entities.Solicitud", "Solicitud")
-                        .WithMany("PedidosProveedor")
-                        .HasForeignKey("SolicitudId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                    b.Navigation("Pedido");
 
                     b.Navigation("Proveedor");
-
-                    b.Navigation("Solicitud");
                 });
 
             modelBuilder.Entity("CatalogoPedidos.Domain.Entities.ProductoProveedor", b =>
@@ -801,6 +781,25 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                     b.Navigation("Producto");
 
                     b.Navigation("Proveedor");
+                });
+
+            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.SolicitudProducto", b =>
+                {
+                    b.HasOne("CatalogoPedidos.Domain.Entities.Pedido", "Pedido")
+                        .WithMany("Items")
+                        .HasForeignKey("PedidoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CatalogoPedidos.Domain.Entities.Producto", "Producto")
+                        .WithMany("Solicitudes")
+                        .HasForeignKey("ProductoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Pedido");
+
+                    b.Navigation("Producto");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -905,6 +904,17 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.Pedido", b =>
+                {
+                    b.Navigation("ConfirmacionesEntrega");
+
+                    b.Navigation("Items");
+
+                    b.Navigation("NotificacionesProveedor");
+
+                    b.Navigation("PedidosProveedor");
+                });
+
             modelBuilder.Entity("CatalogoPedidos.Domain.Entities.PedidoProveedor", b =>
                 {
                     b.Navigation("Items");
@@ -922,17 +932,6 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("CatalogoPedidos.Domain.Entities.Proveedor", b =>
                 {
                     b.Navigation("Productos");
-                });
-
-            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.Solicitud", b =>
-                {
-                    b.Navigation("ConfirmacionesEntrega");
-
-                    b.Navigation("Items");
-
-                    b.Navigation("NotificacionesProveedor");
-
-                    b.Navigation("PedidosProveedor");
                 });
 #pragma warning restore 612, 618
         }

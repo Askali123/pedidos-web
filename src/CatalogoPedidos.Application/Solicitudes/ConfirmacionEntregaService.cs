@@ -23,14 +23,14 @@ public class ConfirmacionEntregaService(
     private static readonly TimeSpan UmbralEntregaPendiente = TimeSpan.FromHours(72);
 
     public Task<List<ConfirmacionEntrega>> ObtenerPorPedidoAsync(int pedidoId, CancellationToken ct = default)
-        => confirmaciones.ObtenerPorPedidoAsync(pedidoId, ct);
+        => confirmaciones.ObtenerPorSolicitudAsync(pedidoId, ct);
 
     public async Task<List<GrupoEntregaDto>> ObtenerGruposDeEntregaAsync(int pedidoId, CancellationToken ct = default)
     {
-        var pedido = await solicitudes.ObtenerPedidoAsync(pedidoId, ct)
+        var pedido = await solicitudes.ObtenerSolicitudAsync(pedidoId, ct)
             ?? throw new InvalidOperationException("El pedido no existe.");
 
-        var confirmadas = await confirmaciones.ObtenerPorPedidoAsync(pedidoId, ct);
+        var confirmadas = await confirmaciones.ObtenerPorSolicitudAsync(pedidoId, ct);
         return await ObtenerGruposDeEntregaAsync(pedido, confirmadas, ct);
     }
 
@@ -45,7 +45,7 @@ public class ConfirmacionEntregaService(
     /// para evitar mandarle la misma línea a dos proveedores (ver
     /// docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md, tareas 2 y 4).
     /// </summary>
-    private async Task<List<GrupoEntregaDto>> ObtenerGruposDeEntregaAsync(Pedido pedido, List<ConfirmacionEntrega> confirmadas, CancellationToken ct)
+    private async Task<List<GrupoEntregaDto>> ObtenerGruposDeEntregaAsync(Solicitud pedido, List<ConfirmacionEntrega> confirmadas, CancellationToken ct)
     {
         var aprobadas = pedido.Items.Where(i => i.Estado == EstadoSolicitud.Aprobada).ToList();
         if (aprobadas.Count == 0)
@@ -53,7 +53,7 @@ public class ConfirmacionEntregaService(
 
         var productoIds = aprobadas.Select(i => i.ProductoId).Distinct();
         var todasLasAsociaciones = await asociaciones.ObtenerPorProductosAsync(productoIds, ct);
-        var enviosDelPedido = await envios.ObtenerPorPedidoAsync(pedido.Id, ct);
+        var enviosDelPedido = await envios.ObtenerPorSolicitudAsync(pedido.Id, ct);
         var proveedorIdsConfirmados = confirmadas.Select(c => c.ProveedorId).ToHashSet();
 
         var grupos = new List<GrupoEntregaDto>();
@@ -99,7 +99,7 @@ public class ConfirmacionEntregaService(
         return grupos.OrderBy(g => g.ProveedorId is null).ThenBy(g => g.ProveedorNombre).ToList();
     }
 
-    private static List<ProductoDelPedidoDto> AProductosDelPedido(IEnumerable<SolicitudProducto> lineas) =>
+    private static List<ProductoDelPedidoDto> AProductosDelPedido(IEnumerable<DetalleSolicitud> lineas) =>
         lineas.Select(i => new ProductoDelPedidoDto
         {
             ProductoId = i.ProductoId,
@@ -119,10 +119,10 @@ public class ConfirmacionEntregaService(
 
     public async Task<ConfirmacionEntrega> ConfirmarAsync(int pedidoId, int? proveedorId, string gestorId, string gestorNombre, ConfirmarEntregaDto dto, CancellationToken ct = default)
     {
-        var pedido = await solicitudes.ObtenerPedidoAsync(pedidoId, ct)
+        var pedido = await solicitudes.ObtenerSolicitudAsync(pedidoId, ct)
             ?? throw new InvalidOperationException("El pedido no existe.");
 
-        var confirmadas = await confirmaciones.ObtenerPorPedidoAsync(pedidoId, ct);
+        var confirmadas = await confirmaciones.ObtenerPorSolicitudAsync(pedidoId, ct);
 
         // La UI ya oculta el botón para un grupo que no existe o que ya está confirmado
         // (ver Bandeja/Administrar), pero el servicio es la última línea de defensa.
@@ -135,7 +135,7 @@ public class ConfirmacionEntregaService(
 
         var confirmacion = new ConfirmacionEntrega
         {
-            PedidoId = pedido.Id,
+            SolicitudId = pedido.Id,
             ProveedorId = proveedorId,
             FechaEntrega = DateTime.UtcNow,
             ConfirmadoPorId = gestorId,
@@ -174,7 +174,7 @@ public class ConfirmacionEntregaService(
         }
     }
 
-    private async Task NotificarEntregaAsync(Pedido pedido, ConfirmacionEntrega confirmacion, GrupoEntregaDto grupo, List<GrupoEntregaDto> grupos, CancellationToken ct)
+    private async Task NotificarEntregaAsync(Solicitud pedido, ConfirmacionEntrega confirmacion, GrupoEntregaDto grupo, List<GrupoEntregaDto> grupos, CancellationToken ct)
     {
         try
         {
@@ -232,7 +232,7 @@ public class ConfirmacionEntregaService(
                 continue;
 
             // Con confirmación por proveedor, "sin entrega" ya no alcanza con mirar
-            // Pedido.ConfirmacionesEntrega — hay que ver si queda algún GRUPO sin
+            // Solicitud.ConfirmacionesEntrega — hay que ver si queda algún GRUPO sin
             // confirmar (un pedido con una confirmación parcial igual puede tener algo
             // pendiente) — ver docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md #8.
             var grupos = await ObtenerGruposDeEntregaAsync(pedido.Id, ct);
@@ -243,11 +243,11 @@ public class ConfirmacionEntregaService(
             await NotificarRecordatorioEntregaAsync(pedido, gruposPendientes, ct);
 
             pedido.RecordatorioEntregaEnviado = true;
-            await solicitudes.ActualizarPedidoAsync(pedido, ct);
+            await solicitudes.ActualizarSolicitudAsync(pedido, ct);
         }
     }
 
-    private async Task NotificarRecordatorioEntregaAsync(Pedido pedido, List<GrupoEntregaDto> gruposPendientes, CancellationToken ct)
+    private async Task NotificarRecordatorioEntregaAsync(Solicitud pedido, List<GrupoEntregaDto> gruposPendientes, CancellationToken ct)
     {
         try
         {

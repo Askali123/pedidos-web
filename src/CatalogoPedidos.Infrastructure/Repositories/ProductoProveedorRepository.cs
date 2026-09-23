@@ -49,6 +49,13 @@ public class ProductoProveedorRepository(IDbContextFactory<AppDbContext> dbFacto
             .FirstOrDefaultAsync(pp => pp.Id == id, ct);
     }
 
+    public async Task<ProductoProveedor?> ObtenerPorProductoYProveedorAsync(int productoId, int proveedorId, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.ProductoProveedores.Include(pp => pp.Proveedor)
+            .FirstOrDefaultAsync(pp => pp.ProductoId == productoId && pp.ProveedorId == proveedorId, ct);
+    }
+
     public async Task<ProductoProveedor?> ObtenerPorProveedorYCodigoAsync(int proveedorId, string codigo, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -63,9 +70,13 @@ public class ProductoProveedorRepository(IDbContextFactory<AppDbContext> dbFacto
             return [];
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
+        // Solo asociaciones ACTIVAS: el badge/deep-link que consume esto (código preferido,
+        // alerta de stock bajo) debe apuntar a un proveedor que todavía pueda recibir
+        // pedidos — una desactivada no aparece en "Enviar a proveedor" y dejaría el badge
+        // apuntando a algo que ya no sirve (ver docs/PLAN_PEDIDO_PROVEEDOR.md, Etapa 5).
         var candidatas = await db.ProductoProveedores
             .Include(pp => pp.Proveedor)
-            .Where(pp => ids.Contains(pp.ProductoId))
+            .Where(pp => ids.Contains(pp.ProductoId) && pp.Activo)
             .OrderByDescending(pp => pp.EsPreferido)
             .ThenBy(pp => pp.FechaAsociacion)
             .ToListAsync(ct);
@@ -117,16 +128,5 @@ public class ProductoProveedorRepository(IDbContextFactory<AppDbContext> dbFacto
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         db.ProductoProveedores.Update(asociacion);
         await db.SaveChangesAsync(ct);
-    }
-
-    public async Task EliminarAsync(int id, CancellationToken ct = default)
-    {
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var asociacion = await db.ProductoProveedores.FindAsync([id], ct);
-        if (asociacion is not null)
-        {
-            db.ProductoProveedores.Remove(asociacion);
-            await db.SaveChangesAsync(ct);
-        }
     }
 }

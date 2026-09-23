@@ -34,5 +34,18 @@ public interface IProveedorService
         bool soloActivos = false,
         CancellationToken ct = default);
     Task<ProductoProveedor> AsociarProveedorAsync(AsociarProveedorDto dto, CancellationToken ct = default);
-    Task QuitarAsociacionAsync(int asociacionId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Edita una asociación existente (código, precio, preferido) sin tocar su estado
+    /// Activo — para corregir/ajustar, no para quitar (ver DesactivarAsociacionAsync).
+    /// </summary>
+    Task ActualizarAsociacionAsync(int asociacionId, AsociarProveedorDto dto, CancellationToken ct = default);
+
+    /// <summary>
+    /// "Quita" la asociación desactivándola (no borra la fila): conserva el histórico —
+    /// los PedidoProveedor ya emitidos guardan sus snapshots y no dependen de esto; solo
+    /// los pedidos NUEVOS dejan de ofrecer este proveedor para este producto.
+    /// </summary>
+    Task DesactivarAsociacionAsync(int asociacionId, CancellationToken ct = default);
+    Task ReactivarAsociacionAsync(int asociacionId, CancellationToken ct = default);
 }

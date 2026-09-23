@@ -17,15 +17,15 @@ public class SolicitudService(
 {
     private const int MensajeMaxLength = 500;
 
-    /// <summary>Tiempo pendiente a partir del cual un pedido se considera urgente (ver también Bandeja.razor).</summary>
+    /// <summary>Tiempo pendiente a partir del cual una solicitud se considera urgente (ver también Bandeja.razor).</summary>
     private static readonly TimeSpan UmbralPendienteUrgente = TimeSpan.FromHours(48);
 
-    public async Task<Pedido> CrearPedidoAsync(string solicitanteId, string solicitanteNombre, string? comentario, List<CrearSolicitudDto> items, string? direccionEntrega = null, CancellationToken ct = default)
+    public async Task<Solicitud> CrearSolicitudAsync(string solicitanteId, string solicitanteNombre, string? comentario, List<CrearSolicitudDto> items, string? direccionEntrega = null, CancellationToken ct = default)
     {
         if (items.Count == 0)
             throw new InvalidOperationException("Selecciona al menos un producto antes de enviar la solicitud.");
 
-        var pedido = new Pedido
+        var solicitud = new Solicitud
         {
             SolicitanteId = solicitanteId,
             SolicitanteNombre = solicitanteNombre,
@@ -49,7 +49,7 @@ public class SolicitudService(
             if (item.Cantidad <= 0)
                 throw new InvalidOperationException($"La cantidad de \"{producto.Nombre}\" debe ser mayor a cero.");
 
-            pedido.Items.Add(new SolicitudProducto
+            solicitud.Items.Add(new DetalleSolicitud
             {
                 ProductoId = producto.Id,
                 Cantidad = item.Cantidad,
@@ -62,11 +62,11 @@ public class SolicitudService(
             nombres.Add($"{item.Cantidad}x {producto.Nombre}");
         }
 
-        var creado = await repositorio.CrearPedidoAsync(pedido, ct);
+        var creada = await repositorio.CrearSolicitudAsync(solicitud, ct);
 
         await NotificarGestoresAsync(solicitanteNombre, ResumirNombres(nombres), ct);
 
-        return creado;
+        return creada;
     }
 
     /// <summary>
@@ -98,159 +98,160 @@ public class SolicitudService(
         {
             var idsGestores = await gestores.ObtenerIdsGestoresAsync(ct);
             foreach (var gestorId in idsGestores)
-                await NotificarAsync(gestorId, "Nuevo pedido", mensaje, "/solicitudes/bandeja", TipoNotificacion.SolicitudCreada, ct);
+                await NotificarAsync(gestorId, "Nueva solicitud", mensaje, "/solicitudes/bandeja", TipoNotificacion.SolicitudCreada, ct);
         }
         catch
         {
-            // Best-effort: el pedido ya existe aunque la notificación falle.
+            // Best-effort: la solicitud ya existe aunque la notificación falle.
         }
     }
 
-    public Task<List<SolicitudProducto>> ObtenerMisSolicitudesAsync(string solicitanteId, CancellationToken ct = default)
+    public Task<List<DetalleSolicitud>> ObtenerMisSolicitudesAsync(string solicitanteId, CancellationToken ct = default)
         => repositorio.ObtenerPorSolicitanteAsync(solicitanteId, ct);
 
-    public Task<List<SolicitudProducto>> ObtenerBandejaAsync(CancellationToken ct = default)
+    public Task<List<DetalleSolicitud>> ObtenerBandejaAsync(CancellationToken ct = default)
         => repositorio.ObtenerPendientesAsync(ct);
 
-    public Task<SolicitudProducto?> ObtenerPorIdAsync(int id, CancellationToken ct = default)
+    public Task<DetalleSolicitud?> ObtenerPorIdAsync(int id, CancellationToken ct = default)
         => repositorio.ObtenerPorIdAsync(id, ct);
 
-    public Task<Pedido?> ObtenerPedidoAsync(int pedidoId, CancellationToken ct = default)
-        => repositorio.ObtenerPedidoAsync(pedidoId, ct);
+    public Task<Solicitud?> ObtenerSolicitudAsync(int solicitudId, CancellationToken ct = default)
+        => repositorio.ObtenerSolicitudAsync(solicitudId, ct);
 
     public async Task EnviarRecordatoriosPendientesAsync(CancellationToken ct = default)
     {
         var pendientes = await repositorio.ObtenerPendientesAsync(ct);
         var limite = DateTime.UtcNow - UmbralPendienteUrgente;
 
-        var pedidosVencidos = pendientes
-            .Where(s => s.Pedido is not null && !s.Pedido.RecordatorioEnviado && s.Pedido.FechaCreacion <= limite)
-            .GroupBy(s => s.Pedido!)
+        var solicitudesVencidas = pendientes
+            .Where(s => s.Solicitud is not null && !s.Solicitud.RecordatorioEnviado && s.Solicitud.FechaCreacion <= limite)
+            .GroupBy(s => s.Solicitud!)
             .ToList();
 
-        foreach (var grupo in pedidosVencidos)
+        foreach (var grupo in solicitudesVencidas)
         {
-            var pedido = grupo.Key;
-            await NotificarRecordatorioAsync(pedido, grupo.Count(), ct);
+            var solicitud = grupo.Key;
+            await NotificarRecordatorioAsync(solicitud, grupo.Count(), ct);
 
-            pedido.RecordatorioEnviado = true;
-            await repositorio.ActualizarPedidoAsync(pedido, ct);
+            solicitud.RecordatorioEnviado = true;
+            await repositorio.ActualizarSolicitudAsync(solicitud, ct);
         }
     }
 
-    private async Task NotificarRecordatorioAsync(Pedido pedido, int cantidadProductos, CancellationToken ct)
+    private async Task NotificarRecordatorioAsync(Solicitud solicitud, int cantidadProductos, CancellationToken ct)
     {
         try
         {
             var horas = (int)UmbralPendienteUrgente.TotalHours;
-            var mensaje = $"El pedido #{pedido.Id} de {pedido.SolicitanteNombre} lleva más de {horas}h pendiente ({cantidadProductos} producto{(cantidadProductos == 1 ? "" : "s")}).";
+            var mensaje = $"La solicitud #{solicitud.Id} de {solicitud.SolicitanteNombre} lleva más de {horas}h pendiente ({cantidadProductos} producto{(cantidadProductos == 1 ? "" : "s")}).";
             var idsGestores = await gestores.ObtenerIdsGestoresAsync(ct);
             foreach (var gestorId in idsGestores)
-                await NotificarAsync(gestorId, "Pedido pendiente hace tiempo", mensaje, "/solicitudes/bandeja", TipoNotificacion.RecordatorioPendiente, ct);
+                await NotificarAsync(gestorId, "Solicitud pendiente hace tiempo", mensaje, "/solicitudes/bandeja", TipoNotificacion.RecordatorioPendiente, ct);
         }
         catch
         {
-            // Best-effort: no bloquea marcar el pedido como recordado aunque falle el aviso.
+            // Best-effort: no bloquea marcar la solicitud como recordada aunque falle el aviso.
         }
     }
 
-    public async Task ResolverAsync(int solicitudId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct = default)
+    public async Task ResolverAsync(int detalleId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct = default)
     {
-        var solicitud = await ResolverSinNotificarAsync(solicitudId, gestorId, gestorNombre, dto, ct);
-        var aprobada = solicitud.Estado == EstadoSolicitud.Aprobada;
+        var detalle = await ResolverSinNotificarAsync(detalleId, gestorId, gestorNombre, dto, ct);
+        var aprobada = detalle.Estado == EstadoSolicitud.Aprobada;
 
-        // Título/mensaje en singular y hablando de la SOLICITUD, no del pedido — un pedido
-        // puede tener varias líneas con estados independientes, y acá se resolvió solo esta
-        // (ver docs/PLAN_TRAZABILIDAD_ENTREGAS.md #1). "Pedido aprobado/rechazado" queda
-        // reservado para cuando de verdad se resuelve el pedido completo (ResolverPedidoAsync).
+        // Título/mensaje en singular y hablando de la LÍNEA, no de la solicitud completa —
+        // una solicitud puede tener varias líneas con estados independientes, y acá se
+        // resolvió solo esta (ver docs/PLAN_TRAZABILIDAD_ENTREGAS.md #1). "Solicitud
+        // aprobada/rechazada" en plural queda reservado para cuando de verdad se resuelve
+        // la solicitud completa (ResolverSolicitudAsync).
         var titulo = aprobada ? "Solicitud aprobada" : "Solicitud rechazada";
-        var mensaje = $"Tu solicitud de \"{solicitud.Producto?.Nombre}\" fue {(aprobada ? "aprobada" : "rechazada")} por {gestorNombre}.";
+        var mensaje = $"Tu solicitud de \"{detalle.Producto?.Nombre}\" fue {(aprobada ? "aprobada" : "rechazada")} por {gestorNombre}.";
 
-        await NotificarResolucionAsync(solicitud.SolicitanteId, solicitud.PedidoId, titulo, mensaje, ct);
+        await NotificarResolucionAsync(detalle.SolicitanteId, detalle.SolicitudId, titulo, mensaje, ct);
     }
 
-    public async Task<List<SolicitudProducto>> ResolverPedidoAsync(int pedidoId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct = default)
+    public async Task<List<DetalleSolicitud>> ResolverSolicitudAsync(int solicitudId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct = default)
     {
-        var pedido = await repositorio.ObtenerPedidoAsync(pedidoId, ct)
-            ?? throw new InvalidOperationException("El pedido no existe.");
+        var solicitud = await repositorio.ObtenerSolicitudAsync(solicitudId, ct)
+            ?? throw new InvalidOperationException("La solicitud no existe.");
 
-        var pendientes = pedido.Items.Where(i => i.Estado == EstadoSolicitud.Pendiente).ToList();
+        var pendientes = solicitud.Items.Where(i => i.Estado == EstadoSolicitud.Pendiente).ToList();
         if (pendientes.Count == 0)
-            throw new InvalidOperationException("Este pedido ya no tiene productos pendientes.");
+            throw new InvalidOperationException("Esta solicitud ya no tiene productos pendientes.");
 
         // "Aprobar/rechazar todo" es el caso particular de ResolverVariasAsync donde
         // todas las líneas comparten la misma decisión — se delega ahí para que ambos
         // caminos manden la misma notificación resumen (ver #10 del plan).
         var decisiones = pendientes
-            .Select(i => new DecisionSolicitudDto { SolicitudId = i.Id, Aprobar = dto.Aprobar })
+            .Select(i => new DecisionSolicitudDto { DetalleId = i.Id, Aprobar = dto.Aprobar })
             .ToList();
         var dtoVarias = new ResolverVariasDto { Decisiones = decisiones, ComentarioGestor = dto.ComentarioGestor };
 
-        return await ResolverVariasAsync(pedidoId, gestorId, gestorNombre, dtoVarias, ct);
+        return await ResolverVariasAsync(solicitudId, gestorId, gestorNombre, dtoVarias, ct);
     }
 
-    public async Task<List<SolicitudProducto>> ResolverVariasAsync(int pedidoId, string gestorId, string gestorNombre, ResolverVariasDto dto, CancellationToken ct = default)
+    public async Task<List<DetalleSolicitud>> ResolverVariasAsync(int solicitudId, string gestorId, string gestorNombre, ResolverVariasDto dto, CancellationToken ct = default)
     {
         if (dto.Decisiones.Count == 0)
             throw new InvalidOperationException("Selecciona al menos una línea para resolver.");
 
-        var pedido = await repositorio.ObtenerPedidoAsync(pedidoId, ct)
-            ?? throw new InvalidOperationException("El pedido no existe.");
+        var solicitud = await repositorio.ObtenerSolicitudAsync(solicitudId, ct)
+            ?? throw new InvalidOperationException("La solicitud no existe.");
 
-        var resueltas = new List<SolicitudProducto>();
+        var resueltas = new List<DetalleSolicitud>();
         var aprobadas = new List<string>();
         var rechazadas = new List<string>();
         foreach (var decision in dto.Decisiones)
         {
             var itemDto = new ResolverSolicitudDto { Aprobar = decision.Aprobar, ComentarioGestor = dto.ComentarioGestor };
-            var resuelta = await ResolverSinNotificarAsync(decision.SolicitudId, gestorId, gestorNombre, itemDto, ct);
+            var resuelta = await ResolverSinNotificarAsync(decision.DetalleId, gestorId, gestorNombre, itemDto, ct);
             resueltas.Add(resuelta);
             (decision.Aprobar ? aprobadas : rechazadas).Add($"{resuelta.Cantidad}x {resuelta.Producto?.Nombre}");
         }
 
-        var (titulo, mensaje) = ArmarResolucionPedido(gestorNombre, aprobadas, rechazadas);
-        await NotificarResolucionAsync(pedido.SolicitanteId, pedido.Id, titulo, mensaje, ct);
+        var (titulo, mensaje) = ArmarResolucionSolicitud(gestorNombre, aprobadas, rechazadas);
+        await NotificarResolucionAsync(solicitud.SolicitanteId, solicitud.Id, titulo, mensaje, ct);
 
         return resueltas;
     }
 
     /// <summary>
     /// Arma el título/mensaje de la notificación agrupada que recibe el solicitante
-    /// cuando se resuelven varias líneas de un pedido de un tirón, sea con la misma
+    /// cuando se resuelven varias líneas de una solicitud de un tirón, sea con la misma
     /// decisión ("aprobar/rechazar todo") o con una mezcla de aprobaciones y rechazos.
     /// </summary>
-    private static (string Titulo, string Mensaje) ArmarResolucionPedido(string gestorNombre, List<string> aprobadas, List<string> rechazadas)
+    private static (string Titulo, string Mensaje) ArmarResolucionSolicitud(string gestorNombre, List<string> aprobadas, List<string> rechazadas)
     {
         if (rechazadas.Count == 0)
-            return ("Pedido aprobado", $"Tu pedido ({ResumirNombres(aprobadas)}) fue aprobado por {gestorNombre}.");
+            return ("Solicitud aprobada", $"Tu solicitud ({ResumirNombres(aprobadas)}) fue aprobada por {gestorNombre}.");
 
         if (aprobadas.Count == 0)
-            return ("Pedido rechazado", $"Tu pedido ({ResumirNombres(rechazadas)}) fue rechazado por {gestorNombre}.");
+            return ("Solicitud rechazada", $"Tu solicitud ({ResumirNombres(rechazadas)}) fue rechazada por {gestorNombre}.");
 
-        var mensaje = $"Tu pedido fue resuelto por {gestorNombre}: {aprobadas.Count} aprobado(s) ({ResumirNombres(aprobadas)}), {rechazadas.Count} rechazado(s) ({ResumirNombres(rechazadas)}).";
-        return ("Pedido resuelto", mensaje);
+        var mensaje = $"Tu solicitud fue resuelta por {gestorNombre}: {aprobadas.Count} aprobado(s) ({ResumirNombres(aprobadas)}), {rechazadas.Count} rechazado(s) ({ResumirNombres(rechazadas)}).";
+        return ("Solicitud resuelta", mensaje);
     }
 
-    private async Task<SolicitudProducto> ResolverSinNotificarAsync(int solicitudId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct)
+    private async Task<DetalleSolicitud> ResolverSinNotificarAsync(int detalleId, string gestorId, string gestorNombre, ResolverSolicitudDto dto, CancellationToken ct)
     {
-        var solicitud = await repositorio.ObtenerPorIdAsync(solicitudId, ct)
+        var detalle = await repositorio.ObtenerPorIdAsync(detalleId, ct)
             ?? throw new InvalidOperationException("La solicitud no existe.");
 
-        if (solicitud.Estado != EstadoSolicitud.Pendiente)
+        if (detalle.Estado != EstadoSolicitud.Pendiente)
             throw new InvalidOperationException("Esta solicitud ya fue resuelta.");
 
-        solicitud.Estado = dto.Aprobar ? EstadoSolicitud.Aprobada : EstadoSolicitud.Rechazada;
-        solicitud.GestorId = gestorId;
-        solicitud.GestorNombre = gestorNombre;
-        solicitud.ComentarioGestor = dto.ComentarioGestor;
-        solicitud.FechaResolucion = DateTime.UtcNow;
+        detalle.Estado = dto.Aprobar ? EstadoSolicitud.Aprobada : EstadoSolicitud.Rechazada;
+        detalle.GestorId = gestorId;
+        detalle.GestorNombre = gestorNombre;
+        detalle.ComentarioGestor = dto.ComentarioGestor;
+        detalle.FechaResolucion = DateTime.UtcNow;
 
-        await repositorio.ActualizarAsync(solicitud, ct);
+        await repositorio.ActualizarAsync(detalle, ct);
 
         if (dto.Aprobar)
-            await DescontarStockAsync(solicitud.ProductoId, solicitud.Cantidad, ct);
+            await DescontarStockAsync(detalle.ProductoId, detalle.Cantidad, ct);
 
-        return solicitud;
+        return detalle;
     }
 
     /// <summary>
@@ -281,10 +282,10 @@ public class SolicitudService(
             var mensaje = $"\"{producto.Nombre}\" quedó con stock {producto.Stock} (mínimo configurado: {producto.StockMinimo}).";
 
             // Si el producto ya tiene un proveedor preferido, la alerta lleva directo a
-            // "Administrar pedidos" filtrado por ese producto Y ese proveedor — al gestor le
-            // queda a un clic el botón "Enviar a proveedor" ya existente (ver tarea 15 del
-            // plan). Sin proveedor asociado, igual filtra por producto para ubicar rápido
-            // qué pedidos lo tienen pendiente/aprobado.
+            // "Administrar solicitudes" filtrado por ese producto Y ese proveedor — al
+            // gestor le queda a un clic el botón "Enviar a proveedor" ya existente (ver
+            // tarea 15 del plan). Sin proveedor asociado, igual filtra por producto para
+            // ubicar rápido qué solicitudes lo tienen pendiente/aprobado.
             var preferidos = await asociaciones.ObtenerPreferidosPorProductosAsync([producto.Id], ct);
             var url = preferidos.Count > 0
                 ? $"/solicitudes/administrar?productoId={producto.Id}&proveedorId={preferidos[0].ProveedorId}"
@@ -300,15 +301,15 @@ public class SolicitudService(
         }
     }
 
-    private async Task NotificarResolucionAsync(string solicitanteId, int pedidoId, string titulo, string mensaje, CancellationToken ct)
+    private async Task NotificarResolucionAsync(string solicitanteId, int solicitudId, string titulo, string mensaje, CancellationToken ct)
     {
         try
         {
-            // Ancla al pedido específico (Mis solicitudes lista todos sin paginar ni
+            // Ancla a la solicitud específica (Mis solicitudes lista todas sin paginar ni
             // filtrar — ver MisSolicitudes.razor) en vez de mandar siempre a la lista
             // genérica, mismo criterio de deep link que ya usa la alerta de stock bajo
             // (ver AlertarStockBajoAsync).
-            var url = $"/solicitudes/mis-solicitudes#pedido-{pedidoId}";
+            var url = $"/solicitudes/mis-solicitudes#pedido-{solicitudId}";
             await NotificarAsync(solicitanteId, titulo, mensaje, url, TipoNotificacion.SolicitudResuelta, ct);
         }
         catch
@@ -335,13 +336,13 @@ public class SolicitudService(
         broadcaster.Publicar(guardada);
     }
 
-    public Task<List<SolicitudProducto>> BuscarAsync(FiltroSolicitudesDto filtro, CancellationToken ct = default)
+    public Task<List<DetalleSolicitud>> BuscarAsync(FiltroSolicitudesDto filtro, CancellationToken ct = default)
         => repositorio.BuscarAsync(filtro, ct);
 
     public Task<List<SolicitanteResumenDto>> ObtenerSolicitantesAsync(CancellationToken ct = default)
         => repositorio.ObtenerSolicitantesAsync(ct);
 
-    public Task<List<SolicitudProducto>> BuscarResueltasAsync(FiltroHistorialResolucionesDto filtro, CancellationToken ct = default)
+    public Task<List<DetalleSolicitud>> BuscarResueltasAsync(FiltroHistorialResolucionesDto filtro, CancellationToken ct = default)
         => repositorio.BuscarResueltasAsync(filtro, ct);
 
     public Task<List<GestorResumenDto>> ObtenerGestoresAsync(CancellationToken ct = default)

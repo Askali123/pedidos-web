@@ -96,6 +96,7 @@ public static class DependencyInjection
             services.AddScoped<IEmailSender, LoggingEmailSender>();
 
         services.AddScoped<INotificacionProveedorRepository, NotificacionProveedorRepository>();
+        services.AddScoped<IPedidoProveedorRepository, PedidoProveedorRepository>();
         services.AddScoped<IPedidoNotificacionProveedorService, PedidoNotificacionProveedorService>();
 
         services.AddScoped<IConfirmacionEntregaRepository, ConfirmacionEntregaRepository>();

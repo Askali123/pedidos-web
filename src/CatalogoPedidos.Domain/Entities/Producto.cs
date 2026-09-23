@@ -19,6 +19,6 @@ public class Producto
     public bool Activo { get; set; } = true;
     public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
 
-    public ICollection<SolicitudProducto> Solicitudes { get; set; } = new List<SolicitudProducto>();
+    public ICollection<DetalleSolicitud> Solicitudes { get; set; } = new List<DetalleSolicitud>();
     public ICollection<ProductoProveedor> Proveedores { get; set; } = new List<ProductoProveedor>();
 }

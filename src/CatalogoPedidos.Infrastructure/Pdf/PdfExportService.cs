@@ -8,70 +8,7 @@ namespace CatalogoPedidos.Infrastructure.Pdf;
 
 public class PdfExportService : IPdfExportService
 {
-    public byte[] ExportarSolicitud(SolicitudProducto solicitud)
-    {
-        var documento = Document.Create(container =>
-        {
-            container.Page(page =>
-            {
-                page.Size(PageSizes.A4);
-                page.Margin(2, Unit.Centimetre);
-                page.DefaultTextStyle(x => x.FontSize(11));
-
-                page.Header().Text("Solicitud de producto").FontSize(20).Bold();
-
-                page.Content().PaddingVertical(15).Column(col =>
-                {
-                    col.Spacing(8);
-
-                    col.Item().Text($"Solicitud N.º {solicitud.Id}").Bold();
-                    col.Item().Text($"Fecha: {solicitud.FechaSolicitud:dd/MM/yyyy HH:mm}");
-                    col.Item().LineHorizontal(1);
-
-                    col.Item().Text("Producto").Bold().FontSize(14);
-                    col.Item().Text($"Nombre: {solicitud.Producto?.Nombre}");
-                    col.Item().Text($"Categoría: {solicitud.Producto?.Categoria}");
-                    col.Item().Text($"Precio unitario: {solicitud.Producto?.Precio:C}");
-                    col.Item().Text($"Cantidad solicitada: {solicitud.Cantidad}");
-                    // Es el comentario del Pedido completo (se captura una sola vez para todas
-                    // sus líneas en el carrito), no algo específico de esta línea — se rotula
-                    // así para no dar a entender que el pedido tiene una sola línea.
-                    if (!string.IsNullOrWhiteSpace(solicitud.Pedido?.Comentario))
-                        col.Item().Text($"Comentario del pedido: {solicitud.Pedido.Comentario}");
-                    if (!string.IsNullOrWhiteSpace(solicitud.Pedido?.DireccionEntrega))
-                        col.Item().Text($"Dirección de entrega: {solicitud.Pedido.DireccionEntrega}");
-
-                    col.Item().LineHorizontal(1);
-
-                    col.Item().Text("Solicitante").Bold().FontSize(14);
-                    col.Item().Text(solicitud.SolicitanteNombre);
-
-                    col.Item().LineHorizontal(1);
-
-                    col.Item().Text("Estado").Bold().FontSize(14);
-                    col.Item().Text(solicitud.Estado.ToString());
-
-                    if (solicitud.GestorNombre is not null)
-                    {
-                        col.Item().Text($"Gestor: {solicitud.GestorNombre}");
-                        col.Item().Text($"Resuelta: {solicitud.FechaResolucion:dd/MM/yyyy HH:mm}");
-                        if (!string.IsNullOrWhiteSpace(solicitud.ComentarioGestor))
-                            col.Item().Text($"Comentario del gestor: {solicitud.ComentarioGestor}");
-                    }
-                });
-
-                page.Footer().AlignCenter().Text(x =>
-                {
-                    x.Span("Generado por CatalogoPedidos - ").FontSize(9);
-                    x.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm")).FontSize(9);
-                });
-            });
-        });
-
-        return documento.GeneratePdf();
-    }
-
-    public byte[] ExportarPedido(Pedido pedido)
+    public byte[] ExportarPedido(Solicitud pedido)
     {
         var documento = Document.Create(container =>
         {
@@ -81,7 +18,7 @@ public class PdfExportService : IPdfExportService
                 page.Margin(2, Unit.Centimetre);
                 page.DefaultTextStyle(x => x.FontSize(10));
 
-                page.Header().Text($"Pedido N.º {pedido.Id}").FontSize(20).Bold();
+                page.Header().Text($"Solicitud N.º {pedido.Id}").FontSize(20).Bold();
 
                 page.Content().PaddingVertical(15).Column(col =>
                 {
@@ -276,7 +213,7 @@ public class PdfExportService : IPdfExportService
         return documento.GeneratePdf();
     }
 
-    public byte[] ExportarSolicitudesPorProveedor(IEnumerable<SolicitudProducto> solicitudes, IReadOnlyDictionary<int, string> codigosProveedorPorProducto, string proveedorNombre)
+    public byte[] ExportarSolicitudesPorProveedor(IEnumerable<DetalleSolicitud> solicitudes, IReadOnlyDictionary<int, string> codigosProveedorPorProducto, string proveedorNombre)
     {
         var lista = solicitudes.ToList();
 
@@ -290,10 +227,12 @@ public class PdfExportService : IPdfExportService
 
                 page.Header().Column(col =>
                 {
-                    // "Detalle de productos", no "Pedido a proveedor": este mismo export lo
-                    // usa tanto el envío real de un Pedido puntual (PedidoNotificacionProveedorService)
-                    // como el reporte filtrado por proveedor de Administrar pedidos, que puede
-                    // traer líneas de varios pedidos distintos a la vez (columna "Pedido" abajo).
+                    // "Detalle de productos", no "Pedido a proveedor" (ese título queda reservado
+                    // para ExportarPedidoProveedor, el documento real de UN PedidoProveedor): este
+                    // mismo export lo usa tanto el envío real de una solicitud puntual
+                    // (PedidoNotificacionProveedorService) como el reporte filtrado por proveedor
+                    // de Administrar solicitudes, que puede traer líneas de varias solicitudes
+                    // distintas a la vez (columna "Solicitud" abajo).
                     col.Item().Text("Detalle de productos para proveedor").FontSize(18).Bold();
                     col.Item().Text($"Proveedor: {proveedorNombre}").FontSize(12);
                 });
@@ -319,7 +258,7 @@ public class PdfExportService : IPdfExportService
                         header.Cell().Text("Código proveedor").Bold();
                         header.Cell().Text("Producto").Bold();
                         header.Cell().Text("Cant.").Bold();
-                        header.Cell().Text("Pedido").Bold();
+                        header.Cell().Text("Solicitud").Bold();
                         header.Cell().Text("Solicitante").Bold();
                         header.Cell().Text("Fecha").Bold();
                         header.Cell().Text("Estado").Bold();
@@ -332,7 +271,7 @@ public class PdfExportService : IPdfExportService
                         table.Cell().Text(codigosProveedorPorProducto.GetValueOrDefault(s.ProductoId, "-"));
                         table.Cell().Text(s.Producto?.Nombre);
                         table.Cell().Text(s.Cantidad.ToString());
-                        table.Cell().Text($"#{s.PedidoId}");
+                        table.Cell().Text($"#{s.SolicitudId}");
                         table.Cell().Text(s.SolicitanteNombre);
                         table.Cell().Text(s.FechaSolicitud.ToLocalTime().ToString("dd/MM/yyyy"));
                         table.Cell().Text(s.Estado.ToString());
@@ -351,7 +290,73 @@ public class PdfExportService : IPdfExportService
         return documento.GeneratePdf();
     }
 
-    public byte[] ExportarSolicitudes(IEnumerable<SolicitudProducto> solicitudes)
+    public byte[] ExportarPedidoProveedor(PedidoProveedor documento, string proveedorNombre)
+    {
+        var lista = documento.Items.ToList();
+
+        var documentoPdf = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4.Landscape());
+                page.Margin(1.5f, Unit.Centimetre);
+                page.DefaultTextStyle(x => x.FontSize(9));
+
+                page.Header().Column(col =>
+                {
+                    col.Item().Text($"Solicitud de reabastecimiento N.º {documento.SolicitudId}").FontSize(18).Bold();
+                    col.Item().Text($"Proveedor: {proveedorNombre}").FontSize(12);
+                    col.Item().Text($"Solicitado por: {documento.Solicitud?.SolicitanteNombre}")
+                        .FontSize(10);
+                    if (documento.Solicitud is not null)
+                        col.Item().Text($"Fecha del pedido: {documento.Solicitud.FechaCreacion:dd/MM/yyyy HH:mm}").FontSize(10);
+                });
+
+                page.Content().PaddingVertical(10).Table(table =>
+                {
+                    table.ColumnsDefinition(columns =>
+                    {
+                        columns.RelativeColumn(1);
+                        columns.RelativeColumn(1);
+                        columns.RelativeColumn(4);
+                        columns.RelativeColumn(1);
+                        columns.RelativeColumn(2);
+                        columns.RelativeColumn(2);
+                    });
+
+                    table.Header(header =>
+                    {
+                        header.Cell().Text("Código interno").Bold();
+                        header.Cell().Text("Código proveedor").Bold();
+                        header.Cell().Text("Producto").Bold();
+                        header.Cell().Text("Cant.").Bold();
+                        header.Cell().Text("Unidad").Bold();
+                        header.Cell().Text("Precio").Bold();
+                    });
+
+                    foreach (var d in lista)
+                    {
+                        table.Cell().Text(d.ProductoId.ToString());
+                        table.Cell().Text(d.CodigoProveedor);
+                        table.Cell().Text(d.ProductoNombre);
+                        table.Cell().Text(d.Cantidad.ToString());
+                        table.Cell().Text(d.UnidadMedida ?? "-");
+                        table.Cell().Text($"{(d.PrecioProveedor ?? 0):C}");
+                    }
+                });
+
+                page.Footer().AlignCenter().Text(x =>
+                {
+                    x.Span($"{lista.Count} producto(s) - Generado por CatalogoPedidos - ").FontSize(8);
+                    x.Span(DateTime.Now.ToString("dd/MM/yyyy HH:mm")).FontSize(8);
+                });
+            });
+        });
+
+        return documentoPdf.GeneratePdf();
+    }
+
+    public byte[] ExportarSolicitudes(IEnumerable<DetalleSolicitud> solicitudes)
     {
         var lista = solicitudes.ToList();
 
@@ -382,7 +387,7 @@ public class PdfExportService : IPdfExportService
                     table.Header(header =>
                     {
                         header.Cell().Text("N.º").Bold();
-                        header.Cell().Text("Pedido").Bold();
+                        header.Cell().Text("Solicitud").Bold();
                         header.Cell().Text("Producto").Bold();
                         header.Cell().Text("Cant.").Bold();
                         header.Cell().Text("Solicitante").Bold();
@@ -394,7 +399,7 @@ public class PdfExportService : IPdfExportService
                     foreach (var s in lista)
                     {
                         table.Cell().Text(s.Id.ToString());
-                        table.Cell().Text(s.PedidoId.ToString());
+                        table.Cell().Text(s.SolicitudId.ToString());
                         table.Cell().Text(s.Producto?.Nombre);
                         table.Cell().Text(s.Cantidad.ToString());
                         table.Cell().Text(s.SolicitanteNombre);

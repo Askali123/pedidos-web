@@ -15,12 +15,13 @@ public class NotificacionProveedorRepository(IDbContextFactory<AppDbContext> dbF
         return envio;
     }
 
-    public async Task<List<NotificacionProveedor>> ObtenerPorPedidoAsync(int pedidoId, CancellationToken ct = default)
+    public async Task<List<NotificacionProveedor>> ObtenerPorSolicitudAsync(int solicitudId, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         return await db.NotificacionesProveedor
             .Include(n => n.Proveedor)
-            .Where(n => n.PedidoId == pedidoId)
+            .Include(n => n.PedidoProveedor).ThenInclude(p => p!.Items)
+            .Where(n => n.SolicitudId == solicitudId)
             .OrderByDescending(n => n.FechaEnvio)
             .ToListAsync(ct);
     }
@@ -31,7 +32,8 @@ public class NotificacionProveedorRepository(IDbContextFactory<AppDbContext> dbF
 
         var query = db.NotificacionesProveedor
             .Include(n => n.Proveedor)
-            .Include(n => n.Pedido)
+            .Include(n => n.Solicitud)
+            .Include(n => n.PedidoProveedor).ThenInclude(p => p!.Items)
             .AsQueryable();
 
         if (filtro.ProveedorId is not null)

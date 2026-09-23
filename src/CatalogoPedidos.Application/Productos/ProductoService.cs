@@ -8,8 +8,8 @@ public class ProductoService(
     IProductoImportador importador,
     IProductoProveedorRepository asociaciones) : IProductoService
 {
-    public Task<List<Producto>> ObtenerCatalogoAsync(string? texto = null, string? categoria = null, CancellationToken ct = default)
-        => repositorio.ObtenerCatalogoAsync(texto, categoria, ct);
+    public Task<List<Producto>> ObtenerCatalogoAsync(string? texto = null, string? categoria = null, bool incluirInactivos = false, CancellationToken ct = default)
+        => repositorio.ObtenerCatalogoAsync(texto, categoria, incluirInactivos, ct);
 
     public Task<List<string>> ObtenerCategoriasAsync(CancellationToken ct = default)
         => repositorio.ObtenerCategoriasAsync(ct);
@@ -91,6 +91,15 @@ public class ProductoService(
             ?? throw new InvalidOperationException($"Producto {id} no encontrado.");
 
         producto.Activo = false;
+        await repositorio.ActualizarAsync(producto, ct);
+    }
+
+    public async Task ReactivarAsync(int id, CancellationToken ct = default)
+    {
+        var producto = await repositorio.ObtenerPorIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"Producto {id} no encontrado.");
+
+        producto.Activo = true;
         await repositorio.ActualizarAsync(producto, ct);
     }
 

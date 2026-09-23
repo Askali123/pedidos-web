@@ -88,8 +88,10 @@ public class ProveedorService(
 
     public async Task<Dictionary<int, int>> ContarProveedoresPorProductoAsync(IEnumerable<int> productoIds, CancellationToken ct = default)
     {
+        // Solo cuentan los proveedores ACTIVOS: el aviso de la UI ("hay N proveedores entre
+        // los que elegir") debe reflejar quiénes pueden recibir pedidos hoy, no el histórico.
         var todas = await asociaciones.ObtenerPorProductosAsync(productoIds, ct);
-        return todas.GroupBy(pp => pp.ProductoId).ToDictionary(g => g.Key, g => g.Count());
+        return todas.Where(pp => pp.Activo).GroupBy(pp => pp.ProductoId).ToDictionary(g => g.Key, g => g.Count());
     }
 
     public Task<List<ProductoProveedor>> ObtenerProductosDeProveedorAsync(
@@ -107,13 +109,27 @@ public class ProveedorService(
         var proveedor = await proveedores.ObtenerPorIdAsync(dto.ProveedorId, ct)
             ?? throw new InvalidOperationException("El proveedor no existe.");
 
-        if (await asociaciones.ExisteAsociacionAsync(dto.ProductoId, dto.ProveedorId, ct))
+        // La asociación puede existir como fila pero estar desactivada: el índice único
+        // (ProductoId, ProveedorId) no permite crear otra — se REACTIVA la misma y se
+        // actualizan sus datos. Solo se rechaza si la asociación sigue activa.
+        var existente = await asociaciones.ObtenerPorProductoYProveedorAsync(dto.ProductoId, dto.ProveedorId, ct);
+        if (existente is not null && existente.Activo)
             throw new InvalidOperationException($"'{proveedor.Nombre}' ya está asociado a '{producto.Nombre}'.");
 
         // Un mismo proveedor no puede usar el mismo código para dos productos distintos:
         // ese código es SU forma de identificar el producto, debe ser único por proveedor.
         if (await asociaciones.ExisteCodigoParaOtroProductoAsync(dto.ProveedorId, dto.CodigoProveedor, dto.ProductoId, ct))
             throw new InvalidOperationException($"El proveedor '{proveedor.Nombre}' ya usa el código '{dto.CodigoProveedor}' para otro producto.");
+
+        if (existente is not null)
+        {
+            existente.Activo = true;
+            existente.CodigoProveedor = dto.CodigoProveedor.Trim();
+            existente.PrecioProveedor = dto.PrecioProveedor;
+            existente.EsPreferido = dto.EsPreferido;
+            await asociaciones.ActualizarAsync(existente, ct);
+            return existente;
+        }
 
         var asociacion = new ProductoProveedor
         {
@@ -128,6 +144,47 @@ public class ProveedorService(
         return await asociaciones.CrearAsync(asociacion, ct);
     }
 
-    public Task QuitarAsociacionAsync(int asociacionId, CancellationToken ct = default)
-        => asociaciones.EliminarAsync(asociacionId, ct);
+    public async Task ActualizarAsociacionAsync(int asociacionId, AsociarProveedorDto dto, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(dto.CodigoProveedor))
+            throw new InvalidOperationException("El código del proveedor para este producto es obligatorio.");
+
+        var asociacion = await asociaciones.ObtenerPorIdAsync(asociacionId, ct)
+            ?? throw new InvalidOperationException("La asociación no existe.");
+
+        if (await asociaciones.ExisteCodigoParaOtroProductoAsync(asociacion.ProveedorId, dto.CodigoProveedor, asociacion.ProductoId, ct))
+            throw new InvalidOperationException($"El proveedor ya usa el código '{dto.CodigoProveedor}' para otro producto.");
+
+        asociacion.CodigoProveedor = dto.CodigoProveedor.Trim();
+        asociacion.PrecioProveedor = dto.PrecioProveedor;
+        asociacion.EsPreferido = dto.EsPreferido;
+
+        await asociaciones.ActualizarAsync(asociacion, ct);
+    }
+
+    public async Task DesactivarAsociacionAsync(int asociacionId, CancellationToken ct = default)
+    {
+        var asociacion = await asociaciones.ObtenerPorIdAsync(asociacionId, ct)
+            ?? throw new InvalidOperationException("La asociación no existe.");
+
+        if (!asociacion.Activo)
+            return;
+
+        // Desactivar (en vez de borrar) conserva el histórico: los PedidoProveedor ya
+        // emitidos guardan sus propios snapshots, así que esto solo afecta pedidos nuevos.
+        asociacion.Activo = false;
+        await asociaciones.ActualizarAsync(asociacion, ct);
+    }
+
+    public async Task ReactivarAsociacionAsync(int asociacionId, CancellationToken ct = default)
+    {
+        var asociacion = await asociaciones.ObtenerPorIdAsync(asociacionId, ct)
+            ?? throw new InvalidOperationException("La asociación no existe.");
+
+        if (asociacion.Activo)
+            return;
+
+        asociacion.Activo = true;
+        await asociaciones.ActualizarAsync(asociacion, ct);
+    }
 }

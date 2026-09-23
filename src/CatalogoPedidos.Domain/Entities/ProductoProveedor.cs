@@ -20,5 +20,13 @@ public class ProductoProveedor
 
     public decimal? PrecioProveedor { get; set; }
     public bool EsPreferido { get; set; }
+
+    /// <summary>
+    /// Asociación activa o desactivada. Desactivar (en vez de borrar) conserva el histórico:
+    /// los <see cref="PedidoProveedor"/> ya emitidos guardan sus propios snapshots, así que
+    /// esta desactivación solo afecta pedidos nuevos (ver docs/PLAN_PEDIDO_PROVEEDOR.md, reglas).
+    /// </summary>
+    public bool Activo { get; set; } = true;
+
     public DateTime FechaAsociacion { get; set; } = DateTime.UtcNow;
 }
