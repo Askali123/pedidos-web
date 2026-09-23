@@ -17,6 +17,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
     public DbSet<ConfirmacionEntrega> ConfirmacionesEntrega => Set<ConfirmacionEntrega>();
     public DbSet<PedidoProveedor> PedidosProveedor => Set<PedidoProveedor>();
     public DbSet<DetallePedidoProveedor> DetallesPedidoProveedor => Set<DetallePedidoProveedor>();
+    public DbSet<Empresa> Empresas => Set<Empresa>();
+    public DbSet<Sede> Sedes => Set<Sede>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -46,6 +48,48 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
         builder.Entity<Solicitud>(entity =>
         {
             entity.Property(p => p.SolicitanteNombre).HasMaxLength(200).IsRequired();
+            entity.Property(p => p.SedeNombre).HasMaxLength(200);
+            entity.Property(p => p.EmpresaNombre).HasMaxLength(200);
+
+            // Snapshot: desactivar/borrar una Sede o Empresa no debe bloquear ni borrar
+            // solicitudes históricas — solo se pierde la referencia viva, el nombre
+            // snapshot queda intacto.
+            entity.HasOne<Sede>()
+                  .WithMany()
+                  .HasForeignKey(p => p.SedeId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne<Empresa>()
+                  .WithMany()
+                  .HasForeignKey(p => p.EmpresaId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<Empresa>(entity =>
+        {
+            entity.Property(e => e.Nombre).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Nit).HasMaxLength(50);
+        });
+
+        builder.Entity<Sede>(entity =>
+        {
+            entity.Property(s => s.Nombre).HasMaxLength(200).IsRequired();
+            entity.Property(s => s.Pais).HasMaxLength(100).IsRequired();
+            entity.Property(s => s.Ciudad).HasMaxLength(100).IsRequired();
+            entity.Property(s => s.Direccion).HasMaxLength(300);
+
+            entity.HasOne(s => s.Empresa)
+                  .WithMany(e => e.Sedes)
+                  .HasForeignKey(s => s.EmpresaId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ApplicationUser>(entity =>
+        {
+            entity.HasOne(u => u.Sede)
+                  .WithMany()
+                  .HasForeignKey(u => u.SedeId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<DetalleSolicitud>(entity =>

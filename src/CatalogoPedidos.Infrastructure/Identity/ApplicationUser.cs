@@ -1,3 +1,4 @@
+using CatalogoPedidos.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 
 namespace CatalogoPedidos.Infrastructure.Identity;
@@ -14,4 +15,13 @@ public class ApplicationUser : IdentityUser
     /// que cambiar esto no altera pedidos ya creados.
     /// </summary>
     public string? DireccionPredeterminada { get; set; }
+
+    /// <summary>
+    /// Sede (de una Empresa filial de Auropaq) a la que pertenece este usuario Solicitante.
+    /// Nullable: las cuentas existentes no tienen sede hasta que un Gestor las asocie
+    /// manualmente. La Empresa del usuario se deriva de <c>Sede.EmpresaId</c> — no se
+    /// duplica acá para no tener dos fuentes de verdad (docs/PLAN_EMPRESAS_FILIALES.md).
+    /// </summary>
+    public int? SedeId { get; set; }
+    public Sede? Sede { get; set; }
 }

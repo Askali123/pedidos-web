@@ -67,6 +67,27 @@ public static class Seed
             }
         }
 
+        // Empresa filial de Auropaq con 2 sedes de prueba, para poder probar de una vez el
+        // caso "empresa con varias sedes" (ver docs/PLAN_EMPRESAS_FILIALES.md).
+        if (!db.Empresas.Any())
+        {
+            var empresa = new Empresa { Nombre = "Auropaq Colombia", Nit = "900123456-1" };
+            var sedeNorte = new Sede { Empresa = empresa, Nombre = "Sede Norte", Pais = "Colombia", Ciudad = "Medellín", Direccion = "Cra 45 # 20-30" };
+            var sedeSur = new Sede { Empresa = empresa, Nombre = "Sede Sur", Pais = "Colombia", Ciudad = "Bogotá", Direccion = "Cll 100 # 15-10" };
+            empresa.Sedes.Add(sedeNorte);
+            empresa.Sedes.Add(sedeSur);
+            db.Empresas.Add(empresa);
+            await db.SaveChangesAsync();
+            logger.LogInformation("Empresa de ejemplo sembrada: {Empresa} con sedes {SedeNorte} y {SedeSur}.", empresa.Nombre, sedeNorte.Nombre, sedeSur.Nombre);
+
+            if (usuarioDemo.SedeId is null)
+            {
+                usuarioDemo.SedeId = sedeNorte.Id;
+                await userManager.UpdateAsync(usuarioDemo);
+                logger.LogInformation("Usuario de prueba asociado a {Sede}.", sedeNorte.Nombre);
+            }
+        }
+
         if (!db.Productos.Any())
         {
             db.Productos.AddRange(
