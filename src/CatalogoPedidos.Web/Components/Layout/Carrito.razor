@@ -3,8 +3,10 @@
 @inject CarritoState CarritoState
 @inject NavigationManager Navigation
 
-<AuthorizeView>
-    <Authorized>
+@* El Gestor administra el catálogo y aprueba solicitudes ajenas — ya no arma las suyas
+   propias (ver docs/PLAN_MEJORAS_UI_UX.md, tarea 16 revisada), así que no ve el carrito. *@
+<AuthorizeView Roles="@Roles.Gestor">
+    <NotAuthorized>
         <button type="button" class="relative h-9 w-9 flex items-center justify-center rounded-sm text-muted hover:bg-card-elevated hover:text-heading"
                 title="Carrito de solicitud" aria-label="Carrito de solicitud" @onclick="Ir">
             <Icon Name="cart" Class="h-5 w-5" />
@@ -13,7 +15,7 @@
                 <span class="absolute top-1 right-1 h-4 min-w-4 px-0.5 rounded-full bg-primary-600 text-white text-[10px] leading-4 text-center">@(CarritoState.TotalItems > 9 ? "9+" : CarritoState.TotalItems.ToString())</span>
             }
         </button>
-    </Authorized>
+    </NotAuthorized>
 </AuthorizeView>
 
 @code {

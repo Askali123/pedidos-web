@@ -56,6 +56,6 @@
 @code {
     [Parameter] public List<ConfirmacionEntrega> Confirmaciones { get; set; } = [];
 
-    /// <summary>Todos los grupos de entrega del pedido (confirmados y pendientes) — ver <see cref="IConfirmacionEntregaService.ObtenerGruposDeEntregaAsync"/>.</summary>
+    /// <summary>Todos los grupos de entrega de la solicitud (confirmados y pendientes) — ver <see cref="IConfirmacionEntregaService.ObtenerGruposDeEntregaAsync"/>.</summary>
     [Parameter] public List<GrupoEntregaDto> Grupos { get; set; } = [];
 }

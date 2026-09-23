@@ -13,6 +13,12 @@
 else
 {
     <div class="space-y-6 max-w-3xl">
+        @if (!producto.Activo)
+        {
+            <Alert Variant="AlertVariant.Warning">
+                Este producto está <strong>desactivado</strong> — no aparece en el catálogo ni puede solicitarse. Reactivalo desde <a class="underline" href="/catalogo">el catálogo</a> si hace falta volver a ofrecerlo.
+            </Alert>
+        }
         <Card Title="@($"Proveedores de \"{producto.Nombre}\"")"
               Subtitle="@($"Cada proveedor identifica este producto con SU PROPIO código — por eso se guarda por separado del Id interno (#{producto.Id}). Quitar un proveedor lo desactiva (no lo borra): los pedidos ya emitidos conservan sus datos y solo dejan de ofrecerse los nuevos.")">
 

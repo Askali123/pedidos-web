@@ -52,8 +52,9 @@
             <table class="table-enterprise">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Fecha de envío</th>
-                        <th>Pedido</th>
+                        <th>Solicitud</th>
                         <th>Proveedor</th>
                         <th>Correo</th>
                         <th>Líneas</th>
@@ -64,15 +65,60 @@
                 <tbody>
                     @foreach (var envio in paginaActual)
                     {
+                        var lineas = envio.PedidoProveedor?.Items.Where(i => !i.Excluido).ToList();
                         <tr>
+                            <td>
+                                @if (lineas is { Count: > 0 })
+                                {
+                                    <Button Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" OnClick="() => AlternarDetalle(envio.Id)">
+                                        <Icon Name="chevron-down" Class="@("h-4 w-4 transition-transform" + (expandidos.Contains(envio.Id) ? " rotate-180" : ""))" />
+                                    </Button>
+                                }
+                            </td>
                             <td class="text-muted">@envio.FechaEnvio.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                            <td class="font-medium text-heading">#@envio.PedidoId</td>
+                            <td class="font-medium text-heading">#@envio.SolicitudId</td>
                             <td>@envio.Proveedor?.Nombre</td>
                             <td class="text-muted">@envio.Email</td>
                             <td>@envio.CantidadLineas</td>
                             <td>@(envio.GestorNombre ?? "-")</td>
-                            <td class="text-right"><a class="btn btn-secondary btn-sm" href="/api/pedidos/@envio.PedidoId/pdf" target="_blank">PDF del pedido</a></td>
+                            <td class="text-right">
+                                @{ var urlPdf = envio.PedidoProveedorId is int idDocumento ? $"/api/pedidos-proveedor/{idDocumento}/pdf" : $"/api/pedidos/{envio.SolicitudId}/pdf"; }
+                                <a class="btn btn-secondary btn-sm" href="@urlPdf" target="_blank">PDF del pedido</a>
+                                @if (envio.PedidoProveedorId is int idDocumentoExcel)
+                                {
+                                    <a class="btn btn-secondary btn-sm" href="@($"/api/pedidos-proveedor/{idDocumentoExcel}/excel")" target="_blank">Excel</a>
+                                }
+                            </td>
                         </tr>
+                        @if (lineas is { Count: > 0 } && expandidos.Contains(envio.Id))
+                        {
+                            <tr>
+                                <td></td>
+                                <td colspan="6" class="bg-surface">
+                                    <table class="table-enterprise">
+                                        <thead>
+                                            <tr>
+                                                <th>Producto</th>
+                                                <th>Código del proveedor</th>
+                                                <th>Cantidad</th>
+                                                <th>Unidad</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var linea in lineas)
+                                            {
+                                                <tr>
+                                                    <td>@linea.ProductoNombre</td>
+                                                    <td class="text-muted">@linea.CodigoProveedor</td>
+                                                    <td>@linea.Cantidad</td>
+                                                    <td class="text-muted">@(linea.UnidadMedida ?? "-")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -96,6 +142,13 @@
 
     private List<NotificacionProveedor>? resultados;
     private List<Proveedor> proveedores = new();
+    private HashSet<int> expandidos = new();
+
+    private void AlternarDetalle(int envioId)
+    {
+        if (!expandidos.Add(envioId))
+            expandidos.Remove(envioId);
+    }
 
     private int totalPaginas => Math.Max(1, (int)Math.Ceiling((resultados?.Count ?? 0) / (double)TamanoPagina));
     private IEnumerable<NotificacionProveedor> paginaActual =>

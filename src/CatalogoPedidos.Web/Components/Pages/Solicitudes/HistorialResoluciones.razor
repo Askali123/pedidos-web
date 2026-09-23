@@ -61,13 +61,12 @@
                 <thead>
                     <tr>
                         <th>Fecha de resolución</th>
-                        <th>Pedido</th>
+                        <th>Solicitud</th>
                         <th>Producto</th>
                         <th>Cantidad</th>
                         <th>Resultado</th>
                         <th>Solicitante</th>
                         <th>Gestor</th>
-                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -75,8 +74,14 @@
                     {
                         <tr>
                             <td class="text-muted">@s.FechaResolucion?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
-                            <td class="font-medium text-heading">#@s.PedidoId</td>
-                            <td>@s.Producto?.Nombre</td>
+                            <td class="font-medium text-heading">#@s.SolicitudId</td>
+                            <td>
+                                @s.Producto?.Nombre
+                                @if (s.Producto?.Activo == false)
+                                {
+                                    <Badge Variant="BadgeVariant.Warning">Desactivado</Badge>
+                                }
+                            </td>
                             <td>@s.Cantidad</td>
                             <td>
                                 <Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge>
@@ -87,7 +92,6 @@
                             </td>
                             <td>@s.SolicitanteNombre</td>
                             <td>@(s.GestorNombre ?? "-")</td>
-                            <td class="text-right"><a class="btn btn-secondary btn-sm" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a></td>
                         </tr>
                     }
                 </tbody>
@@ -109,11 +113,11 @@
     private string estadoTexto = "";
     private int paginaNumero = 1;
 
-    private List<SolicitudProducto>? resultados;
+    private List<DetalleSolicitud>? resultados;
     private List<GestorResumenDto> gestores = new();
 
     private int totalPaginas => Math.Max(1, (int)Math.Ceiling((resultados?.Count ?? 0) / (double)TamanoPagina));
-    private IEnumerable<SolicitudProducto> paginaActual =>
+    private IEnumerable<DetalleSolicitud> paginaActual =>
         (resultados ?? []).Skip((paginaNumero - 1) * TamanoPagina).Take(TamanoPagina);
 
     protected override async Task OnInitializedAsync()

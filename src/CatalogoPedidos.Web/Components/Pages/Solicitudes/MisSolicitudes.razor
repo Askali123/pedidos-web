@@ -26,12 +26,12 @@ else
     <div class="space-y-4">
         @foreach (var grupo in grupos)
         {
-            <div id="@($"pedido-{grupo.Key.PedidoId}")">
+            <div id="@($"pedido-{grupo.Key.SolicitudId}")">
             <Card>
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
                         <p class="font-medium text-heading">
-                            Pedido #@grupo.Key.PedidoId
+                            Solicitud #@grupo.Key.SolicitudId
                             @{ var resumen = ResumenEstado(grupo); }
                             @if (resumen is not null)
                             {
@@ -49,13 +49,13 @@ else
                         {
                             <p class="text-xs text-muted mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
                         }
-                        <EntregaBadge Confirmaciones="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId) ?? []"
-                                      Grupos="gruposEntregaPorPedido.GetValueOrDefault(grupo.Key.PedidoId) ?? []" />
+                        <EntregaBadge Confirmaciones="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.SolicitudId) ?? []"
+                                      Grupos="gruposEntregaPorPedido.GetValueOrDefault(grupo.Key.SolicitudId) ?? []" />
                     </div>
 
                     @if (grupo.Count() > 1)
                     {
-                        <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">PDF del pedido</a>
+                        <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.SolicitudId/pdf" target="_blank">PDF de la solicitud</a>
                     }
                 </div>
 
@@ -67,14 +67,19 @@ else
                                 <th>Cantidad</th>
                                 <th>Estado</th>
                                 <th>Gestor</th>
-                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var s in grupo)
                             {
                                 <tr>
-                                    <td class="font-medium text-heading">@s.Producto?.Nombre</td>
+                                    <td class="font-medium text-heading">
+                                        @s.Producto?.Nombre
+                                        @if (s.Producto?.Activo == false)
+                                        {
+                                            <Badge Variant="BadgeVariant.Warning">Desactivado</Badge>
+                                        }
+                                    </td>
                                     <td>@s.Cantidad</td>
                                     <td>
                                         <Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge>
@@ -84,7 +89,6 @@ else
                                         }
                                     </td>
                                     <td>@s.GestorNombre</td>
-                                    <td class="text-right"><a class="btn btn-secondary btn-sm" href="/api/solicitudes/@s.Id/pdf" target="_blank">PDF</a></td>
                                 </tr>
                             }
                         </tbody>
@@ -99,9 +103,9 @@ else
 @code {
     [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
 
-    private record PedidoResumen(int PedidoId, string? Comentario, string? DireccionEntrega, DateTime FechaCreacion);
+    private record PedidoResumen(int SolicitudId, string? Comentario, string? DireccionEntrega, DateTime FechaCreacion);
 
-    private List<IGrouping<PedidoResumen, SolicitudProducto>>? grupos;
+    private List<IGrouping<PedidoResumen, DetalleSolicitud>>? grupos;
     private Dictionary<int, List<ConfirmacionEntrega>> confirmacionesPorPedido = new();
     private Dictionary<int, List<GrupoEntregaDto>> gruposEntregaPorPedido = new();
 
@@ -113,7 +117,7 @@ else
     /// en esos casos los badges por línea ya cuentan toda la historia sin necesidad de un
     /// resumen aparte.
     /// </summary>
-    private static (string Texto, BadgeVariant Variant)? ResumenEstado(IGrouping<PedidoResumen, SolicitudProducto> grupo)
+    private static (string Texto, BadgeVariant Variant)? ResumenEstado(IGrouping<PedidoResumen, DetalleSolicitud> grupo)
     {
         var total = grupo.Count();
         if (total <= 1)
@@ -145,13 +149,13 @@ else
         var solicitudes = await Solicitudes.ObtenerMisSolicitudesAsync(userId);
 
         grupos = solicitudes
-            .GroupBy(s => new PedidoResumen(s.PedidoId, s.Pedido?.Comentario, s.Pedido?.DireccionEntrega, s.Pedido?.FechaCreacion ?? s.FechaSolicitud))
+            .GroupBy(s => new PedidoResumen(s.SolicitudId, s.Solicitud?.Comentario, s.Solicitud?.DireccionEntrega, s.Solicitud?.FechaCreacion ?? s.FechaSolicitud))
             .OrderByDescending(g => g.Key.FechaCreacion)
             .ToList();
 
         confirmacionesPorPedido.Clear();
         gruposEntregaPorPedido.Clear();
-        foreach (var pedidoId in grupos.Select(g => g.Key.PedidoId))
+        foreach (var pedidoId in grupos.Select(g => g.Key.SolicitudId))
         {
             confirmacionesPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerPorPedidoAsync(pedidoId);
             gruposEntregaPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerGruposDeEntregaAsync(pedidoId);

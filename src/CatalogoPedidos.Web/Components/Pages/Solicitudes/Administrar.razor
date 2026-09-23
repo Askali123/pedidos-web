@@ -9,7 +9,7 @@
 @inject IServiceScopeFactory ScopeFactory
 @inject PageHeaderState HeaderState
 
-<PageTitle>Administrar pedidos</PageTitle>
+<PageTitle>Administrar solicitudes</PageTitle>
 
 <div class="space-y-4">
     <Card>
@@ -92,14 +92,14 @@
     else if (resultados.Count == 0)
     {
         <div class="card">
-            <EmptyState Icon="adjustments" Title="Sin resultados" Description="Ningún pedido coincide con estos filtros." />
+            <EmptyState Icon="adjustments" Title="Sin resultados" Description="Ninguna solicitud coincide con estos filtros." />
         </div>
     }
     else if (gruposPedidoVisibles.Count == 0)
     {
         <div class="card">
             <EmptyState Icon="adjustments" Title="Sin resultados"
-                        Description="Ningún pedido coincide con estos filtros — probá destildar &quot;Solo pendientes de confirmar entrega&quot;." />
+                        Description="Ninguna solicitud coincide con estos filtros — probá destildar &quot;Solo pendientes de confirmar entrega&quot;." />
         </div>
     }
     else
@@ -117,7 +117,7 @@
                 <Card>
                     <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                         <div>
-                            <p class="font-medium text-heading">Pedido #@grupo.Key.PedidoId · @grupo.Key.SolicitanteNombre</p>
+                            <p class="font-medium text-heading">Solicitud #@grupo.Key.SolicitudId · @grupo.Key.SolicitanteNombre</p>
                             <p class="text-xs text-muted mt-0.5">
                                 @grupo.Key.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                                 @if (!string.IsNullOrWhiteSpace(grupo.Key.Comentario))
@@ -129,7 +129,7 @@
                             {
                                 <p class="text-xs text-muted mt-0.5">Dirección de entrega: @grupo.Key.DireccionEntrega</p>
                             }
-                            @if (enviosPorPedido.TryGetValue(grupo.Key.PedidoId, out var envios) && envios.Count > 0)
+                            @if (enviosPorPedido.TryGetValue(grupo.Key.SolicitudId, out var envios) && envios.Count > 0)
                             {
                                 <div class="mt-1 space-y-0.5">
                                     @foreach (var envio in envios)
@@ -141,20 +141,20 @@
                                     }
                                 </div>
                             }
-                            <EntregaBadge Confirmaciones="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.PedidoId) ?? []"
-                                          Grupos="gruposEntregaPorPedido.GetValueOrDefault(grupo.Key.PedidoId) ?? []" />
+                            <EntregaBadge Confirmaciones="confirmacionesPorPedido.GetValueOrDefault(grupo.Key.SolicitudId) ?? []"
+                                          Grupos="gruposEntregaPorPedido.GetValueOrDefault(grupo.Key.SolicitudId) ?? []" />
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.PedidoId/pdf" target="_blank">
-                                <Icon Name="download" Class="h-4 w-4" /> PDF del pedido
+                            <a class="btn btn-secondary btn-sm" href="/api/pedidos/@grupo.Key.SolicitudId/pdf" target="_blank">
+                                <Icon Name="download" Class="h-4 w-4" /> PDF de la solicitud
                             </a>
 
-                            @if (gruposEntregaPorPedido.TryGetValue(grupo.Key.PedidoId, out var gruposEntrega))
+                            @if (gruposEntregaPorPedido.TryGetValue(grupo.Key.SolicitudId, out var gruposEntrega))
                             {
                                 @foreach (var g in gruposEntrega.Where(g => !g.Confirmado))
                                 {
                                     <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" Icon="truck"
-                                            OnClick="() => AbrirConfirmarEntrega(grupo.Key.PedidoId, g, grupo.Key.DireccionEntrega)">
+                                            OnClick="() => AbrirConfirmarEntrega(grupo.Key.SolicitudId, g, grupo.Key.DireccionEntrega)">
                                         Confirmar entrega@(g.ProveedorNombre is not null ? $" — {g.ProveedorNombre}" : "")
                                     </Button>
                                 }
@@ -170,18 +170,18 @@
                                 <ChildContent>
                                     <div
                                         class="w-72 bg-card border border-border-subtle rounded-lg shadow-elevated py-1 flex flex-col gap-1 max-h-96 overflow-y-auto">
-                                        @if (proveedoresPorPedido.TryGetValue(grupo.Key.PedidoId, out var opciones) &&
+                                        @if (proveedoresPorPedido.TryGetValue(grupo.Key.SolicitudId, out var opciones) &&
                                             opciones.Count > 0)
                                         {
                                             @foreach (var op in opciones)
                                             {
-                                                var productosVisibles = ExpandirProductos(grupo.Key.PedidoId, op)
+                                                var productosVisibles = ExpandirProductos(grupo.Key.SolicitudId, op)
                                                     ? op.Productos
                                                     : op.Productos.Take(LimiteProductosVisibles).ToList();
                                                 <div class="border-b border-border-subtle last:border-b-0">
                                                     <button type="button"
                                                             class="w-full text-left px-3 py-2 text-sm text-body hover:bg-card-elevated"
-                                                            @onclick="() => PedirConfirmacionEnvio(grupo.Key.PedidoId, op)">
+                                                            @onclick="() => PedirConfirmacionEnvio(grupo.Key.SolicitudId, op)">
                                                         <div class="flex items-center justify-between gap-2">
                                                             <span class="font-medium">@op.ProveedorNombre</span>
                                                             <span class="text-xs text-muted shrink-0">@op.CantidadLineas prod.</span>
@@ -205,9 +205,9 @@
                                                         {
                                                             <button type="button"
                                                                     class="text-xs text-primary-300 hover:underline mt-1"
-                                                                    @onclick="() => AlternarExpansion(grupo.Key.PedidoId, op)"
+                                                                    @onclick="() => AlternarExpansion(grupo.Key.SolicitudId, op)"
                                                                     @onclick:stopPropagation="true">
-                                                                @(ExpandirProductos(grupo.Key.PedidoId, op)
+                                                                @(ExpandirProductos(grupo.Key.SolicitudId, op)
                                                                     ? "Ver menos"
                                                                     : $"Ver {op.Productos.Count - LimiteProductosVisibles} más")
                                                             </button>
@@ -215,10 +215,11 @@
                                                     </div>
                                                 </div>
                                             }
+                                            <p class="px-3 py-2 text-xs text-muted border-t border-border-subtle mt-1">Un producto ya enviado a otro proveedor no vuelve a aparecer acá — cada línea solo se compra una vez.</p>
                                         }
                                         else
                                         {
-                                            <p class="px-3 py-2 text-sm text-muted">Este pedido no tiene líneas aprobadas con proveedor
+                                            <p class="px-3 py-2 text-sm text-muted">Esta solicitud no tiene líneas aprobadas con proveedor
                                                 asociado.</p>
                                         }
                                     </div>
@@ -245,7 +246,6 @@
                                             <th>Cantidad</th>
                                             <th>Estado</th>
                                             <th>Gestor</th>
-                                            <th></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -253,7 +253,13 @@
                                         {
                                             <tr>
                                                 <td class="text-muted" data-label="N.º">#@s.Id</td>
-                                                <td class="font-medium text-heading" data-label="Producto">@s.Producto?.Nombre</td>
+                                                <td class="font-medium text-heading" data-label="Producto">
+                                                    @s.Producto?.Nombre
+                                                    @if (s.Producto?.Activo == false)
+                                                    {
+                                                        <Badge Variant="BadgeVariant.Warning">Desactivado</Badge>
+                                                    }
+                                                </td>
                                                 @if (proveedorId is not null)
                                                 {
                                                     <td class="text-muted" data-label="Código interno">#@s.ProductoId</td>
@@ -268,13 +274,16 @@
                                                                 @($"{pp.Proveedor!.Nombre} · {pp.CodigoProveedor}")
                                                                 @if (cantidadProveedoresPorProducto.GetValueOrDefault(s.ProductoId) > 1)
                                                                 {
-                                                                    <Badge Variant="BadgeVariant.Info">+@(cantidadProveedoresPorProducto[s.ProductoId] - 1) más
-                                                                    </Badge>
+                                                                    <a href="/catalogo/@s.ProductoId/proveedores" class="inline-block align-middle">
+                                                                        <Badge Variant="BadgeVariant.Info">+@(cantidadProveedoresPorProducto[s.ProductoId] - 1) más</Badge>
+                                                                    </a>
                                                                 }
                                                             }
                                                             else
                                                             {
-                                                                @:—
+                                                                <a href="/catalogo/@s.ProductoId/proveedores" class="inline-block align-middle">
+                                                                    <Badge Variant="BadgeVariant.Warning">Sin proveedor asociado</Badge>
+                                                                </a>
                                                             }
                                                         </td>
                                                     }
@@ -283,8 +292,6 @@
                                                         <Badge Variant="EstadoBadgeHelper.VariantePara(s.Estado)">@s.Estado</Badge>
                                                     </td>
                                                     <td data-label="Gestor">@(s.GestorNombre ?? "-")</td>
-                                                    <td class="text-right"><a class="btn btn-secondary btn-sm" href="/api/solicitudes/@s.Id/pdf"
-                                                                                  target="_blank">PDF</a></td>
                                                     </tr>
                                                 }
                                             </tbody>
@@ -300,7 +307,7 @@
                     </div>
 
                     <ConfirmDialog @bind-Visible="confirmandoEnvio" Title="Enviar a proveedor"
-                                   Message="@($"¿Enviar el pedido #{pedidoPendienteEnvio} a \"{proveedorPendienteEnvio?.ProveedorNombre}\"? Se le manda un correo real con el detalle (PDF) de los productos marcados — no se puede deshacer.")"
+                                   Message="@($"¿Enviar la solicitud #{pedidoPendienteEnvio} a \"{proveedorPendienteEnvio?.ProveedorNombre}\"? Se le manda un correo real con el detalle (PDF) de los productos marcados — no se puede deshacer.")"
                                    ConfirmText="Enviar" OnConfirm="ConfirmarEnvio">
                         <ExtraContent>
                             @if (proveedorPendienteEnvio?.Productos.Count > 0)
@@ -393,7 +400,7 @@
             proveedoresExpandidos.Add(clave);
     }
 
-    private record PedidoResumen(int PedidoId, string SolicitanteNombre, string? Comentario, string? DireccionEntrega,
+    private record PedidoResumen(int SolicitudId, string SolicitanteNombre, string? Comentario, string? DireccionEntrega,
 DateTime FechaCreacion);
 
     private DateTime? fechaDesde;
@@ -407,8 +414,8 @@ DateTime FechaCreacion);
 
     private int? proveedorId => int.TryParse(proveedorIdTexto, out var id) ? id : null;
 
-    private List<SolicitudProducto>? resultados;
-    private List<IGrouping<PedidoResumen, SolicitudProducto>> gruposPedido = new();
+    private List<DetalleSolicitud>? resultados;
+    private List<IGrouping<PedidoResumen, DetalleSolicitud>> gruposPedido = new();
     private List<SolicitanteResumenDto> solicitantes = new();
     private List<Producto> catalogo = new();
     private List<Proveedor> proveedores = new();
@@ -429,9 +436,9 @@ DateTime FechaCreacion);
     // sobre los grupos ya armados, reusando los diccionarios que ya se cargan para el
     // botón/badge de entrega (ver tarea 12/15 del plan de flujo pedido-proveedor, y tarea
     // 5 de docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md para la granularidad por proveedor).
-    private List<IGrouping<PedidoResumen, SolicitudProducto>> gruposPedidoVisibles =>
+    private List<IGrouping<PedidoResumen, DetalleSolicitud>> gruposPedidoVisibles =>
         soloPendientesEntrega
-            ? gruposPedido.Where(g => gruposEntregaPorPedido.GetValueOrDefault(g.Key.PedidoId)?.Any(ge => !ge.Confirmado) ??
+            ? gruposPedido.Where(g => gruposEntregaPorPedido.GetValueOrDefault(g.Key.SolicitudId)?.Any(ge => !ge.Confirmado) ??
 false).ToList()
             : gruposPedido;
 
@@ -439,12 +446,12 @@ false).ToList()
     // completos, igual que la Bandeja, para poder ver de un vistazo todo lo que pidió cada
     // solicitante en un mismo envío.
     private int totalPaginas => Math.Max(1, (int)Math.Ceiling(gruposPedidoVisibles.Count / (double)TamanoPagina));
-    private IEnumerable<IGrouping<PedidoResumen, SolicitudProducto>> paginaActual =>
+    private IEnumerable<IGrouping<PedidoResumen, DetalleSolicitud>> paginaActual =>
         gruposPedidoVisibles.Skip((paginaNumero - 1) * TamanoPagina).Take(TamanoPagina);
 
     protected override async Task OnInitializedAsync()
     {
-        HeaderState.Set("Administrar pedidos");
+        HeaderState.Set("Administrar solicitudes");
         solicitantes = await Solicitudes.ObtenerSolicitantesAsync();
         catalogo = await Productos.ObtenerCatalogoAsync();
         proveedores = await Proveedores.ObtenerTodosAsync();
@@ -473,8 +480,8 @@ false).ToList()
         resultados = await Solicitudes.BuscarAsync(filtro);
 
         gruposPedido = resultados
-            .GroupBy(s => new PedidoResumen(s.PedidoId, s.Pedido?.SolicitanteNombre ?? s.SolicitanteNombre, s.Pedido?.Comentario,
-s.Pedido?.DireccionEntrega, s.Pedido?.FechaCreacion ?? s.FechaSolicitud))
+            .GroupBy(s => new PedidoResumen(s.SolicitudId, s.Solicitud?.SolicitanteNombre ?? s.SolicitanteNombre, s.Solicitud?.Comentario,
+s.Solicitud?.DireccionEntrega, s.Solicitud?.FechaCreacion ?? s.FechaSolicitud))
             .OrderByDescending(g => g.Key.FechaCreacion)
             .ToList();
 
@@ -501,7 +508,7 @@ s.ProductoId));
         tieneAprobadasPorPedido.Clear();
         confirmacionesPorPedido.Clear();
         gruposEntregaPorPedido.Clear();
-        foreach (var pedidoId in gruposPedido.Select(g => g.Key.PedidoId))
+        foreach (var pedidoId in gruposPedido.Select(g => g.Key.SolicitudId))
         {
             proveedoresPorPedido[pedidoId] = await NotificacionesProveedor.ObtenerProveedoresDisponiblesAsync(pedidoId);
             enviosPorPedido[pedidoId] = await NotificacionesProveedor.ObtenerEnviosAsync(pedidoId);
@@ -509,7 +516,7 @@ s.ProductoId));
             // Los filtros de esta pantalla pueden acotar `resultados` a un solo estado (p.ej.
             // Estado=Pendiente), así que el grupo local no sirve para saber si el pedido
             // tiene algo Aprobado — hay que ir a buscar el pedido completo.
-            var pedidoCompleto = await Solicitudes.ObtenerPedidoAsync(pedidoId);
+            var pedidoCompleto = await Solicitudes.ObtenerSolicitudAsync(pedidoId);
             tieneAprobadasPorPedido[pedidoId] = pedidoCompleto?.Items.Any(i => i.Estado == EstadoSolicitud.Aprobada) ?? false;
             confirmacionesPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerPorPedidoAsync(pedidoId);
             gruposEntregaPorPedido[pedidoId] = await ConfirmacionesEntrega.ObtenerGruposDeEntregaAsync(pedidoId);
@@ -586,7 +593,7 @@ private async Task ConfirmarEnvio()
             proveedorPendienteEnvio.ProveedorId, gestorId, gestorNombre, gestorEmail, adjuntarExcel, seleccionados);
 
         mensajeEnvio = resultado.Enviado
-            ? $"Pedido #{pedidoPendienteEnvio} enviado a {resultado.ProveedorNombre} ({(adjuntarExcel ? "PDF y Excel adjuntos" :
+            ? $"Solicitud #{pedidoPendienteEnvio} enviado a {resultado.ProveedorNombre} ({(adjuntarExcel ? "PDF y Excel adjuntos" :
                 "PDF adjunto")}, {resultado.CantidadLineas} producto(s))."
             : $"No se pudo enviar a {resultado.ProveedorNombre}: {resultado.Motivo}";
         mensajeEnvioVariante = resultado.Enviado ? AlertVariant.Success : AlertVariant.Warning;
@@ -642,7 +649,7 @@ private async Task ConfirmarEnvio()
 
         await ConfirmacionesEntrega.ConfirmarAsync(pedidoIdEntregaPendiente, proveedorIdEntregaPendiente, gestorId,
 gestorNombre, dto);
-        mensajeEnvio = $"Entrega del pedido #{pedidoIdEntregaPendiente} confirmada.";
+        mensajeEnvio = $"Entrega de la solicitud #{pedidoIdEntregaPendiente} confirmada.";
         mensajeEnvioVariante = AlertVariant.Success;
 
         modalEntregaVisible = false;

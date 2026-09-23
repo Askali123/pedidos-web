@@ -41,11 +41,11 @@
         </Card>
 
         <Card Title="Enviar al gestor">
-            <FormField Label="Dirección de entrega" Hint="A dónde hay que llevar estos insumos. Se autocompleta con la de tu perfil, pero podés cambiarla para este pedido.">
+            <FormField Label="Dirección de entrega" Hint="A dónde hay que llevar estos insumos. Se autocompleta con la de tu perfil, pero podés cambiarla para esta solicitud.">
                 <input class="form-input" @bind="direccionEntrega" placeholder="Ej. Bodega principal, Cra 10 # 20-30" />
             </FormField>
 
-            <FormField Label="Comentario (opcional)" Hint="Se guarda una sola vez para todo este pedido.">
+            <FormField Label="Comentario (opcional)" Hint="Se guarda una sola vez para toda esta solicitud.">
                 <textarea class="form-textarea" rows="3" @bind="comentario"></textarea>
             </FormField>
 
@@ -80,6 +80,16 @@
     {
         if (AuthStateTask is null)
             return;
+
+        // El Gestor no arma solicitudes propias (ver docs/PLAN_MEJORAS_UI_UX.md, tarea 16
+        // revisada) — la UI ya no lo lleva acá, pero esto bloquea igual la entrada directa
+        // por URL. El resto del método asume que quien llega es un Usuario legítimo.
+        var authStateRol = await AuthStateTask;
+        if (authStateRol.User.IsInRole(Roles.Gestor))
+        {
+            Navigation.NavigateTo("/catalogo");
+            return;
+        }
 
         // Scope aparte para el UserManager acá: UserMenu.razor (el menú del header) también
         // llama a UserManager.GetUserAsync en su propio OnInitializedAsync, y ambos corren
@@ -131,7 +141,7 @@
         enviando = true;
         try
         {
-            await Solicitudes.CrearPedidoAsync(userId, userName, comentario, items, direccionEntrega);
+            await Solicitudes.CrearSolicitudAsync(userId, userName, comentario, items, direccionEntrega);
             CarritoState.Limpiar();
             Navigation.NavigateTo("/solicitudes/mis-solicitudes");
         }

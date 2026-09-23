@@ -27,7 +27,7 @@
         {
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <StatCard Icon="cube" Label="Productos en catálogo" Value="@totalProductos.ToString()" Accent="StatCardAccent.Primary" />
-                <StatCard Icon="clipboard-list" Label="Pedidos pendientes" Value="@pedidosPendientes.ToString()" Accent="StatCardAccent.Warning" />
+                <StatCard Icon="clipboard-list" Label="Solicitudes pendientes" Value="@pedidosPendientes.ToString()" Accent="StatCardAccent.Warning" />
                 <StatCard Icon="truck" Label="Proveedores registrados" Value="@totalProveedores.ToString()" Accent="StatCardAccent.Purple" />
             </div>
         }
@@ -56,7 +56,7 @@
                             {
                                 <a href="/solicitudes/bandeja" class="flex items-center justify-between gap-3 py-2.5 -mx-1 px-1 rounded hover:bg-card-elevated">
                                     <div class="min-w-0">
-                                        <p class="text-sm font-medium text-heading truncate">Pedido #@p.PedidoId · @p.SolicitanteNombre</p>
+                                        <p class="text-sm font-medium text-heading truncate">Solicitud #@p.SolicitudId · @p.SolicitanteNombre</p>
                                         <p class="text-xs text-muted mt-0.5">@p.CantidadLineas línea(s) · @p.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</p>
                                     </div>
                                     @if (p.Urgente)
@@ -68,7 +68,7 @@
                         </div>
                         @if (totalPedidosBandeja > pendientesBandeja.Count)
                         {
-                            <a href="/solicitudes/bandeja" class="text-sm text-primary-300 hover:underline mt-3 inline-block">Ver los @totalPedidosBandeja pedidos pendientes →</a>
+                            <a href="/solicitudes/bandeja" class="text-sm text-primary-300 hover:underline mt-3 inline-block">Ver las @totalPedidosBandeja solicitudes pendientes →</a>
                         }
                     }
                 </Card>
@@ -82,7 +82,7 @@
                     }
                     else if (misPedidosPendientes.Count == 0)
                     {
-                        <EmptyState Icon="clipboard-list" Title="Sin solicitudes en curso" Description="No tenés pedidos esperando aprobación en este momento." />
+                        <EmptyState Icon="clipboard-list" Title="Sin solicitudes en curso" Description="No tenés solicitudes esperando aprobación en este momento." />
                     }
                     else
                     {
@@ -91,7 +91,7 @@
                             {
                                 <a href="/solicitudes/mis-solicitudes" class="flex items-center justify-between gap-3 py-2.5 -mx-1 px-1 rounded hover:bg-card-elevated">
                                     <div class="min-w-0">
-                                        <p class="text-sm font-medium text-heading truncate">Pedido #@p.PedidoId</p>
+                                        <p class="text-sm font-medium text-heading truncate">Solicitud #@p.SolicitudId</p>
                                         <p class="text-xs text-muted mt-0.5">@p.CantidadLineas línea(s) · @p.FechaCreacion.ToLocalTime().ToString("dd/MM HH:mm")</p>
                                     </div>
                                     <Badge Variant="BadgeVariant.Warning">Pendiente</Badge>
@@ -100,7 +100,7 @@
                         </div>
                         @if (totalMisPedidosPendientes > misPedidosPendientes.Count)
                         {
-                            <a href="/solicitudes/mis-solicitudes" class="text-sm text-primary-300 hover:underline mt-3 inline-block">Ver los @totalMisPedidosPendientes pedidos en curso →</a>
+                            <a href="/solicitudes/mis-solicitudes" class="text-sm text-primary-300 hover:underline mt-3 inline-block">Ver las @totalMisPedidosPendientes solicitudes en curso →</a>
                         }
                     }
                 </Card>
@@ -159,7 +159,7 @@ else
                         <div class="h-10 w-10 rounded-lg bg-success-500/15 flex items-center justify-center">
                             <Icon Name="clipboard-list" Class="h-5 w-5 text-success-400" />
                         </div>
-                        <p class="font-medium text-heading mt-3">Pedidos con aprobación</p>
+                        <p class="font-medium text-heading mt-3">Solicitudes con aprobación</p>
                         <p class="text-sm text-muted mt-1">Cualquiera arma su carrito; un gestor aprueba o rechaza cada línea.</p>
                     </div>
                     <div class="card card-body hover:shadow-elevated hover:-translate-y-0.5 transition-all duration-200">
@@ -167,14 +167,14 @@ else
                             <Icon Name="bell" Class="h-5 w-5 text-warning-400" />
                         </div>
                         <p class="font-medium text-heading mt-3">Avisos en tiempo real</p>
-                        <p class="text-sm text-muted mt-1">Nuevos pedidos, resoluciones y alertas de stock bajo, al instante.</p>
+                        <p class="text-sm text-muted mt-1">Nuevas solicitudes, resoluciones y alertas de stock bajo, al instante.</p>
                     </div>
                     <div class="card card-body hover:shadow-elevated hover:-translate-y-0.5 transition-all duration-200">
                         <div class="h-10 w-10 rounded-lg bg-info-500/15 flex items-center justify-center">
                             <Icon Name="download" Class="h-5 w-5 text-info-400" />
                         </div>
                         <p class="font-medium text-heading mt-3">Reportes listos para enviar</p>
-                        <p class="text-sm text-muted mt-1">Exporta a PDF/Excel, o notifica directo al proveedor, por pedido.</p>
+                        <p class="text-sm text-muted mt-1">Exporta a PDF/Excel, o notifica directo al proveedor, por solicitud.</p>
                     </div>
                 </div>
             </section>
@@ -192,7 +192,7 @@ else
                         </div>
                         <div class="relative flex flex-col items-center text-center">
                             <span class="h-12 w-12 rounded-full bg-primary-600 text-white flex items-center justify-center font-semibold shadow-sm shrink-0">2</span>
-                            <p class="font-medium text-heading mt-4">Enviá tu pedido</p>
+                            <p class="font-medium text-heading mt-4">Enviá tu solicitud</p>
                             <p class="text-sm text-muted mt-1 max-w-56">Un solo envío con varios productos y un comentario, si hace falta.</p>
                         </div>
                         <div class="relative flex flex-col items-center text-center">
@@ -206,8 +206,8 @@ else
 
             <section class="px-6 pb-20">
                 <div class="max-w-4xl mx-auto rounded-2xl bg-primary-600 px-8 py-12 text-center">
-                    <h2 class="text-2xl sm:text-3xl font-bold text-white">¿Listo para ordenar tus pedidos?</h2>
-                    <p class="text-primary-100 mt-2 max-w-md mx-auto">Creá tu cuenta y empezá a armar tu primer pedido en minutos.</p>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-white">¿Listo para hacer tus solicitudes?</h2>
+                    <p class="text-primary-100 mt-2 max-w-md mx-auto">Creá tu cuenta y empezá a armar tu primera solicitud en minutos.</p>
                     <a href="Account/Register" class="btn btn-lg bg-white text-primary-700 hover:bg-primary-50 mt-6">
                         <Icon Name="check" Class="h-4 w-4" /> Crear una cuenta gratis
                     </a>
@@ -227,11 +227,11 @@ else
 
     private const int MaxItemsWidget = 5;
 
-    /// <summary>Mismo umbral que usa Bandeja.razor para marcar un pedido como urgente.</summary>
+    /// <summary>Mismo umbral que usa Bandeja.razor para marcar una solicitud como urgente.</summary>
     private static readonly TimeSpan UmbralPendienteUrgente = TimeSpan.FromHours(48);
 
-    private record PedidoBandejaResumen(int PedidoId, string SolicitanteNombre, int CantidadLineas, DateTime FechaCreacion, bool Urgente);
-    private record PedidoMioResumen(int PedidoId, int CantidadLineas, DateTime FechaCreacion);
+    private record PedidoBandejaResumen(int SolicitudId, string SolicitanteNombre, int CantidadLineas, DateTime FechaCreacion, bool Urgente);
+    private record PedidoMioResumen(int SolicitudId, int CantidadLineas, DateTime FechaCreacion);
 
     private bool autenticado;
     private bool cargando = true;
@@ -274,7 +274,7 @@ else
         if (esGestor)
         {
             var gruposBandeja = pendientes
-                .GroupBy(s => new { s.PedidoId, s.SolicitanteNombre, FechaCreacion = s.Pedido?.FechaCreacion ?? s.FechaSolicitud })
+                .GroupBy(s => new { s.SolicitudId, s.SolicitanteNombre, FechaCreacion = s.Solicitud?.FechaCreacion ?? s.FechaSolicitud })
                 .OrderBy(g => g.Key.FechaCreacion)
                 .ToList();
 
@@ -282,7 +282,7 @@ else
             pendientesBandeja = gruposBandeja
                 .Take(MaxItemsWidget)
                 .Select(g => new PedidoBandejaResumen(
-                    g.Key.PedidoId,
+                    g.Key.SolicitudId,
                     g.Key.SolicitanteNombre,
                     g.Count(),
                     g.Key.FechaCreacion,
@@ -296,14 +296,14 @@ else
 
             var gruposMios = mias
                 .Where(s => s.Estado == EstadoSolicitud.Pendiente)
-                .GroupBy(s => new { s.PedidoId, FechaCreacion = s.Pedido?.FechaCreacion ?? s.FechaSolicitud })
+                .GroupBy(s => new { s.SolicitudId, FechaCreacion = s.Solicitud?.FechaCreacion ?? s.FechaSolicitud })
                 .OrderByDescending(g => g.Key.FechaCreacion)
                 .ToList();
 
             totalMisPedidosPendientes = gruposMios.Count;
             misPedidosPendientes = gruposMios
                 .Take(MaxItemsWidget)
-                .Select(g => new PedidoMioResumen(g.Key.PedidoId, g.Count(), g.Key.FechaCreacion))
+                .Select(g => new PedidoMioResumen(g.Key.SolicitudId, g.Count(), g.Key.FechaCreacion))
                 .ToList();
         }
 

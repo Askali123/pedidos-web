@@ -40,6 +40,17 @@
             <a class="btn btn-secondary" href="@UrlExportarPdf" target="_blank">
                 <Icon Name="download" Class="h-4 w-4" /> Exportar a PDF
             </a>
+
+            <AuthorizeView Roles="@Roles.Gestor" Context="mostrarInactivosContext">
+                <Authorized>
+                    <label class="flex items-center gap-2 text-sm text-body"
+                           title="@(proveedorId is not null ? "No aplica al filtrar por proveedor" : null)">
+                        <input type="checkbox" class="form-checkbox" @bind="mostrarInactivos" @bind:after="Filtrar"
+                               disabled="@(proveedorId is not null)" />
+                        Mostrar desactivados
+                    </label>
+                </Authorized>
+            </AuthorizeView>
         </div>
     </Card>
 
@@ -75,13 +86,19 @@
                     @foreach (var fila in paginaActual)
                     {
                         var p = fila.Producto;
-                        <tr>
+                        <tr class="@(!p.Activo ? "opacity-60" : "")">
                             @if (proveedorId is not null)
                             {
                                 <td class="text-muted" data-label="Código interno">#@p.Id</td>
                                 <td class="font-medium text-heading" data-label="Código proveedor">@fila.CodigoProveedor</td>
                             }
-                            <td class="font-medium text-heading" data-label="Nombre">@p.Nombre</td>
+                            <td class="font-medium text-heading" data-label="Nombre">
+                                @p.Nombre
+                                @if (!p.Activo)
+                                {
+                                    <Badge Variant="BadgeVariant.Warning">Desactivado</Badge>
+                                }
+                            </td>
                             <td data-label="Categoría"><Badge Variant="BadgeVariant.Neutral">@p.Categoria</Badge></td>
                             <td class="text-muted" data-label="Descripción">@p.Descripcion</td>
                             <td class="text-muted" data-label="Unidad">@p.UnidadMedida</td>
@@ -107,19 +124,30 @@
                             </td>
                             <td>
                                 <div class="flex items-center gap-2 justify-end flex-wrap">
-                                    @if (Carrito.Contiene(p.Id))
-                                    {
-                                        <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="check" OnClick="() => AgregarAlCarrito(p)">En el carrito</Button>
-                                    }
-                                    else
-                                    {
-                                        <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" Icon="cart" OnClick="() => AgregarAlCarrito(p)">Agregar</Button>
-                                    }
+                                    <AuthorizeView Roles="@Roles.Gestor" Context="carritoContext">
+                                        <NotAuthorized>
+                                            @if (Carrito.Contiene(p.Id))
+                                            {
+                                                <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="check" OnClick="() => AgregarAlCarrito(p)">En el carrito</Button>
+                                            }
+                                            else
+                                            {
+                                                <Button Variant="ButtonVariant.Primary" Size="ButtonSize.Small" Icon="cart" OnClick="() => AgregarAlCarrito(p)">Agregar</Button>
+                                            }
+                                        </NotAuthorized>
+                                    </AuthorizeView>
                                     <AuthorizeView Roles="@Roles.Gestor" Context="gestorContext">
                                         <Authorized>
                                             <a class="btn btn-secondary btn-sm" href="/catalogo/@p.Id/editar">Editar</a>
                                             <a class="btn btn-secondary btn-sm" href="/catalogo/@p.Id/proveedores">Proveedores</a>
-                                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="trash" OnClick="() => PedirConfirmacionDesactivar(p)">Desactivar</Button>
+                                            @if (p.Activo)
+                                            {
+                                                <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="trash" OnClick="() => PedirConfirmacionDesactivar(p)">Desactivar</Button>
+                                            }
+                                            else
+                                            {
+                                                <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => Reactivar(p)">Reactivar</Button>
+                                            }
                                         </Authorized>
                                     </AuthorizeView>
                                 </div>
@@ -173,6 +201,7 @@
     private string texto = "";
     private string categoria = "";
     private string proveedorIdTexto = "";
+    private bool mostrarInactivos;
     private int paginaNumero = 1;
 
     private int? proveedorId => int.TryParse(proveedorIdTexto, out var id) ? id : null;
@@ -216,7 +245,11 @@
         }
         else
         {
-            var catalogo = await Productos.ObtenerCatalogoAsync(textoFiltro, categoriaFiltro);
+            // El toggle "Mostrar desactivados" no aplica al filtrar por proveedor: esa rama
+            // usa ObtenerProductosDeProveedorAsync(soloActivos: true), que ya es otra
+            // consulta (sobre la asociación, no sobre el producto) — se deshabilita el
+            // checkbox en el markup para que no quede la sensación de que hace algo.
+            var catalogo = await Productos.ObtenerCatalogoAsync(textoFiltro, categoriaFiltro, incluirInactivos: mostrarInactivos);
             filas = catalogo.Select(p => new FilaCatalogo { Producto = p }).ToList();
         }
 
@@ -260,6 +293,12 @@
     private async Task ConfirmarDesactivar()
     {
         await Productos.DesactivarAsync(productoADesactivarId);
+        await Filtrar();
+    }
+
+    private async Task Reactivar(Producto producto)
+    {
+        await Productos.ReactivarAsync(producto.Id);
         await Filtrar();
     }
 

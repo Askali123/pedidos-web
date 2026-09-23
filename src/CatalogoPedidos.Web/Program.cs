@@ -2,6 +2,8 @@ using CatalogoPedidos.Application.Exportacion;
 using CatalogoPedidos.Application.Productos;
 using CatalogoPedidos.Application.Proveedores;
 using CatalogoPedidos.Application.Solicitudes;
+using CatalogoPedidos.Domain.Entities;
+using CatalogoPedidos.Domain.Enums;
 using CatalogoPedidos.Infrastructure;
 using CatalogoPedidos.Infrastructure.Identity;
 using CatalogoPedidos.Infrastructure.Persistence;
@@ -130,25 +132,47 @@ app.MapGet("/api/catalogo/pdf", async (
     return Results.File(bytes, "application/pdf", "catalogo.pdf");
 }).RequireAuthorization();
 
-app.MapGet("/api/solicitudes/{id:int}/pdf", async (int id, ISolicitudService solicitudes, IPdfExportService pdf, ClaimsPrincipal usuario) =>
+app.MapGet("/api/catalogo/excel", async (
+    IProductoService productos,
+    IProveedorService proveedores,
+    IExcelExportService excel,
+    ClaimsPrincipal usuario,
+    string? texto,
+    string? categoria,
+    int? proveedorId) =>
 {
-    var solicitud = await solicitudes.ObtenerPorIdAsync(id);
-    if (solicitud is null)
-        return Results.NotFound();
+    if (proveedorId is int idProveedor && usuario.IsInRole(Roles.Gestor))
+    {
+        var proveedor = await proveedores.ObtenerPorIdAsync(idProveedor);
+        var asociaciones = await proveedores.ObtenerProductosDeProveedorAsync(idProveedor, texto, categoria, soloActivos: true);
+        var bytesProveedor = excel.ExportarCatalogoPorProveedor(asociaciones, proveedor?.Nombre ?? "Proveedor");
+        return Results.File(bytesProveedor, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "catalogo-proveedor.xlsx");
+    }
 
-    var userId = usuario.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-    var esGestor = usuario.IsInRole(Roles.Gestor);
+    var catalogo = await productos.ObtenerCatalogoAsync(texto, categoria);
 
-    if (!esGestor && solicitud.SolicitanteId != userId)
-        return Results.Forbid();
-
-    var bytes = pdf.ExportarSolicitud(solicitud);
-    return Results.File(bytes, "application/pdf", $"solicitud-{solicitud.Id}.pdf");
+    // Reutilizamos ExportarSolicitudes adaptado: el catálogo general no tiene un método
+    // dedicado en Excel, así que exportamos como lista simple de productos.
+    // Para mantener consistencia, creamos una lista temporal de DetalleSolicitud "ficticios".
+    var items = catalogo.Select(p => new DetalleSolicitud
+    {
+        Id = p.Id,
+        ProductoId = p.Id,
+        Producto = p,
+        Cantidad = p.Stock,
+        SolicitudId = 0,
+        SolicitanteNombre = "-",
+        FechaSolicitud = DateTime.MinValue,
+        Estado = EstadoSolicitud.Pendiente,
+        GestorNombre = null
+    });
+    var bytes = excel.ExportarSolicitudes(items);
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "catalogo.xlsx");
 }).RequireAuthorization();
 
 app.MapGet("/api/pedidos/{id:int}/pdf", async (int id, ISolicitudService solicitudes, IPdfExportService pdf, ClaimsPrincipal usuario) =>
 {
-    var pedido = await solicitudes.ObtenerPedidoAsync(id);
+    var pedido = await solicitudes.ObtenerSolicitudAsync(id);
     if (pedido is null)
         return Results.NotFound();
 
@@ -159,8 +183,39 @@ app.MapGet("/api/pedidos/{id:int}/pdf", async (int id, ISolicitudService solicit
         return Results.Forbid();
 
     var bytes = pdf.ExportarPedido(pedido);
-    return Results.File(bytes, "application/pdf", $"pedido-{pedido.Id}.pdf");
+    return Results.File(bytes, "application/pdf", $"solicitud-{pedido.Id}.pdf");
 }).RequireAuthorization();
+
+app.MapGet("/api/pedidos-proveedor/{id:int}/pdf", async (int id, IPedidoProveedorRepository pedidosProveedor, IPdfExportService pdf) =>
+{
+    // Regenera el PDF desde los SNAPSHOTS del documento (no del catálogo vivo): es
+    // exactamente lo que se le mandó al proveedor en ese envío, aunque el catálogo haya
+    // cambiado después (ver docs/PLAN_PEDIDO_PROVEEDOR.md, sección 5).
+    var documento = await pedidosProveedor.ObtenerPorIdAsync(id);
+    if (documento is null)
+        return Results.NotFound();
+
+    // Las líneas Excluido=true (que el gestor sacó de este proveedor) no van en el PDF
+    // regenerado — mismo criterio que el correo original (ver PedidoNotificacionProveedorService).
+    documento.Items = documento.Items.Where(i => !i.Excluido).ToList();
+
+    var bytes = pdf.ExportarPedidoProveedor(documento, documento.Proveedor?.Nombre ?? "Proveedor");
+    return Results.File(bytes, "application/pdf", $"pedido-{documento.SolicitudId}-{documento.Proveedor?.Nombre}.pdf");
+}).RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Gestor });
+
+app.MapGet("/api/pedidos-proveedor/{id:int}/excel", async (int id, IPedidoProveedorRepository pedidosProveedor, IExcelExportService excel) =>
+{
+    // Mismo criterio que el endpoint de PDF hermano: snapshots del documento, no el
+    // catálogo vivo, y sin las líneas que el gestor excluyó de este proveedor.
+    var documento = await pedidosProveedor.ObtenerPorIdAsync(id);
+    if (documento is null)
+        return Results.NotFound();
+
+    documento.Items = documento.Items.Where(i => !i.Excluido).ToList();
+
+    var bytes = excel.ExportarPedidoProveedor(documento, documento.Proveedor?.Nombre ?? "Proveedor");
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"pedido-{documento.SolicitudId}-{documento.Proveedor?.Nombre}.xlsx");
+}).RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Gestor });
 
 static FiltroSolicitudesDto ConstruirFiltroReporte(DateTime? desde, DateTime? hasta, string? solicitanteId, int? productoId, int? proveedorId, CatalogoPedidos.Domain.Enums.EstadoSolicitud? estado)
     => new()
