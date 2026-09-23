@@ -750,3 +750,127 @@ el orden es la prioridad acordada.
   métodos `LineasSinCobertura`/`YaEnviadoA`/`TieneAsociacionEnCatalogo`/
   `AbrirAsociarProveedor`/`AbrirEditarAsociacion`/`GuardarAsociacion`/
   `DesactivarAsociacionDesdeModal`).
+
+- [x] **21. Bug real encontrado probando la tarea 20 en el navegador: un producto con una
+  asociación de catálogo vieja/inactiva quedaba bloqueado para SIEMPRE** — Hecho
+  (2026-09-23).
+
+  El usuario pidió "probalo en el navegador y contame qué falla". Con Gestor logueado:
+  asocié un producto huérfano ("Abrasivo REGULAR") a un proveedor nuevo desde el modal de
+  la tarea 20 — la asociación se creó bien (verificado por SQL), pero el producto se quedó
+  en "Sin proveedor asociado" en vez de pasar a un grupo nuevo. Confirmé que no era solo
+  visual: `EnviarAProveedorAsync` habría rechazado el envío con el mismo motivo, porque usa
+  el mismo cálculo.
+
+  **Causa raíz:** `ObtenerCoberturaPreviaAsync` marcaba un producto como "ya cubierto" por
+  un proveedor si tenía **cualquier** asociación de catálogo con él (activa o no, usada o
+  no), en vez de mirar qué contenía el documento que **de verdad** se le envió. Bastaba con
+  una asociación vieja y jamás usada, con un proveedor que ya recibió cualquier otra cosa
+  de la misma solicitud, para bloquear el producto de ofrecerse a cualquier proveedor —
+  incluso uno recién asociado.
+
+  **Arreglo:** `ObtenerCoberturaPreviaAsync` ahora calcula la cobertura desde
+  `PedidoProveedor.Items` (el snapshot real de lo enviado, ya cargado vía
+  `pedidosProveedor.ObtenerPorSolicitudAsync`) en vez de desde `ProductoProveedor` (el
+  catálogo). De paso corrige otro efecto secundario del mismo bug: una línea `Excluido`
+  ahora sí queda libre para ofrecerse a otro proveedor (antes tampoco lo estaba, por el
+  mismo cálculo de más).
+
+  Agregué un test nuevo (`ObtenerProveedoresDisponibles_ProductoConAsociacionInactivaAOtroProveedorYaConEnvio_SigueOfreciendoseANuevoProveedor`)
+  que reproduce el bug exacto y falla sin el arreglo. Los 7 tests anteriores siguen en
+  verde — confirmé además con SQL que un producto que SÍ estaba genuinamente en el
+  documento ya enviado (no solo asociado) sigue bloqueado correctamente, como debe ser.
+
+  Verificado: `dotnet build` limpio, `dotnet test` 8/8, y en el navegador con Gestor.
+  Archivos: `PedidoNotificacionProveedorService.cs` (`ObtenerCoberturaPreviaAsync` y sus 2
+  call sites), `PedidoNotificacionProveedorServiceTests.cs` (test nuevo).
+
+## P4 — Refinamiento visual y de navegación (ronda 2026-09-23)
+
+Pedido del usuario: análisis de cómo mejorar la UI/UX para que se sienta más
+familiarizada/intuitiva — "los botones de eliminar y el verde o el rojo chillón" y
+"opciones de navegación muy intuitivas", manteniendo el estilo moderno ya existente.
+Recorrido de `Styles/app.tailwind.css` + `Components/UI/` + `Sidebar.razor` antes de
+proponer nada: el sistema de diseño ya es maduro (21 tareas de este mismo plan) — no hacía
+falta un rediseño amplio, dos hallazgos puntuales explicaban el pedido.
+
+- [x] **22. Botones Success/Danger sólidos "chillones" — inconsistentes con el resto del
+  propio sistema de diseño** — Hecho.
+
+  Causa raíz: el sistema YA resuelve esto bien en casi todos lados — `Badge`, `StatCard`,
+  la barra de acento del ítem activo del sidebar — con un patrón consistente de tinte
+  translúcido (15% de opacidad) en vez de relleno sólido saturado (el propio comentario
+  del CSS del nav activo ya lo dice: "más elegante que un relleno sólido"). `.btn-success`/
+  `.btn-danger` eran la excepción: relleno sólido a saturación completa (verde/rojo
+  estándar de Tailwind vía alias) con texto blanco, aclarando aún más al hover (`-600`
+  base → `-500` hover) — literal opuesto a la restricción visual que el resto de la app ya
+  se autoimpone.
+
+  Dos cambios, no uno:
+  1. **Relleno sólido, menos "neón"**: `.btn-success`/`.btn-danger` pasan de base `-600`/
+     hover `-500` a base `-700`/hover `-600` — más profundos, oscurecen al hover en vez de
+     aclarar (mismo criterio "considerado" que ya usa el resto de la paleta oscura).
+  2. **Nueva variante `ButtonVariant.DangerSubtle`** (`.btn-danger-subtle`, mismo patrón
+     que `.btn-outline` ya usa para Primary — borde + texto tintado, fondo transparente),
+     para los botones que **disparan** una acción destructiva (abren un `ConfirmDialog` o
+     un modal) en vez de ejecutarla directo. El rojo sólido queda reservado para la acción
+     **real**: el botón "Confirmar" de `ConfirmDialog`, o cualquier acción de un solo clic
+     sin paso de confirmación intermedio.
+
+  Revisé los 13 usos de `Danger` y los 7 de `Success` uno por uno antes de decidir cuáles
+  tocar — no se aplicó una regla mecánica. Pasaron a `DangerSubtle` los 10 que son
+  disparadores o acciones frecuentes/reversibles sin confirmación: "Desactivar" en
+  Catálogo/Proveedores/Empresas/Sedes/`ProductosDeProveedor`/`ProveedoresDeProducto` (los 6
+  abren `ConfirmDialog`), "Rechazar todo"/"Rechazar" en Bandeja (abren el modal de
+  resolución, 2 lugares) y su toggle de selección dentro del modal (3er lugar en Bandeja,
+  no es la confirmación final), y "Quitar" del carrito (ícono suelto, sin confirmación,
+  pero de bajo riesgo — se puede volver a agregar). Quedaron en `Danger` sólido, sin
+  cambios, los 3 que sí son la acción final: "Quitar proveedor" en el modal de
+  `Administrar.razor` (ejecuta directo, sin otro paso), el botón "Aprobar"/"Rechazar" que
+  literalmente confirma el modal de Bandeja, y "Quitar gestor" en `GestionRoles.razor`
+  (acción directa, sin diálogo intermedio — no se le agregó uno, estaba fuera del pedido).
+  `Success` no ganó una variante subtle propia: sus 7 usos son "Reactivar"/"Activar" (un
+  solo clic, sin confirmación, y aprobar es una acción de menor riesgo que desactivar/
+  eliminar) — no había la misma asimetría de severidad que sí justificaba separar Danger en
+  dos niveles.
+
+  Verificado con `dotnet build` (0 errores/advertencias), `npm run build:css` (confirmé con
+  grep que `.btn-danger-subtle` quedó en `wwwroot/app.css` compilado), `dotnet test` (16/16
+  sin regresiones) y smoke test no interactivo de 4 rutas con botones tocados (Catálogo,
+  Bandeja, Proveedores, Empresas — sin excepciones en el log). **No se verificó visualmente
+  en el navegador** (el ajuste es de color/opacidad, no de lógica — corresponde revisarlo
+  quien lo pueda ver renderizado; ver memoria `feedback-no-browser-testing`).
+  Archivos: `Components/UI/ButtonVariant.cs`, `Components/UI/Button.razor`,
+  `Styles/app.tailwind.css` (y su salida compilada `wwwroot/app.css`), `Catalogo.razor`,
+  `ProveedoresDeProducto.razor`, `Empresas.razor`, `Sedes.razor`, `ProductosDeProveedor.razor`,
+  `Proveedores.razor`, `Bandeja.razor` (3 lugares), `Carrito.razor`.
+
+- [x] **23. Sidebar sin agrupar — 11 ítems bajo un solo encabezado "Gestión"** — Hecho.
+
+  Entre lo que ya había (Bandeja, Administrar, 2 Historiales, Nuevo producto, Importar,
+  Proveedores, Gestión de roles) y lo agregado en la sesión del plan de Empresas (Empresas,
+  Sedes, Consumo por empresa — ver `docs/PLAN_EMPRESAS_FILIALES.md`), el menú de Gestor
+  había crecido a una lista plana de 11 ítems sin ninguna jerarquía — difícil de escanear,
+  la misma "adopción inconsistente" que motivó este plan, esta vez en la propia navegación.
+
+  Se reagrupó en 6 sub-secciones, reusando el mismo patrón de encabezado que ya existía
+  para "Gestión" (cero CSS nuevo): **Solicitudes** (Bandeja/Administrar/2 Historiales),
+  **Catálogo** (Nuevo producto/Importar), **Proveedores**, **Organización** (Empresas/
+  Sedes), **Reportes** (Consumo por empresa), **Usuarios** (Gestión de roles). Se extrajo
+  el patrón repetido (`@if (!Collapsed) { <p>...</p> } else { <div class="border-t">...` })
+  a un componente nuevo `SidebarGroupLabel.razor` — antes solo se usaba una vez, ahora se
+  repite 6 veces, dejarlo inline habría significado seis copias idénticas del mismo
+  `@if`/`@else`.
+
+  No se tocaron: la estructura de rutas (ningún link cambió de URL), el ítem "Catálogo" ni
+  "Mis solicitudes" (fuera del bloque de Gestor, sin agrupar a propósito — son de un solo
+  ítem cada uno). Las ideas C del análisis (buscador tipo "Cmd+K", mover Nuevo
+  producto/Importar dentro de Catálogo.razor como acciones en vez de entradas de menú)
+  quedaron fuera de esta tarea — se marcaron como "a validar" en el análisis, no se
+  implementaron sin confirmar.
+
+  Verificado con `dotnet build` (0 errores/advertencias), `dotnet test` (16/16 sin
+  regresiones) y smoke test no interactivo de 4 rutas (sin excepciones en el log). **No se
+  verificó visualmente en el navegador** (ver memoria `feedback-no-browser-testing`).
+  Archivos: `Components/Layout/Sidebar.razor`, `Components/Layout/SidebarGroupLabel.razor`
+  (nuevo).

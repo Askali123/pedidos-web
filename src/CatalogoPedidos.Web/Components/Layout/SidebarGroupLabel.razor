@@ -1,0 +1,14 @@
+@* Encabezado de sub-sección del sidebar — colapsado, se ve como un separador sin texto. *@
+@if (!Collapsed)
+{
+    <p class="px-3 pt-4 pb-1 text-xs font-semibold text-muted uppercase tracking-wide">@Text</p>
+}
+else
+{
+    <div class="border-t border-border-subtle my-2"></div>
+}
+
+@code {
+    [Parameter] public string Text { get; set; } = "";
+    [Parameter] public bool Collapsed { get; set; }
+}

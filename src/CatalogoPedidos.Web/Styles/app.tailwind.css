@@ -169,8 +169,15 @@
   /* Se combinan con .btn en el markup: class="btn btn-primary" */
   .btn-primary { @apply bg-primary-600 text-white hover:bg-primary-500 active:bg-primary-700; }
   .btn-secondary { @apply bg-card text-body border border-border-subtle hover:bg-card-elevated hover:text-heading active:bg-card-elevated; }
-  .btn-success { @apply bg-success-600 text-white hover:bg-success-500 active:bg-success-700; }
-  .btn-danger { @apply bg-danger-600 text-white hover:bg-danger-500 active:bg-danger-700; }
+  /* Success/Danger sólidos: base en el tono 700 (no 600) y hover oscureciendo a 600 (no
+     aclarando a 500) — a propósito menos "neón" que antes, reservados para la acción
+     REAL (el botón "Confirmar" de ConfirmDialog, o cualquier acción de un solo clic sin
+     paso de confirmación intermedio) — ver docs/PLAN_MEJORAS_UI_UX.md, tarea 22. */
+  .btn-success { @apply bg-success-700 text-white hover:bg-success-600 active:bg-success-700; }
+  .btn-danger { @apply bg-danger-700 text-white hover:bg-danger-600 active:bg-danger-700; }
+  /* Para el botón "disparador" de una acción destructiva (el que ABRE un ConfirmDialog,
+     no el que confirma) — mismo patrón que .btn-outline, tinte en vez de relleno sólido. */
+  .btn-danger-subtle { @apply bg-transparent text-danger-300 border border-danger-500/40 hover:bg-danger-500/10; }
   .btn-outline { @apply bg-transparent text-primary-300 border border-primary-500/40 hover:bg-primary-500/10; }
   .btn-ghost { @apply bg-transparent text-muted hover:bg-card-elevated hover:text-heading; }
 

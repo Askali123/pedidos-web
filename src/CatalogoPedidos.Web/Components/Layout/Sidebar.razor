@@ -26,15 +26,7 @@
 
         <AuthorizeView Roles="@Roles.Gestor">
             <Authorized>
-                @if (!Collapsed)
-                {
-                    <p class="px-3 pt-4 pb-1 text-xs font-semibold text-muted uppercase tracking-wide">Gestión</p>
-                }
-                else
-                {
-                    <div class="border-t border-border-subtle my-2"></div>
-                }
-
+                <SidebarGroupLabel Text="Solicitudes" Collapsed="Collapsed" />
                 <NavLink href="/solicitudes/bandeja" class="sidebar-link" ActiveClass="sidebar-link-active">
                     <Icon Name="inbox" Class="h-5 w-5 shrink-0" />
                     @if (!Collapsed) { <span>Bandeja de solicitudes</span> }
@@ -51,6 +43,8 @@
                     <Icon Name="clock" Class="h-5 w-5 shrink-0" />
                     @if (!Collapsed) { <span>Historial de resoluciones</span> }
                 </NavLink>
+
+                <SidebarGroupLabel Text="Catálogo" Collapsed="Collapsed" />
                 <NavLink href="/catalogo/nuevo" class="sidebar-link" ActiveClass="sidebar-link-active">
                     <Icon Name="plus" Class="h-5 w-5 shrink-0" />
                     @if (!Collapsed) { <span>Nuevo producto</span> }
@@ -59,10 +53,14 @@
                     <Icon Name="download" Class="h-5 w-5 shrink-0" />
                     @if (!Collapsed) { <span>Importar productos</span> }
                 </NavLink>
+
+                <SidebarGroupLabel Text="Proveedores" Collapsed="Collapsed" />
                 <NavLink href="/proveedores" class="sidebar-link" ActiveClass="sidebar-link-active">
                     <Icon Name="truck" Class="h-5 w-5 shrink-0" />
                     @if (!Collapsed) { <span>Proveedores</span> }
                 </NavLink>
+
+                <SidebarGroupLabel Text="Organización" Collapsed="Collapsed" />
                 <NavLink href="/empresas" class="sidebar-link" ActiveClass="sidebar-link-active">
                     <Icon Name="building-store" Class="h-5 w-5 shrink-0" />
                     @if (!Collapsed) { <span>Empresas</span> }
@@ -71,10 +69,14 @@
                     <Icon Name="map-pin" Class="h-5 w-5 shrink-0" />
                     @if (!Collapsed) { <span>Sedes</span> }
                 </NavLink>
+
+                <SidebarGroupLabel Text="Reportes" Collapsed="Collapsed" />
                 <NavLink href="/reportes/consumo-empresas" class="sidebar-link" ActiveClass="sidebar-link-active">
                     <Icon Name="dashboard" Class="h-5 w-5 shrink-0" />
                     @if (!Collapsed) { <span>Consumo por empresa</span> }
                 </NavLink>
+
+                <SidebarGroupLabel Text="Usuarios" Collapsed="Collapsed" />
                 <NavLink href="/usuarios/roles" class="sidebar-link" ActiveClass="sidebar-link-active">
                     <Icon Name="user" Class="h-5 w-5 shrink-0" />
                     @if (!Collapsed) { <span>Gestión de roles</span> }
