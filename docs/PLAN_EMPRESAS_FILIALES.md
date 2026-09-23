@@ -305,20 +305,57 @@ siguen pasando, ninguno tocado en esta etapa porque todavía no hay lógica de A
 
 ### Etapa 2 — Application
 
-- [ ] `EmpresaDto`, `CrearEmpresaDto`, `EditarEmpresaDto` (espejo de los DTOs de
-  `Proveedor`).
-- [ ] `SedeDto`, `CrearSedeDto`, `EditarSedeDto` (incluye `EmpresaId`, `Pais`, `Ciudad`,
-  `Direccion`).
-- [ ] `IEmpresaService`/`EmpresaService` y `ISedeService`/`SedeService`: `ListarAsync`,
-  `CrearAsync`, `EditarAsync`, `DesactivarAsync` — mismo patrón que `IProveedorService`.
-  `SedeService.ListarAsync` acepta filtro opcional por `EmpresaId`.
-- [ ] Extender `UsuarioRolDto` con `SedeId`/`SedeNombre`/`EmpresaNombre`, y agregar
+- [x] `CrearEmpresaDto` (espejo de los DTOs de `Proveedor` — no hizo falta un DTO de
+  salida separado: `IEmpresaService` devuelve la entidad `Empresa` directamente, mismo
+  criterio que ya usa `IProveedorService` con `Proveedor`).
+  Hecho. `Archivos: src/CatalogoPedidos.Application/Empresas/CrearEmpresaDto.cs`.
+- [x] `CrearSedeDto` (incluye `EmpresaId`, `Pais`, `Ciudad`, `Direccion`; mismo criterio
+  de DTO único que `Empresa` — `ISedeService` devuelve `Sede` directamente).
+  Hecho. `Archivos: src/CatalogoPedidos.Application/Sedes/CrearSedeDto.cs`.
+- [x] `IEmpresaService`/`EmpresaService` y `ISedeService`/`SedeService`:
+  `ObtenerTodasAsync`, `CrearAsync`, `ActualizarAsync`, `DesactivarAsync` — mismo patrón
+  que `IProveedorService`/`ProveedorService` (repositorio con `IDbContextFactory`,
+  validación de campos obligatorios y de formato de email igual que `ProveedorService`).
+  `SedeService.ObtenerTodasAsync` acepta filtro opcional por `EmpresaId`.
+  Hecho. `Archivos:
+  src/CatalogoPedidos.Application/Empresas/{IEmpresaRepository,IEmpresaService,EmpresaService}.cs,
+  src/CatalogoPedidos.Application/Sedes/{ISedeRepository,ISedeService,SedeService}.cs,
+  src/CatalogoPedidos.Infrastructure/Repositories/{EmpresaRepository,SedeRepository}.cs`.
+- [x] Extender `UsuarioRolDto` con `SedeId`/`SedeNombre`/`EmpresaNombre`, y agregar
   `AsociarSedeAsync(usuarioId, sedeId?)` al servicio de gestión de usuarios existente
   (mismo servicio que ya maneja `AsignarGestor`/`QuitarGestor`, para tener un solo lugar
   de administración de atributos de usuario en vez de duplicar pantallas).
-- [ ] Al crear una `Solicitud`, autocompletar `SedeId`/`SedeNombre`/`EmpresaId`/
+  Hecho. `Archivos: src/CatalogoPedidos.Application/Usuarios/UsuarioRolDto.cs,
+  src/CatalogoPedidos.Application/Usuarios/IUsuarioRolService.cs,
+  src/CatalogoPedidos.Infrastructure/Identity/UsuarioRolService.cs`.
+  `ObtenerUsuariosAsync` resuelve las sedes de todos los usuarios en un solo viaje
+  (`ISedeRepository.ObtenerPorIdsAsync`, sin filtrar por `Activo` para no perder el
+  nombre si la sede se desactiva después) — evita N+1.
+- [x] Al crear una `Solicitud`, autocompletar `SedeId`/`SedeNombre`/`EmpresaId`/
   `EmpresaNombre` desde el `ApplicationUser` del solicitante — mismo punto donde ya se
   autocompleta `DireccionEntrega`.
+  Hecho, con una diferencia deliberada respecto al plan original: en vez de que el
+  snapshot dependa de `ApplicationUser` directamente (Application no puede depender de
+  Infrastructure/Identity), se agregó la abstracción `IUsuarioSedeDirectory`
+  (`Application/Usuarios`), implementada en Infrastructure como `UsuarioSedeDirectory` —
+  mismo patrón ya usado por `IGestorDirectory`/`GestorDirectory` para el mismo problema
+  (notificar gestores sin que Application conozca Identity). A diferencia de
+  `DireccionEntrega` (editable por el usuario en el carrito), Sede/Empresa **no** es un
+  parámetro que el caller pase — se resuelve siempre server-side desde la asociación real
+  del usuario, para que no se pueda "elegir" una empresa distinta a la asignada.
+  `Archivos: src/CatalogoPedidos.Application/Usuarios/{IUsuarioSedeDirectory,UsuarioSedeDto}.cs,
+  src/CatalogoPedidos.Application/Solicitudes/SolicitudService.cs,
+  src/CatalogoPedidos.Infrastructure/Identity/UsuarioSedeDirectory.cs,
+  src/CatalogoPedidos.Infrastructure/DependencyInjection.cs`.
+  Verificado con 2 tests nuevos en
+  `CatalogoPedidos.Application.Tests/Solicitudes/SolicitudServiceTests.cs`
+  (`SolicitanteConSedeAsignada_CopiaSedeYEmpresaComoSnapshot` y
+  `SolicitanteSinSedeAsignada_NoBloqueaYDejaCamposEnNull`).
+
+Verificación conjunta de la etapa: `dotnet build src/CatalogoPedidos.slnx` (0
+errores/advertencias), `dotnet test src/CatalogoPedidos.slnx` (10/10 — 8 existentes + 2
+nuevos), y un arranque de prueba (`dotnet run`) para confirmar que toda la inyección de
+dependencias nueva resuelve en runtime sin errores.
 
 ### Etapa 3 — UI: administración de Empresas
 

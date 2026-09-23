@@ -1,7 +1,9 @@
+using CatalogoPedidos.Application.Empresas;
 using CatalogoPedidos.Application.Exportacion;
 using CatalogoPedidos.Application.Notificaciones;
 using CatalogoPedidos.Application.Productos;
 using CatalogoPedidos.Application.Proveedores;
+using CatalogoPedidos.Application.Sedes;
 using CatalogoPedidos.Application.Solicitudes;
 using CatalogoPedidos.Application.Usuarios;
 using CatalogoPedidos.Infrastructure.BackgroundJobs;
@@ -84,6 +86,12 @@ public static class DependencyInjection
         services.AddScoped<IGestorDirectory, GestorDirectory>();
         services.AddScoped<IUsuarioRolService, UsuarioRolService>();
         services.AddSingleton<INotificacionBroadcaster, NotificacionBroadcaster>();
+
+        services.AddScoped<IEmpresaRepository, EmpresaRepository>();
+        services.AddScoped<IEmpresaService, EmpresaService>();
+        services.AddScoped<ISedeRepository, SedeRepository>();
+        services.AddScoped<ISedeService, SedeService>();
+        services.AddScoped<IUsuarioSedeDirectory, UsuarioSedeDirectory>();
 
         // Envío real solo si hay un servidor SMTP configurado (Smtp:Host — ver
         // SmtpOptions y el README). Sin eso, se sigue usando el sender simulado que solo

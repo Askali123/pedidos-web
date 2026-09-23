@@ -13,4 +13,11 @@ public interface IUsuarioRolService
     /// docs/PLAN_MEJORAS_AUTENTICACION.md #4.
     /// </summary>
     Task QuitarGestorAsync(string usuarioId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Asocia (o desasocia, con <c>sedeId: null</c>) un usuario a una Sede — ver
+    /// docs/PLAN_EMPRESAS_FILIALES.md. Tira <see cref="InvalidOperationException"/> si el
+    /// usuario o la sede no existen.
+    /// </summary>
+    Task AsociarSedeAsync(string usuarioId, int? sedeId, CancellationToken ct = default);
 }
