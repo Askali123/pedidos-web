@@ -10,6 +10,12 @@ public class FiltroSolicitudesDto
     public int? ProductoId { get; set; }
     public int? ProveedorId { get; set; }
     public EstadoSolicitud? Estado { get; set; }
+
+    /// <summary>Filtros del dashboard de consumo por empresa/sede — ver docs/PLAN_EMPRESAS_FILIALES.md, Etapa 6.</summary>
+    public int? EmpresaId { get; set; }
+    public int? SedeId { get; set; }
+    public int? Anio { get; set; }
+    public int? Mes { get; set; }
 }
 
 public class SolicitanteResumenDto

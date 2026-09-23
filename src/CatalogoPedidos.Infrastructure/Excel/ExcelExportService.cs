@@ -1,4 +1,5 @@
 using CatalogoPedidos.Application.Exportacion;
+using CatalogoPedidos.Application.Reportes;
 using CatalogoPedidos.Domain.Entities;
 using ClosedXML.Excel;
 
@@ -189,6 +190,47 @@ public class ExcelExportService : IExcelExportService
         hoja.Columns().AdjustToContents();
         hoja.SheetView.FreezeRows(3);
         hoja.Range(3, 1, 3, encabezados.Length).SetAutoFilter();
+
+        using var stream = new MemoryStream();
+        libro.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    public byte[] ExportarConsumoEmpresas(IEnumerable<ConsumoDetalleDto> items)
+    {
+        using var libro = new XLWorkbook();
+        var hoja = libro.Worksheets.Add("Consumo por empresa");
+
+        string[] encabezados = ["Empresa", "Sede", "Fecha", "Solicitante", "Producto", "Categoría", "Código interno", "Código proveedor", "Cantidad", "Estado"];
+        for (var i = 0; i < encabezados.Length; i++)
+        {
+            var celda = hoja.Cell(1, i + 1);
+            celda.Value = encabezados[i];
+            celda.Style.Font.Bold = true;
+            celda.Style.Fill.BackgroundColor = XLColor.FromHtml("#1B1F27");
+            celda.Style.Font.FontColor = XLColor.White;
+        }
+
+        var fila = 2;
+        foreach (var d in items)
+        {
+            hoja.Cell(fila, 1).Value = d.EmpresaNombre ?? "Sin empresa";
+            hoja.Cell(fila, 2).Value = d.SedeNombre ?? "Sin sede";
+            hoja.Cell(fila, 3).Value = d.Fecha.ToLocalTime();
+            hoja.Cell(fila, 3).Style.DateFormat.Format = "dd/MM/yyyy HH:mm";
+            hoja.Cell(fila, 4).Value = d.SolicitanteNombre;
+            hoja.Cell(fila, 5).Value = d.ProductoNombre;
+            hoja.Cell(fila, 6).Value = d.Categoria;
+            hoja.Cell(fila, 7).Value = d.CodigoInterno;
+            hoja.Cell(fila, 8).Value = d.CodigoProveedor ?? "-";
+            hoja.Cell(fila, 9).Value = d.Cantidad;
+            hoja.Cell(fila, 10).Value = d.Estado.ToString();
+            fila++;
+        }
+
+        hoja.Columns().AdjustToContents();
+        hoja.SheetView.FreezeRows(1);
+        hoja.RangeUsed()?.SetAutoFilter();
 
         using var stream = new MemoryStream();
         libro.SaveAs(stream);

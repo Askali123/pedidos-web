@@ -1,3 +1,4 @@
+using CatalogoPedidos.Application.Reportes;
 using CatalogoPedidos.Domain.Entities;
 
 namespace CatalogoPedidos.Application.Exportacion;
@@ -11,4 +12,7 @@ public interface IExcelExportService
     /// <summary>Igual que <see cref="ExportarSolicitudesPorProveedor"/> pero desde los SNAPSHOTS
     /// de un <see cref="PedidoProveedor"/>, no del catálogo vivo — para el adjunto del correo.</summary>
     byte[] ExportarPedidoProveedor(PedidoProveedor documento, string proveedorNombre);
+
+    /// <summary>Dashboard de consumo por empresa/sede — exporta exactamente el corte de filtros activo (ver docs/PLAN_EMPRESAS_FILIALES.md, Etapa 6).</summary>
+    byte[] ExportarConsumoEmpresas(IEnumerable<ConsumoDetalleDto> items);
 }

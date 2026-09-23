@@ -1,6 +1,7 @@
 using CatalogoPedidos.Application.Exportacion;
 using CatalogoPedidos.Application.Productos;
 using CatalogoPedidos.Application.Proveedores;
+using CatalogoPedidos.Application.Reportes;
 using CatalogoPedidos.Application.Solicitudes;
 using CatalogoPedidos.Domain.Entities;
 using CatalogoPedidos.Domain.Enums;
@@ -280,6 +281,30 @@ app.MapGet("/api/solicitudes/reporte/excel", async (
 
     var bytes = excel.ExportarSolicitudes(resultado);
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "reporte-solicitudes.xlsx");
+}).RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Gestor });
+
+app.MapGet("/api/reportes/consumo-empresas/excel", async (
+    IConsumoEmpresaService consumo,
+    IExcelExportService excel,
+    int? empresaId,
+    int? sedeId,
+    int? anio,
+    int? mes,
+    DateTime? desde,
+    DateTime? hasta) =>
+{
+    var filtro = new FiltroSolicitudesDto
+    {
+        EmpresaId = empresaId,
+        SedeId = sedeId,
+        Anio = anio,
+        Mes = mes,
+        FechaDesde = desde,
+        FechaHasta = hasta
+    };
+    var resultado = await consumo.ObtenerConsumoAsync(filtro);
+    var bytes = excel.ExportarConsumoEmpresas(resultado);
+    return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "consumo-empresas.xlsx");
 }).RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Gestor });
 
 app.Run();

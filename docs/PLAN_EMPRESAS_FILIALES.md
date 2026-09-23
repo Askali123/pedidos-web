@@ -413,21 +413,62 @@ dependencias nueva resuelve en runtime sin errores.
 
 ### Etapa 6 — Dashboard de solicitudes/consumos
 
-- [ ] Servicio de reporte: filtro combinable (Empresa opcional + Sede opcional + Año/Mes
+- [x] Servicio de reporte: filtro combinable (Empresa opcional + Sede opcional + Año/Mes
   opcional + rango de fechas Desde/Hasta opcional) sobre `Solicitud` + `DetalleSolicitud`,
   devolviendo el detalle descrito en §2 (solicitante, fecha, insumo, categoría, código
   interno, código de proveedor) — mismo criterio de combinación de filtros que ya usa
   `Administrar.razor`.
-- [ ] Página de dashboard (nombre a definir) — selectores de Empresa, Sede, Año, Mes y
-  rango de fechas, tabla de detalle agrupada de forma clara (p. ej. por empresa, luego
-  por sede, luego por mes), pensada para que el Gestor navegue el consumo de forma
-  organizada e intuitiva, no una tabla plana sin agrupar.
-- [ ] Exportación a Excel del corte activo en pantalla (la combinación de filtros vigente),
+  Hecho, reusando la infraestructura existente en vez de duplicarla: se extendió
+  `FiltroSolicitudesDto`/`SolicitudRepository.BuscarAsync` (los mismos que ya usa
+  `Administrar.razor`) con `EmpresaId`/`SedeId`/`Anio`/`Mes`, y se agregó un servicio
+  nuevo `IConsumoEmpresaService`/`ConsumoEmpresaService` (`Application/Reportes/`) que
+  llama a `BuscarAsync` y enriquece cada línea con el código de proveedor: el snapshot
+  congelado de `DetallePedidoProveedor` si la línea ya se envió (vía el nuevo
+  `IPedidoProveedorRepository.ObtenerPorSolicitudesAsync`, batch por varias solicitudes),
+  o el preferido del catálogo (`IProveedorService.ObtenerCodigosPreferidosAsync`, ya
+  existía) como referencia si no.
+  `Archivos: src/CatalogoPedidos.Application/Solicitudes/FiltroSolicitudesDto.cs,
+  src/CatalogoPedidos.Infrastructure/Repositories/SolicitudRepository.cs,
+  src/CatalogoPedidos.Application/Solicitudes/IPedidoProveedorRepository.cs,
+  src/CatalogoPedidos.Infrastructure/Repositories/PedidoProveedorRepository.cs,
+  src/CatalogoPedidos.Application/Reportes/{ConsumoDetalleDto,IConsumoEmpresaService,ConsumoEmpresaService}.cs`.
+  Verificado con 4 tests nuevos en
+  `CatalogoPedidos.Application.Tests/Reportes/ConsumoEmpresaServiceTests.cs` (prioridad
+  código-enviado-sobre-preferido, fallback a preferido, sin proveedor asociado, snapshot
+  de Empresa/Sede/categoría/código interno).
+- [x] Página de dashboard — `ConsumoEmpresas.razor` en `/reportes/consumo-empresas`,
+  selectores de Empresa, Sede (filtrada por la Empresa elegida), Año, Mes y rango de
+  fechas, tabla de detalle agrupada por Empresa → Sede (cada grupo en su propia tabla,
+  ordenado por fecha descendente dentro del grupo), con badge de Estado reusando
+  `EstadoBadgeHelper`. Entrada nueva en el menú lateral.
+  `Archivos: src/CatalogoPedidos.Web/Components/Pages/Reportes/ConsumoEmpresas.razor,
+  src/CatalogoPedidos.Web/Components/Layout/Sidebar.razor,
+  src/CatalogoPedidos.Web/Components/_Imports.razor`.
+- [x] Exportación a Excel del corte activo en pantalla (la combinación de filtros vigente),
   reusando `IExcelExportService` — no un solo reporte fijo, sino "lo que se está viendo,
   a Excel".
-- [ ] Evaluar en este mismo punto si conviene resolver junto la Tarea 1 de
+  Hecho: `IExcelExportService.ExportarConsumoEmpresas` nuevo (mismo patrón ClosedXML que
+  `ExportarSolicitudes`) + endpoint minimal API
+  `GET /api/reportes/consumo-empresas/excel` (`Roles.Gestor`) que arma el mismo filtro
+  que la pantalla a partir de la query string — mismo patrón `UrlExcel()`/`UrlReporte()`
+  ya usado en `Administrar.razor`.
+  `Archivos: src/CatalogoPedidos.Application/Exportacion/IExcelExportService.cs,
+  src/CatalogoPedidos.Infrastructure/Excel/ExcelExportService.cs,
+  src/CatalogoPedidos.Web/Program.cs`.
+- [x] Evaluar en este mismo punto si conviene resolver junto la Tarea 1 de
   `PLAN_FUNCIONALIDADES_NEGOCIO.md` (reporte de gasto por proveedor/categoría/período)
   sobre la misma infraestructura de filtro/agregación, en vez de construirla dos veces.
+  Evaluado: la infraestructura de filtro (`FiltroSolicitudesDto`/`BuscarAsync`) ya queda
+  compartida y lista para que la Tarea 1 se apoye en ella cuando se aborde — pero la
+  Tarea 1 en sí (agregación de gasto `Precio × Cantidad` por Proveedor/Categoría) **no se
+  construyó acá**, no la pidió el usuario en esta conversación y es un reporte
+  distinto (dinero, no consumo/trazabilidad). Queda tal cual en
+  `PLAN_FUNCIONALIDADES_NEGOCIO.md` para cuando se retome ese plan.
+
+Verificación conjunta de la etapa: `dotnet build`/`dotnet test` (0 errores, 14/14 — 10
+existentes + 4 nuevos) y smoke test no interactivo (`curl` a `/reportes/consumo-empresas`
+y `/api/reportes/consumo-empresas/excel`, ambos HTTP 200 sin excepciones en el log).
+**Clic-testing real lo hace el usuario** (ver memoria `feedback-no-browser-testing`).
 
 ### Etapa 7 — Reconciliar con el plan de funcionalidades de negocio existente
 

@@ -3,6 +3,7 @@ using CatalogoPedidos.Application.Exportacion;
 using CatalogoPedidos.Application.Notificaciones;
 using CatalogoPedidos.Application.Productos;
 using CatalogoPedidos.Application.Proveedores;
+using CatalogoPedidos.Application.Reportes;
 using CatalogoPedidos.Application.Sedes;
 using CatalogoPedidos.Application.Solicitudes;
 using CatalogoPedidos.Application.Usuarios;
@@ -92,6 +93,7 @@ public static class DependencyInjection
         services.AddScoped<ISedeRepository, SedeRepository>();
         services.AddScoped<ISedeService, SedeService>();
         services.AddScoped<IUsuarioSedeDirectory, UsuarioSedeDirectory>();
+        services.AddScoped<IConsumoEmpresaService, ConsumoEmpresaService>();
 
         // Envío real solo si hay un servidor SMTP configurado (Smtp:Host — ver
         // SmtpOptions y el README). Sin eso, se sigue usando el sender simulado que solo
