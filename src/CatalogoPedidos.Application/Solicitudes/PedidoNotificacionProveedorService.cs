@@ -38,7 +38,7 @@ public class PedidoNotificacionProveedorService(
 
         var productoIds = aprobadas.Select(i => i.ProductoId).Distinct();
         var todasLasAsociaciones = await asociaciones.ObtenerPorProductosAsync(productoIds, ct);
-        var (proveedoresConEnvio, productoIdsYaEnviados) = await ObtenerCoberturaPreviaAsync(solicitudId, todasLasAsociaciones, ct);
+        var (proveedoresConEnvio, productoIdsYaEnviados) = await ObtenerCoberturaPreviaAsync(solicitudId, ct);
 
         // Línea que el gestor EXCLUYÓ de este proveedor (Excluido=true en el doc) no se
         // vuelve a ofrecer ni a sumar al conteo, para que el selector refleje lo pendiente.
@@ -47,11 +47,15 @@ public class PedidoNotificacionProveedorService(
                 d => d.ProveedorId,
                 d => d.Items.Where(i => i.Excluido).Select(i => i.ProductoId).ToHashSet());
 
-        // Solo se ofrecen proveedores con asociación ACTIVA (una desactivada no debe poder
-        // recibir pedidos nuevos) — la cobertura previa sí se calcula con el total, porque
-        // una línea ya enviada a un proveedor que luego se desactivó sigue estando cubierta.
+        // Solo se ofrecen proveedores con asociación ACTIVA Y proveedor ACTIVO (un proveedor
+        // desactivado no debe poder recibir pedidos nuevos, sin importar si su asociación de
+        // catálogo quedó activa por algún motivo — chequeo defensivo, no solo confiar en la
+        // cascada de ProveedorService.DesactivarAsync; ver docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md,
+        // tarea 9). La cobertura previa sigue estando cubierta aunque esa asociación o el
+        // proveedor se desactiven después, porque se calcula desde el documento REALMENTE
+        // enviado (PedidoProveedor.Items), no desde el catálogo vivo.
         return todasLasAsociaciones
-            .Where(a => a.Activo)
+            .Where(a => a.Activo && a.Proveedor!.Activo)
             .GroupBy(a => a.ProveedorId)
             .Select(g =>
             {
@@ -88,19 +92,27 @@ public class PedidoNotificacionProveedorService(
     }
 
     /// <summary>
-    /// A qué proveedores ya se les envió algo de esta solicitud, y qué productos quedaron
-    /// cubiertos por esos envíos (sin importar a cuál proveedor específico) — para no
-    /// volver a ofrecer/permitir esas líneas a un proveedor DISTINTO del que ya las
-    /// recibió. Ver docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md #2.
+    /// A qué proveedores ya se les envió esta solicitud, y qué productos quedaron
+    /// REALMENTE cubiertos por esos envíos (sin importar a cuál proveedor específico) —
+    /// para no volver a ofrecer/permitir esas líneas a un proveedor DISTINTO del que ya
+    /// las recibió. Ver docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md #2.
+    ///
+    /// Se calcula desde <see cref="PedidoProveedor.Items"/> (el documento con snapshots
+    /// que de verdad se mandó), no desde el catálogo — 2026-09-23: usar
+    /// "cualquier asociación de catálogo con un proveedor que ya recibió algo" bloqueaba
+    /// productos que NUNCA se le mandaron a ese proveedor (bastaba con tener una
+    /// asociación vieja/inactiva con él para quedar marcados como "ya cubiertos" y no
+    /// poder ofrecerse a un proveedor nuevo). Las líneas <c>Excluido</c> tampoco cuentan
+    /// como cubiertas: quitar una línea de ESTE proveedor la deja libre para otro.
     /// </summary>
     private async Task<(HashSet<int> ProveedoresConEnvio, HashSet<int> ProductoIdsYaEnviados)> ObtenerCoberturaPreviaAsync(
-        int solicitudId, List<ProductoProveedor> todasLasAsociaciones, CancellationToken ct)
+        int solicitudId, CancellationToken ct)
     {
-        var enviosDeLaSolicitud = await envios.ObtenerPorSolicitudAsync(solicitudId, ct);
-        var proveedoresConEnvio = enviosDeLaSolicitud.Select(e => e.ProveedorId).ToHashSet();
-        var productoIdsYaEnviados = todasLasAsociaciones
-            .Where(a => proveedoresConEnvio.Contains(a.ProveedorId))
-            .Select(a => a.ProductoId)
+        var documentos = await pedidosProveedor.ObtenerPorSolicitudAsync(solicitudId, ct);
+        var proveedoresConEnvio = documentos.Select(d => d.ProveedorId).ToHashSet();
+        var productoIdsYaEnviados = documentos
+            .SelectMany(d => d.Items.Where(i => !i.Excluido))
+            .Select(i => i.ProductoId)
             .ToHashSet();
 
         return (proveedoresConEnvio, productoIdsYaEnviados);
@@ -117,15 +129,17 @@ public class PedidoNotificacionProveedorService(
 
         var productoIds = aprobadas.Select(i => i.ProductoId).Distinct();
         var todasLasAsociaciones = await asociaciones.ObtenerPorProductosAsync(productoIds, ct);
-        var deEsteProveedor = todasLasAsociaciones.Where(a => a.ProveedorId == proveedorId && a.Activo).ToList();
+        // Chequeo defensivo del proveedor mismo, no solo de la asociación — ver
+        // docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md, tarea 9.
+        var deEsteProveedor = todasLasAsociaciones.Where(a => a.ProveedorId == proveedorId && a.Activo && a.Proveedor!.Activo).ToList();
 
         if (deEsteProveedor.Count == 0)
-            throw new InvalidOperationException("Ninguna línea aprobada de esta solicitud está asociada a ese proveedor.");
+            throw new InvalidOperationException("Ninguna línea aprobada de esta solicitud está asociada a ese proveedor (o el proveedor está desactivado).");
 
         var proveedor = deEsteProveedor[0].Proveedor!;
         var codigoPorProducto = deEsteProveedor.ToDictionary(a => a.ProductoId, a => a.CodigoProveedor);
 
-        var (proveedoresConEnvio, productoIdsYaEnviados) = await ObtenerCoberturaPreviaAsync(solicitudId, todasLasAsociaciones, ct);
+        var (proveedoresConEnvio, productoIdsYaEnviados) = await ObtenerCoberturaPreviaAsync(solicitudId, ct);
 
         // Mismo criterio que ObtenerProveedoresDisponiblesAsync: no se le manda a un
         // proveedor DISTINTO una línea que ya se le envió a otro (ver

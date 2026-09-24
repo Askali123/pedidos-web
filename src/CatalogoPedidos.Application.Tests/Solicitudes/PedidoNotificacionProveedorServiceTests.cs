@@ -342,4 +342,68 @@ public class PedidoNotificacionProveedorServiceTests
             e => e.EnviarAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IReadOnlyList<EmailAdjunto>?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
+
+    /// <summary>
+    /// Bug encontrado el 2026-09-23 probando "Administrar solicitudes" en el navegador: un
+    /// producto con una asociación de catálogo VIEJA/INACTIVA hacia un proveedor que ya
+    /// recibió otra cosa de la misma solicitud quedaba bloqueado para siempre — no podía
+    /// ofrecerse ni enviarse a NINGÚN proveedor, ni siquiera a uno recién asociado, porque
+    /// <c>ObtenerCoberturaPreviaAsync</c> marcaba "ya cubierto" con cualquier asociación de
+    /// catálogo (activa o no) en vez de con lo que el documento REALMENTE enviado contiene.
+    /// </summary>
+    [Fact]
+    public async Task ObtenerProveedoresDisponibles_ProductoConAsociacionInactivaAOtroProveedorYaConEnvio_SigueOfreciendoseANuevoProveedor()
+    {
+        var productoA = CrearProducto(1, "Producto A");
+        var productoB = CrearProducto(2, "Producto B");
+        var proveedorX = CrearProveedor(100, "ProveedorX");
+        var proveedorY = CrearProveedor(200, "ProveedorY");
+
+        var asociacionAaX = Asociacion(productoA.Id, proveedorX, "X-A");
+        // B nunca se le mandó a X, pero tiene una asociación vieja/inactiva con él —
+        // no debería bastar para bloquearlo una vez que X ya recibió A.
+        var asociacionBaXInactiva = Asociacion(productoB.Id, proveedorX, "X-B-VIEJO", activo: false);
+        var asociacionBaY = Asociacion(productoB.Id, proveedorY, "Y-B");
+        var asociaciones = new List<ProductoProveedor> { asociacionAaX, asociacionBaXInactiva, asociacionBaY };
+
+        var solicitud = CrearSolicitud(80,
+            Aprobada(1, productoA.Id, 3, productoA),
+            Aprobada(2, productoB.Id, 2, productoB));
+
+        var entorno = CrearEntorno(solicitud, asociaciones);
+
+        var envioA = await entorno.Servicio.EnviarAProveedorAsync(solicitud.Id, proveedorX.Id, "gestor-1", "Gestor Uno");
+        Assert.True(envioA.Enviado);
+
+        var disponibles = await entorno.Servicio.ObtenerProveedoresDisponiblesAsync(solicitud.Id);
+
+        var opcionY = Assert.Single(disponibles, p => p.ProveedorId == proveedorY.Id);
+        Assert.Contains(opcionY.Productos, p => p.ProductoId == productoB.Id);
+
+        // Y también se puede enviar de verdad, no solo aparecer listado.
+        var envioB = await entorno.Servicio.EnviarAProveedorAsync(solicitud.Id, proveedorY.Id, "gestor-1", "Gestor Uno");
+        Assert.True(envioB.Enviado);
+    }
+
+    [Fact]
+    public async Task ObtenerProveedoresDisponibles_ProveedorDesactivado_NoApareceAunqueSuAsociacionSigaActiva()
+    {
+        // Reproduce el bug real de docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md, tarea 9:
+        // desactivar un Proveedor no cascadea a sus asociaciones — sin el chequeo
+        // defensivo de Proveedor.Activo, este caso seguía ofreciéndose.
+        var producto = CrearProducto(1, "Papel higiénico");
+        var proveedorInactivo = CrearProveedor(100, "ProveedorInactivo");
+        proveedorInactivo.Activo = false;
+        var asociacion = Asociacion(producto.Id, proveedorInactivo, "COD-1"); // asociación sigue Activo=true
+
+        var solicitud = CrearSolicitud(90, Aprobada(1, producto.Id, 4, producto));
+        var entorno = CrearEntorno(solicitud, [asociacion]);
+
+        var disponibles = await entorno.Servicio.ObtenerProveedoresDisponiblesAsync(solicitud.Id);
+        Assert.Empty(disponibles);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            entorno.Servicio.EnviarAProveedorAsync(solicitud.Id, proveedorInactivo.Id, "gestor-1", "Gestor Uno"));
+        Assert.Contains("desactivado", ex.Message);
+    }
 }

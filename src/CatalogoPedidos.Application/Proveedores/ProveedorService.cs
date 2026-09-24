@@ -75,6 +75,18 @@ public class ProveedorService(
 
         proveedor.Activo = false;
         await proveedores.ActualizarAsync(proveedor, ct);
+
+        // Cascada: una asociación producto-proveedor no puede seguir "activa" con su
+        // Proveedor inactivo — sin esto, el proveedor desactivado seguía ofreciéndose y
+        // pudiéndose usar para "Enviar a proveedor" porque ese flujo solo mira
+        // ProductoProveedor.Activo, nunca Proveedor.Activo (ver docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md,
+        // tarea 9). No borra ni toca el histórico de PedidoProveedor ya emitidos.
+        var asociacionesActivas = (await asociaciones.ObtenerPorProveedorAsync(id, ct: ct)).Where(a => a.Activo);
+        foreach (var asociacion in asociacionesActivas)
+        {
+            asociacion.Activo = false;
+            await asociaciones.ActualizarAsync(asociacion, ct);
+        }
     }
 
     public Task<List<ProductoProveedor>> ObtenerProveedoresDeProductoAsync(int productoId, CancellationToken ct = default)

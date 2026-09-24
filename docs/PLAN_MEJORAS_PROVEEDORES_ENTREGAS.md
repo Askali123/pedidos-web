@@ -350,3 +350,61 @@ de ESE proveedor. No manda el pedido completo a un proveedor por error.
   en el log del servidor (solo el falso positivo ya conocido de
   `HttpsRedirectionMiddleware`).
   Archivo(s): `ConfirmacionEntregaService.cs`, `SolicitudRepository.cs`
+
+- [x] **9. Bug real: desactivar un Proveedor no le impedía seguir recibiendo correos** —
+  Hecho (2026-09-24).
+
+  El usuario pidió revisar por qué no estaban llegando correos "a donde quiero" y notó que
+  no sabía qué pasaba cuando un proveedor queda desactivado — sospecha correcta, había un
+  bug real.
+
+  **Diagnóstico, confirmado con datos reales antes de tocar nada:** en la base de
+  desarrollo, los 7 proveedores del catálogo estaban `Activo = 0`, pero 447 de sus 449
+  asociaciones `ProductoProveedor` seguían `Activo = 1`. Causa: `ProveedorService.DesactivarAsync`
+  nunca cascadeaba a sus asociaciones (mismo tipo de gap ya corregido para Empresa→Sede en
+  `docs/PLAN_EMPRESAS_FILIALES.md`, Etapa 9, pero nunca replicado acá). Y aunque cascadeara,
+  `PedidoNotificacionProveedorService` (`ObtenerProveedoresDisponiblesAsync`/
+  `EnviarAProveedorAsync`) nunca revisaba `Proveedor.Activo` en ningún lado — los únicos 2
+  chequeos `.Activo` de todo el archivo eran sobre la asociación, ninguno sobre el
+  proveedor. Resultado: el sistema seguía ofreciendo (y permitiendo enviar correos reales
+  a) proveedores ya desactivados, sin ningún aviso — explicación directa y verificada del
+  reporte "no llegan a donde quiero".
+
+  **Sobre la "tabla intermedia" que pidió el usuario para la relación muchos-a-muchos**:
+  ya existe y funciona — `PedidoProveedor` (cabecera, uno por Solicitud+Proveedor) +
+  `DetallePedidoProveedor` (línea por producto, con cantidad/código congelados al
+  momento del envío) es exactamente eso. Se verificó con datos reales antes de proponer
+  nada nuevo: la Solicitud #19 mandó "Abrasivo REGULAR" solo al proveedor "Suministros y
+  Empaques del Norte", nunca al proveedor "Productos y Suministros S.A.S." aunque el
+  resto de esa misma solicitud sí fue a ese otro proveedor — la regla "no partir un mismo
+  producto entre dos proveedores" (tarea 2 de este plan, reforzada por la tarea 21 de
+  `docs/PLAN_MEJORAS_UI_UX.md`) está funcionando correctamente. No se creó ninguna tabla
+  nueva.
+
+  **Arreglo, 3 partes:**
+  1. `ProveedorService.DesactivarAsync`: cascada — desactiva también las asociaciones
+     `ProductoProveedor` activas de ese proveedor (mismo patrón que Empresa→Sede).
+  2. `PedidoNotificacionProveedorService`: chequeo defensivo agregado en
+     `ObtenerProveedoresDisponiblesAsync` y `EnviarAProveedorAsync` — ahora exigen
+     `a.Proveedor!.Activo`, no solo `a.Activo` de la asociación, para no depender
+     únicamente de que la cascada se haya ejecutado (defensa en profundidad, por si los
+     datos vuelven a divergir).
+  3. Corrección de datos, autorizada explícitamente por el usuario antes de ejecutarse:
+     `UPDATE` acotado (`ProductoProveedores.Activo = 0` donde el `Proveedor` asociado ya
+     estaba `Activo = 0`) — 447 filas corregidas, verificado por SQL que no quedó ninguna
+     asociación huérfana después.
+
+  Agregué un test nuevo
+  (`ObtenerProveedoresDisponibles_ProveedorDesactivado_NoApareceAunqueSuAsociacionSigaActiva`)
+  que reproduce el bug exacto (asociación activa + proveedor inactivo) y confirma que
+  `ObtenerProveedoresDisponiblesAsync` lo excluye y `EnviarAProveedorAsync` lo rechaza. Los
+  16 tests anteriores del archivo siguen en verde.
+
+  Verificado con `dotnet build` (0 errores/advertencias), `dotnet test` (17/17), la
+  corrección de datos verificada por SQL (447 filas, 0 huérfanas restantes), y smoke test
+  no interactivo de `/proveedores`, `/solicitudes/administrar` y `/solicitudes/bandeja`
+  (sin excepciones en el log). **No se probó clic-por-clic en el navegador** (ver memoria
+  `feedback-no-browser-testing`).
+  Archivos: `Application/Proveedores/ProveedorService.cs`,
+  `Application/Solicitudes/PedidoNotificacionProveedorService.cs`,
+  `Application.Tests/Solicitudes/PedidoNotificacionProveedorServiceTests.cs`.
