@@ -27,6 +27,19 @@ public class Solicitud
     /// </summary>
     public string? DireccionEntrega { get; set; }
 
+    /// <summary>
+    /// Sede/Empresa (filial de Auropaq) del solicitante — snapshot autocompletado desde
+    /// <c>ApplicationUser.SedeId</c> al crear la solicitud, igual criterio que
+    /// <see cref="DireccionEntrega"/>: si luego se reasigna al usuario a otra sede, las
+    /// solicitudes ya creadas no cambian de sede/empresa retroactivamente. Se guardan
+    /// ambos niveles desnormalizados para que los reportes agrupen por cualquiera de los
+    /// dos sin join (docs/PLAN_EMPRESAS_FILIALES.md).
+    /// </summary>
+    public int? SedeId { get; set; }
+    public string? SedeNombre { get; set; }
+    public int? EmpresaId { get; set; }
+    public string? EmpresaNombre { get; set; }
+
     public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
 
     /// <summary>

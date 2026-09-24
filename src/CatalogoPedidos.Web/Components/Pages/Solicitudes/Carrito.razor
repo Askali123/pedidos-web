@@ -34,7 +34,7 @@
                         </div>
                         <input type="number" min="1" class="form-input w-20" value="@item.Cantidad"
                                @onchange="e => CambiarCantidad(item.Producto.Id, e.Value)" />
-                        <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="trash" OnClick="() => CarritoState.Quitar(item.Producto.Id)" />
+                        <Button Variant="ButtonVariant.DangerSubtle" Size="ButtonSize.Small" Icon="trash" OnClick="() => CarritoState.Quitar(item.Producto.Id)" />
                     </div>
                 }
             </div>

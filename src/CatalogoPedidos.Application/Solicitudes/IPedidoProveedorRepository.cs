@@ -15,6 +15,13 @@ public interface IPedidoProveedorRepository
     Task<List<PedidoProveedor>> ObtenerPorSolicitudAsync(int solicitudId, CancellationToken ct = default);
 
     /// <summary>
+    /// Igual que <see cref="ObtenerPorSolicitudAsync"/> pero para varias Solicitudes de un
+    /// tirón (con sus líneas) — pensado para el dashboard de consumo por empresa, que no
+    /// puede darse el lujo de una consulta por Solicitud (ver docs/PLAN_EMPRESAS_FILIALES.md).
+    /// </summary>
+    Task<List<PedidoProveedor>> ObtenerPorSolicitudesAsync(IEnumerable<int> solicitudIds, CancellationToken ct = default);
+
+    /// <summary>
     /// Un documento por su Id, con líneas + Proveedor + Solicitud cargados — para regenerar
     /// el PDF/Excel de un envío puntual desde el historial (mismos snapshots que se le
     /// mandaron al proveedor, no el catálogo vivo).

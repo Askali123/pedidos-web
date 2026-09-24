@@ -3,6 +3,7 @@
 @using System.Security.Claims
 @using CatalogoPedidos.Application.Usuarios
 @inject IUsuarioRolService UsuarioRolService
+@inject ISedeService SedeService
 @inject IServiceScopeFactory ScopeFactory
 @inject PageHeaderState HeaderState
 
@@ -29,6 +30,7 @@
                         <th>Usuario</th>
                         <th>Email</th>
                         <th>Rol</th>
+                        <th>Sede (empresa filial)</th>
                         <th class="text-right">Acciones</th>
                     </tr>
                 </thead>
@@ -54,6 +56,30 @@
                                     <Badge Variant="BadgeVariant.Neutral">Solicitante</Badge>
                                 }
                             </td>
+                            <td>
+                                <div class="flex items-center gap-2">
+                                    <select class="form-select w-auto" value="@(u.SedeId?.ToString() ?? "")" @onchange="e => AsociarSede(u, e.Value?.ToString())">
+                                        <option value="">Sin sede</option>
+                                        @if (EsSedeInactiva(u))
+                                        {
+                                            <option value="@u.SedeId">@u.SedeNombre — inactiva</option>
+                                        }
+                                        @foreach (var grupo in sedesPorEmpresa)
+                                        {
+                                            <optgroup label="@grupo.Key">
+                                                @foreach (var s in grupo)
+                                                {
+                                                    <option value="@s.Id">@s.Nombre</option>
+                                                }
+                                            </optgroup>
+                                        }
+                                    </select>
+                                    @if (EsSedeInactiva(u))
+                                    {
+                                        <span class="text-xs text-warning-700" title="La sede de este usuario está desactivada — conviene reasignarlo.">⚠ sede inactiva</span>
+                                    }
+                                </div>
+                            </td>
                             <td class="text-right">
                                 @if (u.EsGestor)
                                 {
@@ -76,11 +102,21 @@
     [CascadingParameter] private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
 
     private List<UsuarioRolDto>? usuarios;
+    private List<IGrouping<string, Sede>> sedesPorEmpresa = [];
+    private HashSet<int> sedesActivasIds = [];
     private string? currentUserId;
     private string? mensaje;
     private AlertVariant mensajeVariante = AlertVariant.Success;
 
     private int cantidadGestores => usuarios?.Count(u => u.EsGestor) ?? 0;
+
+    /// <summary>
+    /// True cuando la sede del usuario ya no está entre las activas — pasa cuando se
+    /// desactivó después de asociarlo (ver docs/PLAN_EMPRESAS_FILIALES.md, Etapa 9). Sin
+    /// esto, el <select> no tendría ningún <option> que calce con su valor real y
+    /// aparentaría (falsamente) que el usuario no tiene sede.
+    /// </summary>
+    private bool EsSedeInactiva(UsuarioRolDto u) => u.SedeId is not null && !sedesActivasIds.Contains(u.SedeId.Value);
 
     protected override async Task OnInitializedAsync()
     {
@@ -88,6 +124,12 @@
 
         var authState = await AuthStateTask!;
         currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        // Ya vienen ordenadas por Empresa.Nombre y luego Sede.Nombre (ver
+        // SedeRepository.ObtenerTodasAsync) — GroupBy conserva ese orden.
+        var sedes = await SedeService.ObtenerTodasAsync();
+        sedesPorEmpresa = sedes.GroupBy(s => s.Empresa?.Nombre ?? "Sin empresa").ToList();
+        sedesActivasIds = sedes.Select(s => s.Id).ToHashSet();
 
         await Cargar();
     }
@@ -143,6 +185,33 @@
         {
             mensaje = $"Error: {ex.Message}";
             mensajeVariante = AlertVariant.Warning;
+        }
+    }
+
+    private async Task AsociarSede(UsuarioRolDto usuario, string? valorSeleccionado)
+    {
+        int? sedeId = string.IsNullOrEmpty(valorSeleccionado) ? null : int.Parse(valorSeleccionado);
+
+        try
+        {
+            await using var scope = ScopeFactory.CreateAsyncScope();
+            var scopedService = scope.ServiceProvider.GetRequiredService<IUsuarioRolService>();
+            await scopedService.AsociarSedeAsync(usuario.Id, sedeId);
+
+            var sedeNombre = sedesPorEmpresa.SelectMany(g => g).FirstOrDefault(s => s.Id == sedeId)?.Nombre;
+            mensaje = sedeId is null
+                ? $"Se le quitó la sede a {usuario.NombreCompleto}."
+                : $"{usuario.NombreCompleto} quedó asociado a {sedeNombre}.";
+            mensajeVariante = AlertVariant.Success;
+            await Cargar();
+        }
+        catch (InvalidOperationException ex)
+        {
+            mensaje = $"Error: {ex.Message}";
+            mensajeVariante = AlertVariant.Warning;
+            // El <select> ya cambió visualmente por el binding manual (value="@u.SedeId") —
+            // recargar deja la UI fiel al estado real si la asociación falló.
+            await Cargar();
         }
     }
 }

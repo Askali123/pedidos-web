@@ -91,6 +91,18 @@ public class SolicitudRepository(IDbContextFactory<AppDbContext> dbFactory) : IS
         if (filtro.Estado is not null)
             query = query.Where(s => s.Estado == filtro.Estado);
 
+        if (filtro.EmpresaId is not null)
+            query = query.Where(s => s.Solicitud!.EmpresaId == filtro.EmpresaId);
+
+        if (filtro.SedeId is not null)
+            query = query.Where(s => s.Solicitud!.SedeId == filtro.SedeId);
+
+        if (filtro.Anio is not null)
+            query = query.Where(s => s.FechaSolicitud.Year == filtro.Anio);
+
+        if (filtro.Mes is not null)
+            query = query.Where(s => s.FechaSolicitud.Month == filtro.Mes);
+
         return await query.OrderByDescending(s => s.FechaSolicitud).ToListAsync(ct);
     }
 

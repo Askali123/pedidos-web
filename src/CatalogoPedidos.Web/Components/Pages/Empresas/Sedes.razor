@@ -1,0 +1,310 @@
+@page "/sedes"
+@attribute [Authorize(Roles = Roles.Gestor)]
+@inject ISedeService SedeService
+@inject IEmpresaService EmpresaService
+@inject IUsuarioSedeDirectory UsuarioSedeDirectory
+@inject IServiceScopeFactory ScopeFactory
+@inject PageHeaderState HeaderState
+
+<PageTitle>Sedes</PageTitle>
+
+<div class="space-y-6">
+    <Card Title="Sedes">
+        <div class="flex items-center gap-3 mb-4">
+            <label class="form-label">Empresa</label>
+            <select class="form-select w-auto" @bind="filtroEmpresaId" @bind:after="Cargar">
+                <option value="0">Todas</option>
+                @foreach (var e in empresas)
+                {
+                    <option value="@e.Id">@e.Nombre</option>
+                }
+            </select>
+        </div>
+
+        @if (sedes is null)
+        {
+            <Loading />
+        }
+        else if (sedes.Count == 0)
+        {
+            <EmptyState Icon="map-pin" Title="Sin sedes" Description="Todavía no hay sedes registradas para este filtro." />
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table-enterprise">
+                    <thead>
+                        <tr>
+                            <th>Sede</th>
+                            <th>Empresa</th>
+                            <th>País</th>
+                            <th>Ciudad</th>
+                            <th>Dirección</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in sedes)
+                        {
+                            <tr>
+                                <td class="font-medium text-heading" data-label="Sede">@s.Nombre</td>
+                                <td data-label="Empresa">@s.Empresa?.Nombre</td>
+                                <td data-label="País">@s.Pais</td>
+                                <td data-label="Ciudad">@s.Ciudad</td>
+                                <td data-label="Dirección">@s.Direccion</td>
+                                <td class="text-right">
+                                    <div class="flex items-center gap-2 justify-end flex-wrap">
+                                        <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="pencil" OnClick="() => AbrirEditar(s)">Editar</Button>
+                                        <Button Variant="ButtonVariant.DangerSubtle" Size="ButtonSize.Small" Icon="trash" OnClick="() => PedirConfirmacionDesactivar(s)">Desactivar</Button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </Card>
+
+    <div class="max-w-xl">
+        <Card Title="Nueva sede">
+            <EditForm Model="modelo" OnValidSubmit="Guardar" FormName="nueva-sede">
+                <DataAnnotationsValidator />
+
+                <FormField Label="Empresa" Required="true">
+                    <select class="form-select" @bind="modelo.EmpresaId">
+                        <option value="0">Selecciona una...</option>
+                        @foreach (var e in empresas)
+                        {
+                            <option value="@e.Id">@e.Nombre</option>
+                        }
+                    </select>
+                </FormField>
+
+                <FormField Label="Nombre" Required="true">
+                    <InputText @bind-Value="modelo.Nombre" class="form-input" placeholder="Sede Norte" />
+                </FormField>
+
+                <FormField Label="País" Required="true">
+                    <InputText @bind-Value="modelo.Pais" class="form-input" />
+                </FormField>
+
+                <FormField Label="Ciudad" Required="true">
+                    <InputText @bind-Value="modelo.Ciudad" class="form-input" />
+                </FormField>
+
+                <FormField Label="Dirección">
+                    <InputText @bind-Value="modelo.Direccion" class="form-input" />
+                </FormField>
+
+                <FormField Label="Contacto">
+                    <InputText @bind-Value="modelo.Contacto" class="form-input" />
+                </FormField>
+
+                <FormField Label="Teléfono">
+                    <InputText @bind-Value="modelo.Telefono" class="form-input" />
+                </FormField>
+
+                <FormField Label="Email">
+                    <InputText @bind-Value="modelo.Email" class="form-input" />
+                    <ValidationMessage For="() => modelo.Email" class="text-danger-400 text-xs mt-1" />
+                </FormField>
+
+                @if (!string.IsNullOrEmpty(error))
+                {
+                    <Alert Variant="AlertVariant.Danger">@error</Alert>
+                }
+                @if (!string.IsNullOrEmpty(mensaje))
+                {
+                    <Alert Variant="AlertVariant.Success">@mensaje</Alert>
+                }
+
+                <div class="mt-2">
+                    <Button Type="submit" Variant="ButtonVariant.Primary" Icon="plus">Guardar sede</Button>
+                </div>
+            </EditForm>
+        </Card>
+    </div>
+</div>
+
+<Modal Visible="modalEditarVisible" VisibleChanged="v => modalEditarVisible = v" Title="Editar sede">
+    <ChildContent>
+        <EditForm Model="modeloEditar" OnValidSubmit="GuardarEdicion" FormName="editar-sede">
+            <DataAnnotationsValidator />
+
+            <FormField Label="Empresa" Required="true">
+                <select class="form-select" @bind="modeloEditar.EmpresaId">
+                    <option value="0">Selecciona una...</option>
+                    @foreach (var e in empresas)
+                    {
+                        <option value="@e.Id">@e.Nombre</option>
+                    }
+                </select>
+            </FormField>
+
+            <FormField Label="Nombre" Required="true">
+                <InputText @bind-Value="modeloEditar.Nombre" class="form-input" />
+            </FormField>
+
+            <FormField Label="País" Required="true">
+                <InputText @bind-Value="modeloEditar.Pais" class="form-input" />
+            </FormField>
+
+            <FormField Label="Ciudad" Required="true">
+                <InputText @bind-Value="modeloEditar.Ciudad" class="form-input" />
+            </FormField>
+
+            <FormField Label="Dirección">
+                <InputText @bind-Value="modeloEditar.Direccion" class="form-input" />
+            </FormField>
+
+            <FormField Label="Contacto">
+                <InputText @bind-Value="modeloEditar.Contacto" class="form-input" />
+            </FormField>
+
+            <FormField Label="Teléfono">
+                <InputText @bind-Value="modeloEditar.Telefono" class="form-input" />
+            </FormField>
+
+            <FormField Label="Email">
+                <InputText @bind-Value="modeloEditar.Email" class="form-input" />
+                <ValidationMessage For="() => modeloEditar.Email" class="text-danger-400 text-xs mt-1" />
+            </FormField>
+
+            @if (!string.IsNullOrEmpty(errorEditar))
+            {
+                <Alert Variant="AlertVariant.Danger">@errorEditar</Alert>
+            }
+
+            <button type="submit" class="hidden" aria-hidden="true"></button>
+        </EditForm>
+    </ChildContent>
+    <Footer>
+        <Button Variant="ButtonVariant.Ghost" OnClick="() => modalEditarVisible = false">Cancelar</Button>
+        <Button Variant="ButtonVariant.Primary" Icon="check" OnClick="GuardarEdicion">Guardar</Button>
+    </Footer>
+</Modal>
+
+<ConfirmDialog @bind-Visible="confirmandoDesactivar" Title="Desactivar sede" Danger="true"
+               Message="@MensajeConfirmacionDesactivar()"
+               ConfirmText="Desactivar" OnConfirm="ConfirmarDesactivar" />
+
+@code {
+    [SupplyParameterFromQuery(Name = "empresaId")] private int? EmpresaIdQuery { get; set; }
+
+    private List<Sede>? sedes;
+    private List<Empresa> empresas = [];
+    private int filtroEmpresaId;
+
+    private CrearSedeDto modelo = new();
+    private string? mensaje;
+    private string? error;
+
+    private bool modalEditarVisible;
+    private int sedeEditandoId;
+    private CrearSedeDto modeloEditar = new();
+    private string? errorEditar;
+
+    private bool confirmandoDesactivar;
+    private int sedeADesactivarId;
+    private string? sedeADesactivarNombre;
+    private int usuariosAfectadosDesactivar;
+
+    protected override async Task OnInitializedAsync()
+    {
+        HeaderState.Set("Sedes");
+        empresas = await EmpresaService.ObtenerTodasAsync();
+
+        if (EmpresaIdQuery is > 0)
+        {
+            filtroEmpresaId = EmpresaIdQuery.Value;
+            modelo.EmpresaId = EmpresaIdQuery.Value;
+        }
+
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        sedes = await SedeService.ObtenerTodasAsync(filtroEmpresaId > 0 ? filtroEmpresaId : null);
+    }
+
+    private async Task Guardar()
+    {
+        error = null;
+        mensaje = null;
+        try
+        {
+            await SedeService.CrearAsync(modelo);
+            mensaje = $"Sede '{modelo.Nombre}' guardada correctamente.";
+            var empresaId = modelo.EmpresaId;
+            modelo = new() { EmpresaId = empresaId };
+            await Cargar();
+        }
+        catch (InvalidOperationException ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    private void AbrirEditar(Sede sede)
+    {
+        sedeEditandoId = sede.Id;
+        modeloEditar = new CrearSedeDto
+        {
+            EmpresaId = sede.EmpresaId,
+            Nombre = sede.Nombre,
+            Pais = sede.Pais,
+            Ciudad = sede.Ciudad,
+            Direccion = sede.Direccion,
+            Contacto = sede.Contacto,
+            Telefono = sede.Telefono,
+            Email = sede.Email
+        };
+        errorEditar = null;
+        modalEditarVisible = true;
+    }
+
+    private async Task GuardarEdicion()
+    {
+        errorEditar = null;
+        try
+        {
+            await SedeService.ActualizarAsync(sedeEditandoId, modeloEditar);
+            modalEditarVisible = false;
+            await Cargar();
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorEditar = ex.Message;
+        }
+    }
+
+    private async Task PedirConfirmacionDesactivar(Sede sede)
+    {
+        sedeADesactivarId = sede.Id;
+        sedeADesactivarNombre = sede.Nombre;
+
+        // Scope aparte: IUsuarioSedeDirectory usa UserManager por dentro, que comparte el
+        // AppDbContext Scoped de Identity — mismo criterio que GestionRoles.razor.
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var scopedDirectory = scope.ServiceProvider.GetRequiredService<IUsuarioSedeDirectory>();
+        usuariosAfectadosDesactivar = await scopedDirectory.ContarUsuariosPorSedeAsync(sede.Id);
+
+        confirmandoDesactivar = true;
+    }
+
+    private async Task ConfirmarDesactivar()
+    {
+        await SedeService.DesactivarAsync(sedeADesactivarId);
+        await Cargar();
+    }
+
+    private string MensajeConfirmacionDesactivar()
+    {
+        var baseMsg = $"¿Desactivar \"{sedeADesactivarNombre}\"? Dejará de aparecer para asociar usuarios nuevos; sus usuarios y solicitudes históricas se conservan.";
+        return usuariosAfectadosDesactivar > 0
+            ? $"{baseMsg} Esta sede tiene {usuariosAfectadosDesactivar} usuario(s) asociado(s) — van a quedar sin sede activa hasta que los reasignes desde Gestión de roles."
+            : baseMsg;
+    }
+}

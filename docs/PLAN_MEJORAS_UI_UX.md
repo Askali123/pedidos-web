@@ -702,3 +702,245 @@ el orden es la prioridad acordada.
   `Infrastructure/Pdf/PdfExportService.cs`, `Program.cs`, `Administrar.razor`,
   `Bandeja.razor`, `HistorialResoluciones.razor`, `MisSolicitudes.razor`,
   `HistorialEnvios.razor`.
+
+- [x] **20. Administrar solicitudes: agrupar por proveedor + gestionar asociaciones
+  inline + Categoría en el Excel/PDF del pedido** — Hecho (2026-09-23).
+
+  Pedido del usuario, con un diseño propuesto y confirmado antes de tocar código (3
+  opciones con mockups; eligió la opción "tabla agrupada por proveedor" con una vuelta de
+  tuerca: que también se pudiera asociar/editar/quitar proveedor sin salir de la pantalla).
+
+  **Categoría en el detalle del pedido a proveedor** — `DetallePedidoProveedor` gana un
+  campo `Categoria` (snapshot, igual criterio que `ProductoNombre`/`UnidadMedida`: congelada
+  al momento del envío, no se lee en vivo del catálogo). Migración nueva
+  `AgregarCategoriaADetallePedidoProveedor` (`ALTER TABLE ADD COLUMN` nullable, aplicada).
+  Columna "Categoría" agregada tanto al Excel (`ExcelExportService.ExportarPedidoProveedor`)
+  como al PDF hermano, para que ambos formatos queden consistentes.
+  Archivos: `Domain/Entities/DetallePedidoProveedor.cs`, `AppDbContext.cs`,
+  `PedidoNotificacionProveedorService.cs` (`ConstruirSnapshots`),
+  `ExcelExportService.cs`, `PdfExportService.cs`, migración nueva.
+
+  **Administrar solicitudes reorganizada** (solo en la vista SIN filtro de proveedor — con
+  un proveedor filtrado se mantiene la tabla plana de siempre, que ya tiene sentido ahí):
+  la única tabla plana por solicitud se reemplazó por una lista de secciones, una por
+  proveedor de destino (usando la misma cobertura que ya calculaba
+  `ObtenerProveedoresDisponiblesAsync` — nada de lógica nueva de negocio, solo de
+  presentación), cada una con su propio botón "Enviar a este proveedor"/"Reenviar" en vez
+  del dropdown único de antes (que queda solo para la vista filtrada). Se agregan dos
+  secciones más para no perder ninguna línea de vista: "Sin proveedor asociado" (con un
+  botón "Asociar proveedor" inline si el producto no tiene ninguna asociación de catálogo,
+  o un link a `/catalogo/{id}/proveedores` si la tiene pero no está disponible ahora —
+  desactivada o excluida) y "Pendientes / rechazadas" (informativa, sin acciones — resolver
+  líneas sigue siendo trabajo de Bandeja).
+
+  **Gestión de asociación inline** — cada línea dentro de un grupo de proveedor gana un
+  ícono de lápiz que abre un modal para editar código/precio/preferido o quitar la
+  asociación (busca el Id de la asociación al vuelo con
+  `ObtenerProveedoresDeProductoAsync`, ya que las líneas de esta pantalla no lo traían
+  precargado). El modal reutiliza el mismo `IProveedorService`/`AsociarProveedorDto` que
+  `/catalogo/{id}/proveedores` — ni un mecanismo aparte ni una tabla paralela: es el mismo
+  dominio, solo expuesto sin salir de Administrar solicitudes (se pierde el contexto de
+  filtros/página si hay que navegar a otra pantalla para cada producto huérfano de un
+  pedido con varios).
+
+  Verificado: `dotnet build` limpio, `dotnet test` 7/7, migración aplicada sin errores, la
+  app arrancó y `/solicitudes/administrar` respondió sin excepciones en el log. No probado
+  clic-por-clic en el navegador.
+  Archivos: `Administrar.razor` (reescritura grande de la sección de tabla + nuevo modal +
+  métodos `LineasSinCobertura`/`YaEnviadoA`/`TieneAsociacionEnCatalogo`/
+  `AbrirAsociarProveedor`/`AbrirEditarAsociacion`/`GuardarAsociacion`/
+  `DesactivarAsociacionDesdeModal`).
+
+- [x] **21. Bug real encontrado probando la tarea 20 en el navegador: un producto con una
+  asociación de catálogo vieja/inactiva quedaba bloqueado para SIEMPRE** — Hecho
+  (2026-09-23).
+
+  El usuario pidió "probalo en el navegador y contame qué falla". Con Gestor logueado:
+  asocié un producto huérfano ("Abrasivo REGULAR") a un proveedor nuevo desde el modal de
+  la tarea 20 — la asociación se creó bien (verificado por SQL), pero el producto se quedó
+  en "Sin proveedor asociado" en vez de pasar a un grupo nuevo. Confirmé que no era solo
+  visual: `EnviarAProveedorAsync` habría rechazado el envío con el mismo motivo, porque usa
+  el mismo cálculo.
+
+  **Causa raíz:** `ObtenerCoberturaPreviaAsync` marcaba un producto como "ya cubierto" por
+  un proveedor si tenía **cualquier** asociación de catálogo con él (activa o no, usada o
+  no), en vez de mirar qué contenía el documento que **de verdad** se le envió. Bastaba con
+  una asociación vieja y jamás usada, con un proveedor que ya recibió cualquier otra cosa
+  de la misma solicitud, para bloquear el producto de ofrecerse a cualquier proveedor —
+  incluso uno recién asociado.
+
+  **Arreglo:** `ObtenerCoberturaPreviaAsync` ahora calcula la cobertura desde
+  `PedidoProveedor.Items` (el snapshot real de lo enviado, ya cargado vía
+  `pedidosProveedor.ObtenerPorSolicitudAsync`) en vez de desde `ProductoProveedor` (el
+  catálogo). De paso corrige otro efecto secundario del mismo bug: una línea `Excluido`
+  ahora sí queda libre para ofrecerse a otro proveedor (antes tampoco lo estaba, por el
+  mismo cálculo de más).
+
+  Agregué un test nuevo (`ObtenerProveedoresDisponibles_ProductoConAsociacionInactivaAOtroProveedorYaConEnvio_SigueOfreciendoseANuevoProveedor`)
+  que reproduce el bug exacto y falla sin el arreglo. Los 7 tests anteriores siguen en
+  verde — confirmé además con SQL que un producto que SÍ estaba genuinamente en el
+  documento ya enviado (no solo asociado) sigue bloqueado correctamente, como debe ser.
+
+  Verificado: `dotnet build` limpio, `dotnet test` 8/8, y en el navegador con Gestor.
+  Archivos: `PedidoNotificacionProveedorService.cs` (`ObtenerCoberturaPreviaAsync` y sus 2
+  call sites), `PedidoNotificacionProveedorServiceTests.cs` (test nuevo).
+
+## P4 — Refinamiento visual y de navegación (ronda 2026-09-23)
+
+Pedido del usuario: análisis de cómo mejorar la UI/UX para que se sienta más
+familiarizada/intuitiva — "los botones de eliminar y el verde o el rojo chillón" y
+"opciones de navegación muy intuitivas", manteniendo el estilo moderno ya existente.
+Recorrido de `Styles/app.tailwind.css` + `Components/UI/` + `Sidebar.razor` antes de
+proponer nada: el sistema de diseño ya es maduro (21 tareas de este mismo plan) — no hacía
+falta un rediseño amplio, dos hallazgos puntuales explicaban el pedido.
+
+- [x] **22. Botones Success/Danger sólidos "chillones" — inconsistentes con el resto del
+  propio sistema de diseño** — Hecho.
+
+  Causa raíz: el sistema YA resuelve esto bien en casi todos lados — `Badge`, `StatCard`,
+  la barra de acento del ítem activo del sidebar — con un patrón consistente de tinte
+  translúcido (15% de opacidad) en vez de relleno sólido saturado (el propio comentario
+  del CSS del nav activo ya lo dice: "más elegante que un relleno sólido"). `.btn-success`/
+  `.btn-danger` eran la excepción: relleno sólido a saturación completa (verde/rojo
+  estándar de Tailwind vía alias) con texto blanco, aclarando aún más al hover (`-600`
+  base → `-500` hover) — literal opuesto a la restricción visual que el resto de la app ya
+  se autoimpone.
+
+  Dos cambios, no uno:
+  1. **Relleno sólido, menos "neón"**: `.btn-success`/`.btn-danger` pasan de base `-600`/
+     hover `-500` a base `-700`/hover `-600` — más profundos, oscurecen al hover en vez de
+     aclarar (mismo criterio "considerado" que ya usa el resto de la paleta oscura).
+  2. **Nueva variante `ButtonVariant.DangerSubtle`** (`.btn-danger-subtle`, mismo patrón
+     que `.btn-outline` ya usa para Primary — borde + texto tintado, fondo transparente),
+     para los botones que **disparan** una acción destructiva (abren un `ConfirmDialog` o
+     un modal) en vez de ejecutarla directo. El rojo sólido queda reservado para la acción
+     **real**: el botón "Confirmar" de `ConfirmDialog`, o cualquier acción de un solo clic
+     sin paso de confirmación intermedio.
+
+  Revisé los 13 usos de `Danger` y los 7 de `Success` uno por uno antes de decidir cuáles
+  tocar — no se aplicó una regla mecánica. Pasaron a `DangerSubtle` los 10 que son
+  disparadores o acciones frecuentes/reversibles sin confirmación: "Desactivar" en
+  Catálogo/Proveedores/Empresas/Sedes/`ProductosDeProveedor`/`ProveedoresDeProducto` (los 6
+  abren `ConfirmDialog`), "Rechazar todo"/"Rechazar" en Bandeja (abren el modal de
+  resolución, 2 lugares) y su toggle de selección dentro del modal (3er lugar en Bandeja,
+  no es la confirmación final), y "Quitar" del carrito (ícono suelto, sin confirmación,
+  pero de bajo riesgo — se puede volver a agregar). Quedaron en `Danger` sólido, sin
+  cambios, los 3 que sí son la acción final: "Quitar proveedor" en el modal de
+  `Administrar.razor` (ejecuta directo, sin otro paso), el botón "Aprobar"/"Rechazar" que
+  literalmente confirma el modal de Bandeja, y "Quitar gestor" en `GestionRoles.razor`
+  (acción directa, sin diálogo intermedio — no se le agregó uno, estaba fuera del pedido).
+  `Success` no ganó una variante subtle propia: sus 7 usos son "Reactivar"/"Activar" (un
+  solo clic, sin confirmación, y aprobar es una acción de menor riesgo que desactivar/
+  eliminar) — no había la misma asimetría de severidad que sí justificaba separar Danger en
+  dos niveles.
+
+  Verificado con `dotnet build` (0 errores/advertencias), `npm run build:css` (confirmé con
+  grep que `.btn-danger-subtle` quedó en `wwwroot/app.css` compilado), `dotnet test` (16/16
+  sin regresiones) y smoke test no interactivo de 4 rutas con botones tocados (Catálogo,
+  Bandeja, Proveedores, Empresas — sin excepciones en el log). **No se verificó visualmente
+  en el navegador** (el ajuste es de color/opacidad, no de lógica — corresponde revisarlo
+  quien lo pueda ver renderizado; ver memoria `feedback-no-browser-testing`).
+  Archivos: `Components/UI/ButtonVariant.cs`, `Components/UI/Button.razor`,
+  `Styles/app.tailwind.css` (y su salida compilada `wwwroot/app.css`), `Catalogo.razor`,
+  `ProveedoresDeProducto.razor`, `Empresas.razor`, `Sedes.razor`, `ProductosDeProveedor.razor`,
+  `Proveedores.razor`, `Bandeja.razor` (3 lugares), `Carrito.razor`.
+
+- [x] **23. Sidebar sin agrupar — 11 ítems bajo un solo encabezado "Gestión"** — Hecho.
+
+  Entre lo que ya había (Bandeja, Administrar, 2 Historiales, Nuevo producto, Importar,
+  Proveedores, Gestión de roles) y lo agregado en la sesión del plan de Empresas (Empresas,
+  Sedes, Consumo por empresa — ver `docs/PLAN_EMPRESAS_FILIALES.md`), el menú de Gestor
+  había crecido a una lista plana de 11 ítems sin ninguna jerarquía — difícil de escanear,
+  la misma "adopción inconsistente" que motivó este plan, esta vez en la propia navegación.
+
+  Se reagrupó en 6 sub-secciones, reusando el mismo patrón de encabezado que ya existía
+  para "Gestión" (cero CSS nuevo): **Solicitudes** (Bandeja/Administrar/2 Historiales),
+  **Catálogo** (Nuevo producto/Importar), **Proveedores**, **Organización** (Empresas/
+  Sedes), **Reportes** (Consumo por empresa), **Usuarios** (Gestión de roles). Se extrajo
+  el patrón repetido (`@if (!Collapsed) { <p>...</p> } else { <div class="border-t">...` })
+  a un componente nuevo `SidebarGroupLabel.razor` — antes solo se usaba una vez, ahora se
+  repite 6 veces, dejarlo inline habría significado seis copias idénticas del mismo
+  `@if`/`@else`. **(Nota: este componente se reemplazó por `SidebarGroup.razor` en la
+  tarea 26 de esta misma ronda — ver esa tarea.)**
+
+  No se tocaron: la estructura de rutas (ningún link cambió de URL), el ítem "Catálogo" ni
+  "Mis solicitudes" (fuera del bloque de Gestor, sin agrupar a propósito — son de un solo
+  ítem cada uno). Las ideas C del análisis (buscador tipo "Cmd+K", mover Nuevo
+  producto/Importar dentro de Catálogo.razor como acciones en vez de entradas de menú)
+  quedaron fuera de esta tarea — se marcaron como "a validar" en el análisis, no se
+  implementaron sin confirmar.
+
+  Verificado con `dotnet build` (0 errores/advertencias), `dotnet test` (16/16 sin
+  regresiones) y smoke test no interactivo de 4 rutas (sin excepciones en el log). **No se
+  verificó visualmente en el navegador** (ver memoria `feedback-no-browser-testing`).
+  Archivos: `Components/Layout/Sidebar.razor`, `Components/Layout/SidebarGroupLabel.razor`
+  (nuevo, reemplazado después).
+
+- [x] **24. "Mi cuenta" sin forma explícita de salir** — Hecho.
+
+  El usuario reportó: "no se puede salir de ahí sino dando clic en otro lado". Confirmado
+  en el código: `ManageNavMenu.razor` (la tarjeta "Mi cuenta" que acompaña las 14 páginas
+  de `Account/Manage/*`) solo tenía links a las sub-secciones internas (Perfil, Email,
+  Contraseña, etc.) — ningún link de "volver"/"cerrar". La única salida real era clicar
+  algo del sidebar principal (que sigue visible, `ManageLayout.razor` usa el `MainLayout`
+  normal), pero sin ningún indicio ahí mismo de que esa era la forma de salir.
+
+  Se agregó un botón "← Volver" en el `HeaderActions` de la tarjeta "Mi cuenta" (slot que
+  `Card.razor` ya tenía pero ningún lugar de la app usaba todavía), al lado del título,
+  apuntando a `/`. Queda visible en las 14 páginas de `Account/Manage/*` porque todas
+  comparten el mismo `ManageNavMenu.razor`.
+
+  Verificado con `dotnet build` (0 errores/advertencias) y smoke test no interactivo de
+  `/Account/Manage` y `/Account/Manage/Email` (sin excepciones en el log). **No se
+  verificó visualmente en el navegador** (ver memoria `feedback-no-browser-testing`).
+  Archivos: `Components/Account/Shared/ManageNavMenu.razor`.
+
+- [x] **25. No se podía editar el nombre completo desde "Mi cuenta"** — Hecho.
+
+  `Account/Manage/Index.razor` (Perfil) mostraba "Usuario" (el username/email) como campo
+  deshabilitado, y tenía Teléfono/Dirección editables — pero `NombreCompleto` (el nombre
+  que se pide obligatorio al registrarse, y que queda como snapshot en
+  `SolicitanteNombre`/`GestorNombre` de cada solicitud) no tenía ningún campo en esta
+  pantalla, en ningún lado de la app.
+
+  Se agregó un campo "Nombre completo" al formulario de Perfil, con la misma validación
+  `[Required]` que ya usa `Register.razor` para el mismo campo (mismo mensaje de error,
+  mismo `[Display(Name = "Nombre completo")]`). El guardado se unificó con el de
+  Dirección (antes solo guardaba si cambiaba la dirección; ahora guarda si cambió
+  cualquiera de los dos, en un solo `UpdateAsync`) — Teléfono sigue aparte porque usa
+  `SetPhoneNumberAsync` (un setter propio de `UserManager`, no una propiedad plana como
+  `NombreCompleto`/`DireccionPredeterminada`).
+
+  Cambiar el nombre acá **no** altera retroactivamente `SolicitanteNombre`/`GestorNombre`
+  de solicitudes ya creadas — son snapshots, mismo criterio ya documentado en la tarea 7
+  de este plan (dato histórico, no se recalcula).
+
+  Verificado con `dotnet build` (0 errores/advertencias) y smoke test no interactivo de
+  `/Account/Manage` (sin excepciones en el log). **No se verificó visualmente en el
+  navegador** (ver memoria `feedback-no-browser-testing`).
+  Archivos: `Components/Account/Pages/Manage/Index.razor`.
+
+- [x] **26. Las 6 sub-secciones del sidebar (tarea 23) ahora se pueden esconder** — Hecho.
+
+  Pedido explícito del usuario, como continuación directa de la tarea 23: que cada una de
+  las 6 sub-secciones nuevas del sidebar de Gestor se pueda ocultar/mostrar.
+
+  `SidebarGroupLabel.razor` (un encabezado estático) se reemplazó por `SidebarGroup.razor`
+  — ahora envuelve sus links (`ChildContent`) en vez de ser solo una etiqueta suelta antes
+  de ellos, y el encabezado es un `<button>` con estado propio (`expandido`, default
+  `true` — nada queda escondido de entrada, coherente con el comportamiento actual; el
+  usuario decide qué colapsar) que alterna un ícono `chevron-down`/`chevron-right`. Con el
+  sidebar entero colapsado (modo solo-íconos) el acordeón no aplica — ahí se sigue viendo
+  como un separador simple, siempre expandido, porque no hay texto que esconder.
+
+  El estado de cada grupo (abierto/cerrado) vive en el propio componente `SidebarGroup`,
+  así que persiste mientras dure la sesión/circuito (navegar entre páginas no lo resetea,
+  porque el sidebar es parte del layout persistente) pero no sobrevive un refresh completo
+  del navegador — no se agregó persistencia en `localStorage`, se consideró fuera de
+  alcance del pedido ("que se esconda" no pedía que se recuerde entre sesiones).
+
+  Verificado con `dotnet build` (0 errores/advertencias), `dotnet test` (16/16 sin
+  regresiones) y smoke test no interactivo (sin excepciones en el log). **No se verificó
+  visualmente en el navegador** (ver memoria `feedback-no-browser-testing`).
+  Archivos: `Components/Layout/SidebarGroup.razor` (nuevo, reemplaza a
+  `SidebarGroupLabel.razor`, eliminado), `Components/Layout/Sidebar.razor`.

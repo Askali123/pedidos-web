@@ -25,6 +25,16 @@ public class PedidoProveedorRepository(IDbContextFactory<AppDbContext> dbFactory
             .ToListAsync(ct);
     }
 
+    public async Task<List<PedidoProveedor>> ObtenerPorSolicitudesAsync(IEnumerable<int> solicitudIds, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var idsList = solicitudIds.Distinct().ToList();
+        return await db.PedidosProveedor
+            .Include(pp => pp.Items)
+            .Where(pp => idsList.Contains(pp.SolicitudId))
+            .ToListAsync(ct);
+    }
+
     public async Task<PedidoProveedor?> ObtenerPorIdAsync(int id, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);

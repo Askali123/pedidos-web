@@ -4,18 +4,25 @@
 @inject SignInManager<ApplicationUser> SignInManager
 
 <Card Title="Mi cuenta">
-    <nav class="space-y-1 -mt-1">
-        <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage" Match="NavLinkMatch.All">Perfil</NavLink>
-        <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage/Email">Email</NavLink>
-        <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage/ChangePassword">Contraseña</NavLink>
-        @if (hasExternalLogins)
-        {
-            <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage/ExternalLogins">Inicios de sesión externos</NavLink>
-        }
-        <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage/TwoFactorAuthentication">Autenticación en dos pasos</NavLink>
-        <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage/Passkeys">Passkeys</NavLink>
-        <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage/PersonalData">Datos personales</NavLink>
-    </nav>
+    <HeaderActions>
+        <a href="/" class="btn btn-ghost btn-sm">
+            <Icon Name="chevron-left" Class="h-4 w-4" />Volver
+        </a>
+    </HeaderActions>
+    <ChildContent>
+        <nav class="space-y-1 -mt-1">
+            <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage" Match="NavLinkMatch.All">Perfil</NavLink>
+            <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage/Email">Email</NavLink>
+            <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage/ChangePassword">Contraseña</NavLink>
+            @if (hasExternalLogins)
+            {
+                <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage/ExternalLogins">Inicios de sesión externos</NavLink>
+            }
+            <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage/TwoFactorAuthentication">Autenticación en dos pasos</NavLink>
+            <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage/Passkeys">Passkeys</NavLink>
+            <NavLink class="nav-link-light" ActiveClass="nav-link-light-active" href="Account/Manage/PersonalData">Datos personales</NavLink>
+        </nav>
+    </ChildContent>
 </Card>
 
 @code {

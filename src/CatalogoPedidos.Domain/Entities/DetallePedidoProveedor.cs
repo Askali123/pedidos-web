@@ -25,6 +25,7 @@ public class DetallePedidoProveedor
     public string CodigoProveedor { get; set; } = string.Empty;
     public string? UnidadMedida { get; set; }
     public decimal? PrecioProveedor { get; set; }
+    public string? Categoria { get; set; }
 
     /// <summary>
     /// True cuando el gestor quitó manualmente esta línea de ESTE pedido a este proveedor.

@@ -76,7 +76,7 @@
                         @if (grupo.Count() > 1)
                         {
                             <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => AbrirResolverPedido(grupo.Key.SolicitudId, true)">Aprobar todo</Button>
-                            <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => AbrirResolverPedido(grupo.Key.SolicitudId, false)">Rechazar todo</Button>
+                            <Button Variant="ButtonVariant.DangerSubtle" Size="ButtonSize.Small" Icon="x" OnClick="() => AbrirResolverPedido(grupo.Key.SolicitudId, false)">Rechazar todo</Button>
                             @if (pedidosEnSeleccion.Contains(grupo.Key.SolicitudId))
                             {
                                 <Button Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" OnClick="() => CancelarSeleccion(grupo.Key.SolicitudId)">Cancelar selección</Button>
@@ -177,12 +177,12 @@
                                             {
                                                 var decision = decisiones.GetValueOrDefault(s.Id);
                                                 <Button Variant="@(decision == true ? ButtonVariant.Success : ButtonVariant.Outline)" Size="ButtonSize.Small" Icon="check" OnClick="() => MarcarDecision(s.Id, true)">Aprobar</Button>
-                                                <Button Variant="@(decision == false ? ButtonVariant.Danger : ButtonVariant.Outline)" Size="ButtonSize.Small" Icon="x" OnClick="() => MarcarDecision(s.Id, false)">Rechazar</Button>
+                                                <Button Variant="@(decision == false ? ButtonVariant.DangerSubtle : ButtonVariant.Outline)" Size="ButtonSize.Small" Icon="x" OnClick="() => MarcarDecision(s.Id, false)">Rechazar</Button>
                                             }
                                             else
                                             {
                                                 <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => AbrirResolverSolicitud(s.Id, true)">Aprobar</Button>
-                                                <Button Variant="ButtonVariant.Danger" Size="ButtonSize.Small" Icon="x" OnClick="() => AbrirResolverSolicitud(s.Id, false)">Rechazar</Button>
+                                                <Button Variant="ButtonVariant.DangerSubtle" Size="ButtonSize.Small" Icon="x" OnClick="() => AbrirResolverSolicitud(s.Id, false)">Rechazar</Button>
                                             }
                                         </div>
                                     </td>

@@ -534,6 +534,80 @@ es la prioridad acordada.
   Archivo(s): `DependencyInjection.cs`, migración
   `20260917135106_AgregarSoportePasskeys` (editada a mano)
 
+- [x] **14. `AntiforgeryValidationException` sin manejar en los endpoints de passkey** —
+  Hecho (2026-09-24).
+
+  El usuario reportó un 500 sin manejar con el mensaje "The provided antiforgery token
+  was meant for a different claims-based user than the current user", con el stack trace
+  apuntando a `IdentityComponentsEndpointRouteBuilderExtensions.cs:85`.
+
+  **Diagnóstico**: esa línea es `await antiforgery.ValidateRequestAsync(context)` dentro
+  de `/Account/PasskeyRequestOptions` (`[AllowAnonymous]`, se llama desde `Login.razor`
+  antes de tener sesión). El token de antiforgery de ASP.NET Core queda atado a la
+  identidad (claims) del usuario que lo generó — si el navegador conserva una cookie de
+  antiforgery de OTRA sesión/cuenta (muy probable en este proyecto, con tantas pruebas
+  alternando `gestor@catalogo.local`/`usuario@catalogo.local` en el mismo navegador a lo
+  largo de esta sesión), la validación choca aunque la petición sea legítima — no es un
+  bug de lógica de negocio, es un token vencido/desalineado, y antes eso tiraba un 500 en
+  vez de manejarse como tal. `/Account/PasskeyCreationOptions` (el mismo patrón, pero
+  autenticado, usado al registrar un passkey nuevo desde `Passkeys.razor`) tenía el mismo
+  problema potencial.
+
+  **Arreglo**: se envolvió `antiforgery.ValidateRequestAsync` en ambos endpoints con un
+  helper nuevo `TokenAntiforgeryValidoAsync` que captura
+  `AntiforgeryValidationException` específicamente y responde `400 BadRequest` con un
+  mensaje claro ("El formulario quedó desactualizado. Recargá la página e intentá de
+  nuevo.") en vez de dejar que la excepción suba sin manejar. No se tocó la validación en
+  sí (sigue exigiendo un token válido, no se bypasea el chequeo de seguridad) — solo se
+  maneja su fallo legítimo de forma controlada.
+
+  Verificado con `dotnet build` (0 errores/advertencias) y smoke test no interactivo de
+  `/Account/Login` (sin excepciones en el log). **No se pudo reproducir el escenario
+  exacto del bug en un smoke test** (depende de tener una cookie de antiforgery
+  desalineada en el navegador real, algo que no se puede forzar por HTTP directo) — la
+  corrección está verificada por lectura de código (mismo patrón try/catch ya usado en
+  otros lugares de la app para convertir una excepción de terceros en una respuesta
+  controlada) y queda pendiente de que el usuario confirme en su navegador que ya no
+  vuelve a ver el 500. Ver memoria `feedback-no-browser-testing`.
+  Archivo(s): `Components/Account/IdentityComponentsEndpointRouteBuilderExtensions.cs`
+
+- [x] **15. "Olvidé mi contraseña" no mandaba nada si el email no estaba confirmado** —
+  Hecho (2026-09-24).
+
+  El usuario reportó que el correo de recuperación de contraseña no le estaba llegando a
+  un usuario.
+
+  **Diagnóstico**: `ForgotPassword.razor` (scaffolding original de Identity, sin tocar
+  hasta ahora) tenía `if (user is null || !(await UserManager.IsEmailConfirmedAsync(user)))`
+  — si la cuenta existe pero su email nunca se confirmó, el sistema **no manda nada** y
+  redirige igual a la pantalla "revisá tu correo" (a propósito, para no revelar si una
+  cuenta existe — pero de paso oculta también que no se confirmó, sin ningún aviso).
+  Confirmado contra la base real: `vennov34@gmail.com` (la cuenta que el usuario acababa
+  de desbloquear en la tarea anterior de esta conversación) tiene `EmailConfirmed = 0`,
+  igual que `puentesbenjamin17@gmail.com` — solo las cuentas semilla
+  (`gestor@catalogo.local`/`usuario@catalogo.local`) vienen confirmadas de fábrica
+  (`Seed.cs` las crea así a propósito). Cualquier cuenta registrada normalmente por un
+  usuario real queda con `EmailConfirmed = 0` hasta que confirme por su cuenta — y como
+  esta app tiene `RequireConfirmedAccount = false` (`DependencyInjection.cs`), nada del
+  resto de la app obliga a hacerlo, así que en la práctica la mayoría de las cuentas
+  reales quedan en ese estado indefinidamente sin que nadie note el problema hasta que
+  intentan recuperar la contraseña.
+
+  **Arreglo**: se sacó la condición `IsEmailConfirmedAsync` — solo queda el chequeo de
+  que la cuenta exista (`user is null`), para no revelar existencia mediante la misma
+  redirección genérica de siempre. Consistente con la política ya decidida
+  (`RequireConfirmedAccount = false`): si confirmar el email no es obligatorio para usar
+  el resto de la app, tampoco debería serlo para recuperar la contraseña.
+
+  Verificado con `dotnet build` (0 errores/advertencias), `dotnet test` (17/17 sin
+  regresiones) y smoke test no interactivo de `/Account/ForgotPassword` (sin excepciones
+  en el log). **No se probó clic-por-clic en el navegador** (ver memoria
+  `feedback-no-browser-testing`) — la infraestructura de envío (`IdentityEmailSender` →
+  `SmtpEmailSender`) ya estaba verificada como funcional en
+  `docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md`, tarea 9, así que el gap era puramente esta
+  condición, no el envío en sí.
+  Archivo(s): `Components/Account/Pages/ForgotPassword.razor`.
+
 ---
 
 *Se trabaja de arriba hacia abajo, una tarea a la vez. Al terminar una, se marca `[x]` y

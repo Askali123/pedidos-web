@@ -23,6 +23,11 @@
                 <input type="text" value="@username" id="username" class="form-input bg-card-elevated" disabled />
             </FormField>
 
+            <FormField Label="Nombre completo" Required="true">
+                <InputText @bind-Value="Input.NombreCompleto" id="Input.NombreCompleto" class="form-input" autocomplete="name" placeholder="Nombre y apellido" />
+                <ValidationMessage For="() => Input.NombreCompleto" class="text-danger-400 text-xs mt-1" />
+            </FormField>
+
             <FormField Label="Teléfono">
                 <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-input" placeholder="Ingresá tu teléfono" />
                 <ValidationMessage For="() => Input.PhoneNumber" class="text-danger-400 text-xs mt-1" />
@@ -43,6 +48,7 @@
     private string? username;
     private string? phoneNumber;
     private string? direccionPredeterminada;
+    private string? nombreCompleto;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -85,9 +91,12 @@
         username = await scopedUserManager.GetUserNameAsync(user);
         phoneNumber = await scopedUserManager.GetPhoneNumberAsync(user);
         direccionPredeterminada = user.DireccionPredeterminada;
+        nombreCompleto = user.NombreCompleto;
 
         Input.PhoneNumber ??= phoneNumber;
         Input.DireccionPredeterminada ??= direccionPredeterminada;
+        if (string.IsNullOrEmpty(Input.NombreCompleto))
+            Input.NombreCompleto = nombreCompleto;
     }
 
     private async Task OnValidSubmitAsync()
@@ -128,13 +137,15 @@
         }
 
         var direccionNueva = string.IsNullOrWhiteSpace(Input.DireccionPredeterminada) ? null : Input.DireccionPredeterminada.Trim();
-        if (direccionNueva != direccionPredeterminada)
+        var nombreNuevo = Input.NombreCompleto.Trim();
+        if (direccionNueva != direccionPredeterminada || nombreNuevo != nombreCompleto)
         {
             scopedUser.DireccionPredeterminada = direccionNueva;
+            scopedUser.NombreCompleto = nombreNuevo;
             var updateResult = await scopedUserManager.UpdateAsync(scopedUser);
             if (!updateResult.Succeeded)
             {
-                RedirectManager.RedirectToCurrentPageWithStatus("Error: No se pudo guardar la dirección.", HttpContext);
+                RedirectManager.RedirectToCurrentPageWithStatus("Error: No se pudieron guardar los cambios.", HttpContext);
                 return;
             }
         }
@@ -145,6 +156,10 @@
 
     private sealed class InputModel
     {
+        [Required(ErrorMessage = "El nombre completo es obligatorio.")]
+        [Display(Name = "Nombre completo")]
+        public string NombreCompleto { get; set; } = "";
+
         [Phone(ErrorMessage = "El teléfono no tiene un formato válido.")]
         [Display(Name = "Teléfono")]
         public string? PhoneNumber { get; set; }

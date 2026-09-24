@@ -81,6 +81,10 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                     b.Property<int>("Cantidad")
                         .HasColumnType("int");
 
+                    b.Property<string>("Categoria")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("CodigoProveedor")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -168,6 +172,34 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                     b.HasIndex("SolicitudId");
 
                     b.ToTable("Solicitudes", (string)null);
+                });
+
+            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.Empresa", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Nit")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Empresas");
                 });
 
             modelBuilder.Entity("CatalogoPedidos.Domain.Entities.Notificacion", b =>
@@ -419,6 +451,58 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                     b.ToTable("Proveedores");
                 });
 
+            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.Sede", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Ciudad")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Contacto")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Direccion")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Pais")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Telefono")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId");
+
+                    b.ToTable("Sedes");
+                });
+
             modelBuilder.Entity("CatalogoPedidos.Domain.Entities.Solicitud", b =>
                 {
                     b.Property<int>("Id")
@@ -433,6 +517,13 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                     b.Property<string>("DireccionEntrega")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("EmpresaId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmpresaNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<DateTime>("FechaCreacion")
                         .HasColumnType("datetime2");
 
@@ -441,6 +532,13 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("RecordatorioEnviado")
                         .HasColumnType("bit");
+
+                    b.Property<int?>("SedeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SedeNombre")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("SolicitanteId")
                         .IsRequired()
@@ -452,6 +550,10 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId");
+
+                    b.HasIndex("SedeId");
 
                     b.ToTable("Pedidos", (string)null);
                 });
@@ -509,6 +611,9 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("SedeId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
 
@@ -525,6 +630,8 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
+
+                    b.HasIndex("SedeId");
 
                     b.ToTable("AspNetUsers", (string)null);
                 });
@@ -803,6 +910,40 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                     b.Navigation("Proveedor");
                 });
 
+            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.Sede", b =>
+                {
+                    b.HasOne("CatalogoPedidos.Domain.Entities.Empresa", "Empresa")
+                        .WithMany("Sedes")
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Empresa");
+                });
+
+            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.Solicitud", b =>
+                {
+                    b.HasOne("CatalogoPedidos.Domain.Entities.Empresa", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("CatalogoPedidos.Domain.Entities.Sede", null)
+                        .WithMany()
+                        .HasForeignKey("SedeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("CatalogoPedidos.Infrastructure.Identity.ApplicationUser", b =>
+                {
+                    b.HasOne("CatalogoPedidos.Domain.Entities.Sede", "Sede")
+                        .WithMany()
+                        .HasForeignKey("SedeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Sede");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -903,6 +1044,11 @@ namespace CatalogoPedidos.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("CatalogoPedidos.Domain.Entities.Empresa", b =>
+                {
+                    b.Navigation("Sedes");
                 });
 
             modelBuilder.Entity("CatalogoPedidos.Domain.Entities.PedidoProveedor", b =>

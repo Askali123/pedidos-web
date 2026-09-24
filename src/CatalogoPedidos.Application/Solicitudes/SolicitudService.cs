@@ -13,7 +13,8 @@ public class SolicitudService(
     INotificacionRepository notificaciones,
     INotificacionBroadcaster broadcaster,
     IGestorDirectory gestores,
-    IProductoProveedorRepository asociaciones) : ISolicitudService
+    IProductoProveedorRepository asociaciones,
+    IUsuarioSedeDirectory usuarioSedes) : ISolicitudService
 {
     private const int MensajeMaxLength = 500;
 
@@ -25,12 +26,22 @@ public class SolicitudService(
         if (items.Count == 0)
             throw new InvalidOperationException("Selecciona al menos un producto antes de enviar la solicitud.");
 
+        // Snapshot de Sede/Empresa del solicitante — no es editable por el usuario (a
+        // diferencia de DireccionEntrega), se resuelve siempre desde su asociación real en
+        // ese momento (ver docs/PLAN_EMPRESAS_FILIALES.md). Null si todavía no tiene sede
+        // asignada — no bloquea la creación de la solicitud.
+        var sede = await usuarioSedes.ObtenerSedeAsync(solicitanteId, ct);
+
         var solicitud = new Solicitud
         {
             SolicitanteId = solicitanteId,
             SolicitanteNombre = solicitanteNombre,
             Comentario = comentario,
             DireccionEntrega = string.IsNullOrWhiteSpace(direccionEntrega) ? null : direccionEntrega.Trim(),
+            SedeId = sede?.SedeId,
+            SedeNombre = sede?.SedeNombre,
+            EmpresaId = sede?.EmpresaId,
+            EmpresaNombre = sede?.EmpresaNombre,
             FechaCreacion = DateTime.UtcNow
         };
 

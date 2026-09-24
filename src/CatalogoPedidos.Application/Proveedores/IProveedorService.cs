@@ -4,11 +4,14 @@ namespace CatalogoPedidos.Application.Proveedores;
 
 public interface IProveedorService
 {
-    Task<List<Proveedor>> ObtenerTodosAsync(CancellationToken ct = default);
+    Task<List<Proveedor>> ObtenerTodosAsync(bool incluirInactivos = false, CancellationToken ct = default);
     Task<Proveedor?> ObtenerPorIdAsync(int id, CancellationToken ct = default);
     Task<Proveedor> CrearAsync(CrearProveedorDto dto, CancellationToken ct = default);
     Task ActualizarAsync(int id, CrearProveedorDto dto, CancellationToken ct = default);
     Task DesactivarAsync(int id, CancellationToken ct = default);
+
+    /// <summary>Vuelve a activar un proveedor dado de baja — no reactiva sus asociaciones producto-proveedor (eso se decide una por una, ver ReactivarAsociacionAsync).</summary>
+    Task ReactivarAsync(int id, CancellationToken ct = default);
 
     Task<List<ProductoProveedor>> ObtenerProveedoresDeProductoAsync(int productoId, CancellationToken ct = default);
 

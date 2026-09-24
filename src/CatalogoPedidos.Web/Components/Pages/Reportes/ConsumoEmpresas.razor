@@ -1,0 +1,212 @@
+@page "/reportes/consumo-empresas"
+@attribute [Authorize(Roles = Roles.Gestor)]
+@using System.Globalization
+@inject IConsumoEmpresaService ConsumoService
+@inject IEmpresaService EmpresaService
+@inject ISedeService SedeService
+@inject PageHeaderState HeaderState
+
+<PageTitle>Consumo por empresa</PageTitle>
+
+<div class="space-y-6">
+    <Card Title="Filtros">
+        <div class="flex flex-wrap items-end gap-4">
+            <div>
+                <label class="form-label">Empresa</label>
+                <select class="form-select w-auto" @bind="empresaId" @bind:after="CambioEmpresa">
+                    <option value="0">Todas</option>
+                    @foreach (var e in empresas)
+                    {
+                        <option value="@e.Id">@e.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Sede</label>
+                <select class="form-select w-auto" @bind="sedeId">
+                    <option value="0">Todas</option>
+                    @foreach (var s in SedesFiltradas())
+                    {
+                        <option value="@s.Id">@s.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Año</label>
+                <select class="form-select w-auto" @bind="anio">
+                    <option value="0">Todos</option>
+                    @foreach (var a in aniosDisponibles)
+                    {
+                        <option value="@a">@a</option>
+                    }
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Mes</label>
+                <select class="form-select w-auto" @bind="mes">
+                    <option value="0">Todos</option>
+                    @for (var m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@NombreMes(m)</option>
+                    }
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label">Desde</label>
+                <input type="date" class="form-input" @bind="fechaDesde" />
+            </div>
+
+            <div>
+                <label class="form-label">Hasta</label>
+                <input type="date" class="form-input" @bind="fechaHasta" />
+            </div>
+
+            <div class="flex items-center gap-2">
+                <Button Variant="ButtonVariant.Primary" OnClick="Buscar">Buscar</Button>
+                <Button Variant="ButtonVariant.Secondary" OnClick="LimpiarFiltros">Limpiar</Button>
+                <a class="btn btn-success" href="@UrlExcel()" target="_blank">
+                    <Icon Name="download" Class="h-4 w-4" />Excel
+                </a>
+            </div>
+        </div>
+    </Card>
+
+    @if (resultado is null)
+    {
+        <Card><Loading /></Card>
+    }
+    else if (resultado.Count == 0)
+    {
+        <Card><EmptyState Icon="dashboard" Title="Sin resultados" Description="No hay solicitudes para los filtros seleccionados." /></Card>
+    }
+    else
+    {
+        <p class="text-sm text-muted">@resultado.Count línea(s) de consumo</p>
+
+        @foreach (var grupoEmpresa in resultado.GroupBy(r => r.EmpresaNombre ?? "Sin empresa asignada").OrderBy(g => g.Key))
+        {
+            <Card Title="@($"{grupoEmpresa.Key} — {grupoEmpresa.Count()} línea(s)")">
+                @foreach (var grupoSede in grupoEmpresa.GroupBy(r => r.SedeNombre ?? "Sin sede asignada").OrderBy(g => g.Key))
+                {
+                    <div class="mb-6 last:mb-0">
+                        <h4 class="font-medium text-heading mb-2">@grupoSede.Key</h4>
+                        <div class="table-wrap">
+                            <table class="table-enterprise">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Solicitante</th>
+                                        <th>Producto</th>
+                                        <th>Categoría</th>
+                                        <th>Código interno</th>
+                                        <th>Código proveedor</th>
+                                        <th>Cantidad</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var d in grupoSede.OrderByDescending(d => d.Fecha))
+                                    {
+                                        <tr>
+                                            <td data-label="Fecha">@d.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                            <td data-label="Solicitante">@d.SolicitanteNombre</td>
+                                            <td data-label="Producto">@d.ProductoNombre</td>
+                                            <td data-label="Categoría">@d.Categoria</td>
+                                            <td data-label="Código interno">@d.CodigoInterno</td>
+                                            <td data-label="Código proveedor">@(d.CodigoProveedor ?? "-")</td>
+                                            <td data-label="Cantidad">@d.Cantidad</td>
+                                            <td data-label="Estado"><Badge Variant="EstadoBadgeHelper.VariantePara(d.Estado)">@d.Estado</Badge></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </Card>
+        }
+    }
+</div>
+
+@code {
+    private List<Empresa> empresas = [];
+    private List<Sede> sedes = [];
+    private List<ConsumoDetalleDto>? resultado;
+    private List<int> aniosDisponibles = [];
+
+    private int empresaId;
+    private int sedeId;
+    private int anio;
+    private int mes;
+    private DateTime? fechaDesde;
+    private DateTime? fechaHasta;
+
+    protected override async Task OnInitializedAsync()
+    {
+        HeaderState.Set("Consumo por empresa");
+
+        empresas = await EmpresaService.ObtenerTodasAsync();
+        sedes = await SedeService.ObtenerTodasAsync();
+        aniosDisponibles = Enumerable.Range(0, 5).Select(i => DateTime.UtcNow.Year - i).ToList();
+
+        await Buscar();
+    }
+
+    private List<Sede> SedesFiltradas() => empresaId > 0 ? sedes.Where(s => s.EmpresaId == empresaId).ToList() : sedes;
+
+    private void CambioEmpresa()
+    {
+        // Si la sede elegida no pertenece a la empresa nueva, se limpia — evita un filtro
+        // imposible (empresa A + sede de la empresa B) que nunca traería resultados.
+        if (sedeId > 0 && sedes.FirstOrDefault(s => s.Id == sedeId)?.EmpresaId != empresaId)
+            sedeId = 0;
+    }
+
+    private static string NombreMes(int mes)
+        => CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(mes);
+
+    private FiltroSolicitudesDto ConstruirFiltro() => new()
+    {
+        EmpresaId = empresaId > 0 ? empresaId : null,
+        SedeId = sedeId > 0 ? sedeId : null,
+        Anio = anio > 0 ? anio : null,
+        Mes = mes > 0 ? mes : null,
+        FechaDesde = fechaDesde,
+        FechaHasta = fechaHasta?.AddDays(1)
+    };
+
+    private async Task Buscar()
+    {
+        resultado = await ConsumoService.ObtenerConsumoAsync(ConstruirFiltro());
+    }
+
+    private async Task LimpiarFiltros()
+    {
+        empresaId = 0;
+        sedeId = 0;
+        anio = 0;
+        mes = 0;
+        fechaDesde = null;
+        fechaHasta = null;
+        await Buscar();
+    }
+
+    private string UrlExcel()
+    {
+        var query = new List<string>();
+
+        if (empresaId > 0) query.Add($"empresaId={empresaId}");
+        if (sedeId > 0) query.Add($"sedeId={sedeId}");
+        if (anio > 0) query.Add($"anio={anio}");
+        if (mes > 0) query.Add($"mes={mes}");
+        if (fechaDesde is not null) query.Add($"desde={fechaDesde:yyyy-MM-dd}");
+        if (fechaHasta is not null) query.Add($"hasta={fechaHasta.Value.AddDays(1):yyyy-MM-dd}");
+
+        var queryString = query.Count > 0 ? "?" + string.Join("&", query) : "";
+        return $"/api/reportes/consumo-empresas/excel{queryString}";
+    }
+}
