@@ -408,3 +408,37 @@ de ESE proveedor. No manda el pedido completo a un proveedor por error.
   Archivos: `Application/Proveedores/ProveedorService.cs`,
   `Application/Solicitudes/PedidoNotificacionProveedorService.cs`,
   `Application.Tests/Solicitudes/PedidoNotificacionProveedorServiceTests.cs`.
+
+- [x] **10. Un proveedor desactivado no se veía en ningún lado ni se podía reactivar** —
+  Hecho (2026-09-24).
+
+  El usuario preguntó por qué no podía ver los proveedores desactivados en la UI —
+  sospechaba que se habían borrado al desactivarlos.
+
+  **Diagnóstico**: no se borró nada — confirmado por SQL, los 7 proveedores siguen en la
+  tabla `Proveedores` con `Activo = 0`. El problema real es que `Proveedores.razor` nunca
+  tuvo forma de verlos: `ProveedorRepository.ObtenerTodosAsync` filtraba
+  `Where(p => p.Activo)` de forma fija, sin ningún parámetro para incluir inactivos, y
+  `IProveedorService` **no tenía ningún `ReactivarAsync`** en absoluto — a diferencia de
+  `Producto`, que ya había tenido exactamente este mismo problema y se corrigió en la
+  tarea 18 de `docs/PLAN_MEJORAS_UI_UX.md` (reactivar + checkbox "Mostrar desactivados" +
+  badge). Ese arreglo nunca se replicó para `Proveedor`.
+
+  **Arreglo, mismo patrón que la tarea 18 de UI/UX:**
+  - `IProveedorRepository`/`IProveedorService`.`ObtenerTodosAsync` gana un parámetro
+    `incluirInactivos` (default `false`, no rompe a los callers existentes).
+  - `IProveedorService.ReactivarAsync` nuevo (mismo patrón que `DesactivarAsync`, pone
+    `Activo = true`) — **a propósito no reactiva sus asociaciones producto-proveedor**:
+    reactivar el proveedor no implica que todo lo que tenía asociado siga siendo
+    correcto, el Gestor las reactiva una por una desde `/proveedores/{id}/productos` (ya
+    existía `ReactivarAsociacionAsync` para eso).
+  - `Proveedores.razor` gana un checkbox "Mostrar desactivados" (mismo componente
+    `HeaderActions` de `Card` recién estrenado en la tarea 24 de `docs/PLAN_MEJORAS_UI_UX.md`),
+    fila atenuada (`opacity-60`) + badge "Desactivado" para las inactivas, y el botón
+    "Desactivar" se reemplaza por "Reactivar" en esas filas.
+
+  Verificado con `dotnet build` (0 errores/advertencias), `dotnet test` (17/17 sin
+  regresiones) y smoke test no interactivo de `/proveedores` (sin excepciones en el log).
+  **No se probó clic-por-clic en el navegador** (ver memoria `feedback-no-browser-testing`).
+  Archivos: `Application/Proveedores/{IProveedorRepository,IProveedorService,ProveedorService}.cs`,
+  `Infrastructure/Repositories/ProveedorRepository.cs`, `Proveedores.razor`.

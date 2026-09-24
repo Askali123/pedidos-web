@@ -7,10 +7,14 @@ namespace CatalogoPedidos.Infrastructure.Repositories;
 
 public class ProveedorRepository(IDbContextFactory<AppDbContext> dbFactory) : IProveedorRepository
 {
-    public async Task<List<Proveedor>> ObtenerTodosAsync(CancellationToken ct = default)
+    public async Task<List<Proveedor>> ObtenerTodosAsync(bool incluirInactivos = false, CancellationToken ct = default)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
-        return await db.Proveedores.Where(p => p.Activo).OrderBy(p => p.Nombre).ToListAsync(ct);
+        var query = db.Proveedores.AsQueryable();
+        if (!incluirInactivos)
+            query = query.Where(p => p.Activo);
+
+        return await query.OrderBy(p => p.Nombre).ToListAsync(ct);
     }
 
     public async Task<Proveedor?> ObtenerPorIdAsync(int id, CancellationToken ct = default)

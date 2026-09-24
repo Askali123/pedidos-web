@@ -24,8 +24,8 @@ public class ProveedorService(
             throw new InvalidOperationException("El email no tiene un formato válido.");
     }
 
-    public Task<List<Proveedor>> ObtenerTodosAsync(CancellationToken ct = default)
-        => proveedores.ObtenerTodosAsync(ct);
+    public Task<List<Proveedor>> ObtenerTodosAsync(bool incluirInactivos = false, CancellationToken ct = default)
+        => proveedores.ObtenerTodosAsync(incluirInactivos, ct);
 
     public Task<Proveedor?> ObtenerPorIdAsync(int id, CancellationToken ct = default)
         => proveedores.ObtenerPorIdAsync(id, ct);
@@ -87,6 +87,20 @@ public class ProveedorService(
             asociacion.Activo = false;
             await asociaciones.ActualizarAsync(asociacion, ct);
         }
+    }
+
+    public async Task ReactivarAsync(int id, CancellationToken ct = default)
+    {
+        var proveedor = await proveedores.ObtenerPorIdAsync(id, ct)
+            ?? throw new InvalidOperationException($"Proveedor {id} no encontrado.");
+
+        proveedor.Activo = true;
+        await proveedores.ActualizarAsync(proveedor, ct);
+
+        // A propósito NO reactiva sus asociaciones producto-proveedor: reactivar el
+        // Proveedor no implica que TODO lo que tenía asociado siga siendo correcto —
+        // el Gestor las reactiva una por una desde la pantalla de productos del
+        // proveedor (mismo criterio que ya usa Catalogo.razor con ReactivarAsync de Producto).
     }
 
     public Task<List<ProductoProveedor>> ObtenerProveedoresDeProductoAsync(int productoId, CancellationToken ct = default)

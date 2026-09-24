@@ -7,6 +7,13 @@
 
 <div class="space-y-6">
     <Card Title="Proveedores registrados">
+        <HeaderActions>
+            <label class="flex items-center gap-2 text-sm text-body">
+                <input type="checkbox" class="form-checkbox" @bind="mostrarInactivos" @bind:after="Cargar" />
+                Mostrar desactivados
+            </label>
+        </HeaderActions>
+        <ChildContent>
         @if (proveedores is null)
         {
             <Loading />
@@ -32,8 +39,14 @@
                     <tbody>
                         @foreach (var p in proveedores)
                         {
-                            <tr>
-                                <td class="font-medium text-heading" data-label="Nombre">@p.Nombre</td>
+                            <tr class="@(!p.Activo ? "opacity-60" : "")">
+                                <td class="font-medium text-heading" data-label="Nombre">
+                                    @p.Nombre
+                                    @if (!p.Activo)
+                                    {
+                                        <Badge Variant="BadgeVariant.Warning">Desactivado</Badge>
+                                    }
+                                </td>
                                 <td data-label="NIT">@p.Nit</td>
                                 <td data-label="Contacto">@p.Contacto</td>
                                 <td data-label="Teléfono">@p.Telefono</td>
@@ -42,7 +55,14 @@
                                     <div class="flex items-center gap-2 justify-end flex-wrap">
                                         <a class="btn btn-secondary btn-sm" href="/proveedores/@p.Id/productos">Ver productos</a>
                                         <Button Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" Icon="pencil" OnClick="() => AbrirEditar(p)">Editar</Button>
-                                        <Button Variant="ButtonVariant.DangerSubtle" Size="ButtonSize.Small" Icon="trash" OnClick="() => PedirConfirmacionDesactivar(p)">Desactivar</Button>
+                                        @if (p.Activo)
+                                        {
+                                            <Button Variant="ButtonVariant.DangerSubtle" Size="ButtonSize.Small" Icon="trash" OnClick="() => PedirConfirmacionDesactivar(p)">Desactivar</Button>
+                                        }
+                                        else
+                                        {
+                                            <Button Variant="ButtonVariant.Success" Size="ButtonSize.Small" Icon="check" OnClick="() => Reactivar(p)">Reactivar</Button>
+                                        }
                                     </div>
                                 </td>
                             </tr>
@@ -51,6 +71,7 @@
                 </table>
             </div>
         }
+        </ChildContent>
     </Card>
 
     <div class="max-w-xl">
@@ -169,6 +190,8 @@
     private int proveedorADesactivarId;
     private string? proveedorADesactivarNombre;
 
+    private bool mostrarInactivos;
+
     protected override async Task OnInitializedAsync()
     {
         HeaderState.Set("Proveedores");
@@ -177,7 +200,7 @@
 
     private async Task Cargar()
     {
-        proveedores = await ProveedorService.ObtenerTodosAsync();
+        proveedores = await ProveedorService.ObtenerTodosAsync(incluirInactivos: mostrarInactivos);
     }
 
     /// <summary>
@@ -252,6 +275,12 @@
     private async Task ConfirmarDesactivar()
     {
         await ProveedorService.DesactivarAsync(proveedorADesactivarId);
+        await Cargar();
+    }
+
+    private async Task Reactivar(Proveedor proveedor)
+    {
+        await ProveedorService.ReactivarAsync(proveedor.Id);
         await Cargar();
     }
 }
