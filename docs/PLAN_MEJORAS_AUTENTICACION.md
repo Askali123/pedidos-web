@@ -571,6 +571,43 @@ es la prioridad acordada.
   vuelve a ver el 500. Ver memoria `feedback-no-browser-testing`.
   Archivo(s): `Components/Account/IdentityComponentsEndpointRouteBuilderExtensions.cs`
 
+- [x] **15. "Olvidé mi contraseña" no mandaba nada si el email no estaba confirmado** —
+  Hecho (2026-09-24).
+
+  El usuario reportó que el correo de recuperación de contraseña no le estaba llegando a
+  un usuario.
+
+  **Diagnóstico**: `ForgotPassword.razor` (scaffolding original de Identity, sin tocar
+  hasta ahora) tenía `if (user is null || !(await UserManager.IsEmailConfirmedAsync(user)))`
+  — si la cuenta existe pero su email nunca se confirmó, el sistema **no manda nada** y
+  redirige igual a la pantalla "revisá tu correo" (a propósito, para no revelar si una
+  cuenta existe — pero de paso oculta también que no se confirmó, sin ningún aviso).
+  Confirmado contra la base real: `vennov34@gmail.com` (la cuenta que el usuario acababa
+  de desbloquear en la tarea anterior de esta conversación) tiene `EmailConfirmed = 0`,
+  igual que `puentesbenjamin17@gmail.com` — solo las cuentas semilla
+  (`gestor@catalogo.local`/`usuario@catalogo.local`) vienen confirmadas de fábrica
+  (`Seed.cs` las crea así a propósito). Cualquier cuenta registrada normalmente por un
+  usuario real queda con `EmailConfirmed = 0` hasta que confirme por su cuenta — y como
+  esta app tiene `RequireConfirmedAccount = false` (`DependencyInjection.cs`), nada del
+  resto de la app obliga a hacerlo, así que en la práctica la mayoría de las cuentas
+  reales quedan en ese estado indefinidamente sin que nadie note el problema hasta que
+  intentan recuperar la contraseña.
+
+  **Arreglo**: se sacó la condición `IsEmailConfirmedAsync` — solo queda el chequeo de
+  que la cuenta exista (`user is null`), para no revelar existencia mediante la misma
+  redirección genérica de siempre. Consistente con la política ya decidida
+  (`RequireConfirmedAccount = false`): si confirmar el email no es obligatorio para usar
+  el resto de la app, tampoco debería serlo para recuperar la contraseña.
+
+  Verificado con `dotnet build` (0 errores/advertencias), `dotnet test` (17/17 sin
+  regresiones) y smoke test no interactivo de `/Account/ForgotPassword` (sin excepciones
+  en el log). **No se probó clic-por-clic en el navegador** (ver memoria
+  `feedback-no-browser-testing`) — la infraestructura de envío (`IdentityEmailSender` →
+  `SmtpEmailSender`) ya estaba verificada como funcional en
+  `docs/PLAN_MEJORAS_PROVEEDORES_ENTREGAS.md`, tarea 9, así que el gap era puramente esta
+  condición, no el envío en sí.
+  Archivo(s): `Components/Account/Pages/ForgotPassword.razor`.
+
 ---
 
 *Se trabaja de arriba hacia abajo, una tarea a la vez. Al terminar una, se marca `[x]` y
