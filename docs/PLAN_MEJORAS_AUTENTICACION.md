@@ -534,6 +534,43 @@ es la prioridad acordada.
   Archivo(s): `DependencyInjection.cs`, migración
   `20260917135106_AgregarSoportePasskeys` (editada a mano)
 
+- [x] **14. `AntiforgeryValidationException` sin manejar en los endpoints de passkey** —
+  Hecho (2026-09-24).
+
+  El usuario reportó un 500 sin manejar con el mensaje "The provided antiforgery token
+  was meant for a different claims-based user than the current user", con el stack trace
+  apuntando a `IdentityComponentsEndpointRouteBuilderExtensions.cs:85`.
+
+  **Diagnóstico**: esa línea es `await antiforgery.ValidateRequestAsync(context)` dentro
+  de `/Account/PasskeyRequestOptions` (`[AllowAnonymous]`, se llama desde `Login.razor`
+  antes de tener sesión). El token de antiforgery de ASP.NET Core queda atado a la
+  identidad (claims) del usuario que lo generó — si el navegador conserva una cookie de
+  antiforgery de OTRA sesión/cuenta (muy probable en este proyecto, con tantas pruebas
+  alternando `gestor@catalogo.local`/`usuario@catalogo.local` en el mismo navegador a lo
+  largo de esta sesión), la validación choca aunque la petición sea legítima — no es un
+  bug de lógica de negocio, es un token vencido/desalineado, y antes eso tiraba un 500 en
+  vez de manejarse como tal. `/Account/PasskeyCreationOptions` (el mismo patrón, pero
+  autenticado, usado al registrar un passkey nuevo desde `Passkeys.razor`) tenía el mismo
+  problema potencial.
+
+  **Arreglo**: se envolvió `antiforgery.ValidateRequestAsync` en ambos endpoints con un
+  helper nuevo `TokenAntiforgeryValidoAsync` que captura
+  `AntiforgeryValidationException` específicamente y responde `400 BadRequest` con un
+  mensaje claro ("El formulario quedó desactualizado. Recargá la página e intentá de
+  nuevo.") en vez de dejar que la excepción suba sin manejar. No se tocó la validación en
+  sí (sigue exigiendo un token válido, no se bypasea el chequeo de seguridad) — solo se
+  maneja su fallo legítimo de forma controlada.
+
+  Verificado con `dotnet build` (0 errores/advertencias) y smoke test no interactivo de
+  `/Account/Login` (sin excepciones en el log). **No se pudo reproducir el escenario
+  exacto del bug en un smoke test** (depende de tener una cookie de antiforgery
+  desalineada en el navegador real, algo que no se puede forzar por HTTP directo) — la
+  corrección está verificada por lectura de código (mismo patrón try/catch ya usado en
+  otros lugares de la app para convertir una excepción de terceros en una respuesta
+  controlada) y queda pendiente de que el usuario confirme en su navegador que ya no
+  vuelve a ver el 500. Ver memoria `feedback-no-browser-testing`.
+  Archivo(s): `Components/Account/IdentityComponentsEndpointRouteBuilderExtensions.cs`
+
 ---
 
 *Se trabaja de arriba hacia abajo, una tarea a la vez. Al terminar una, se marca `[x]` y

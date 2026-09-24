@@ -56,7 +56,8 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
             [FromServices] SignInManager<ApplicationUser> signInManager,
             [FromServices] IAntiforgery antiforgery) =>
         {
-            await antiforgery.ValidateRequestAsync(context);
+            if (!await TokenAntiforgeryValidoAsync(antiforgery, context))
+                return Results.BadRequest("El formulario quedó desactualizado. Recargá la página e intentá de nuevo.");
 
             var user = await userManager.GetUserAsync(context.User);
             if (user is null)
@@ -82,7 +83,8 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
             [FromServices] IAntiforgery antiforgery,
             [FromQuery] string? username) =>
         {
-            await antiforgery.ValidateRequestAsync(context);
+            if (!await TokenAntiforgeryValidoAsync(antiforgery, context))
+                return Results.BadRequest("El formulario quedó desactualizado. Recargá la página e intentá de nuevo.");
 
             var user = string.IsNullOrEmpty(username) ? null : await userManager.FindByNameAsync(username);
             var optionsJson = await signInManager.MakePasskeyRequestOptionsAsync(user);
@@ -148,5 +150,27 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
         });
 
         return accountGroup;
+    }
+
+    /// <summary>
+    /// El token de antiforgery queda atado a la identidad (claims) del usuario que lo
+    /// generó — si el navegador conserva una cookie de antiforgery de OTRA sesión/cuenta
+    /// (típico después de loguearse con varias cuentas de prueba en el mismo navegador),
+    /// la validación choca con <see cref="AntiforgeryValidationException"/> aunque la
+    /// petición sea legítima. Antes esto tiraba un 500 sin manejar en los endpoints de
+    /// passkey — se lo trata como "token vencido, recargá la página", no como un error
+    /// real del servidor.
+    /// </summary>
+    private static async Task<bool> TokenAntiforgeryValidoAsync(IAntiforgery antiforgery, HttpContext context)
+    {
+        try
+        {
+            await antiforgery.ValidateRequestAsync(context);
+            return true;
+        }
+        catch (AntiforgeryValidationException)
+        {
+            return false;
+        }
     }
 }
