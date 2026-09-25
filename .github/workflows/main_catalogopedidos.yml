@@ -23,10 +23,10 @@ jobs:
           dotnet-version: '10.x'
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore src/CatalogoPedidos.Web/CatalogoPedidos.Web.csproj
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build src/CatalogoPedidos.Web/CatalogoPedidos.Web.csproj --configuration Release --no-restore
 
       - name: Publish
         run: dotnet publish src/CatalogoPedidos.Web/CatalogoPedidos.Web.csproj -c Release --no-restore -o ./publish
